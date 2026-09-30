@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sic-xrt-analyzer"
+version = "0.1.0"
+description = "SiC XRT desktop analysis scaffold"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["ruff>=0.6,<1", "pytest>=8,<9"]
+ui = ["PySide6>=6.7,<7", "numpy>=1.26", "opencv-python-headless>=4.8", "scikit-image>=0.22", "tifffile>=2024.2", "onnxruntime>=1.18"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+target-version = "py311"
+
+[tool.setuptools.package-data]
+sic_xrt_analyzer = ["ui/*.qml"]
