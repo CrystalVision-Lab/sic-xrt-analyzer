@@ -50,7 +50,7 @@ ApplicationWindow {
         onRejected: uiState.statusText = "파일 선택을 취소했습니다"
     }
 
-    Shortcut { sequence: StandardKey.Open; onActivated: window.openImageDialog() }
+    Shortcut { sequence: "Ctrl+O"; onActivated: window.openImageDialog() }
     Shortcut { sequence: "Ctrl+0"; enabled: uiState.canNavigateImage; onActivated: viewer.fitView() }
     Shortcut { sequence: "Ctrl++"; enabled: uiState.canNavigateImage; onActivated: viewer.zoomIn() }
     Shortcut { sequence: "Ctrl+-"; enabled: uiState.canNavigateImage; onActivated: viewer.zoomOut() }

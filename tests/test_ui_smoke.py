@@ -62,6 +62,7 @@ def test_initial_ui_flow(tmp_path: Path) -> None:
     standard_width = viewer.property("width")
     window.setProperty("navigationCollapsed", True)
     window.setProperty("inspectorCollapsed", True)
+    QTest.qWait(100)
     app.processEvents()
     assert viewer.property("width") > standard_width
 
