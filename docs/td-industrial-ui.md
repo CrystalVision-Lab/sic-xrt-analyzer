@@ -1,5 +1,7 @@
 # TD — Industrial UI/UX 통합 재설계
 
+최신 배율·한국어·ROI 정책과 화면은 [Polish TD](td-ui-polish.md)에 기록한다. 아래는 초기 통합 작업 기록이다.
+
 Issue #7 하나로 메뉴·툴바·Navigator·Viewer·Inspector·Settings·Status를 함께 정리한다. 기존 TIFF 및 메뉴 작업을 통합한다. 분석 알고리즘과 외부 모델 계약은 변경하지 않는다.
 
 ## 기존 구조와 결정
@@ -29,7 +31,7 @@ Issue #7 하나로 메뉴·툴바·Navigator·Viewer·Inspector·Settings·Statu
 - 실제 상태: IDLE → LOADING → IMAGE READY → ROI SELECTED. 디코딩 실패 시 FILE ERROR와 오류 원문을 표시하며 이전 이미지와 ROI를 유지한다.
 - 백그라운드 디코딩은 기존 TIFF 함수 호출 위치만 변경한다. TIFF 정규화와 다운샘플링 알고리즘은 보존한다.
 - 성공한 파일만 최근 파일에 넣는다. 중복 제거, 최대 개수, 보관 해제, 복원 정책은 QSettings에서 검증한다.
-- 배율 100%는 화면 맞춤. 실제 픽셀 100%는 준비 중이며, 기본 배율 설정은 다음 파일 열기에 적용한다.
+- 초기 상대 배율은 후속 Polish TD에서 제거했다. 현재 FIT은 화면 맞춤, 100%는 원본 픽셀 기준 화면 물리 픽셀 1:1이다.
 - X/Y와 ROI는 원본 해상도 기반 픽셀 좌표다. Gray/물리 크기/보정/모델/Device 정보는 연결된 값이 없으므로 —로 표시한다.
 - Analysis Ready / Processing / Completed / Failed: 현재 분석 백엔드가 없으므로 실제 검증 불가. 모델 연결 전 가짜 진행률·결함·성능을 넣지 않는다.
 - 원본 파일/모델/외부 계약 변경 없음. 생성 테스트 TIFF는 임시 디렉터리에서만 만들고 Git에 넣지 않는다.
