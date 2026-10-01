@@ -1,7 +1,7 @@
 # 내부 XRT TIFF 스택 뷰어
 
 Issue #13 · PR #12의 원본 소스/분석 계약 기반 위에 구현했습니다.
-외부 ImageJ/Fiji를 실행하지 않습니다. 이번 범위는 **2D 페이지 탐색**입니다.
+외부 ImageJ/Fiji를 실행하지 않습니다. 이번 범위는 **2D 페이지 탐색**입니다. JPG·대형 단일 TIFF·ImageJ ROI는 [2D 이미지·ROI 문서](2d-image-roi-viewer.md)를 참고하세요. 현재 전체 자동 검사는 95개이며 아래 80개 수치는 이전 스택 구현 당시의 기록입니다.
 
 ## 구조와 선택 근거
 
@@ -15,7 +15,7 @@ Qt UI와 기존 Pan/Zoom/FIT/ROI를 유지하고 아래 구성 요소를 추가�
 | `imaging/tiff_stack.py` | raw/정밀 표시 LRU, 전체 BrowseCache, uint16 표시 변환, ImageJ 범위 |
 | `ui/stack_controller.py` | 전체 페이지 준비, 진행률/재시도, 드래그 즉시 게시, 마지막 페이지 정밀 읽기 |
 | `ui/StackControls.qml` | 오른쪽 뷰어 탭의 페이지 탐색, 표시 범위, 준비 상태 |
-| `ui/InspectorPanel.qml` | 이미지/분석/결과/뷰어 탭과 세로 스크롤 |
+| `ui/InspectorPanel.qml` | 이미지/분석/결과/뷰어/ROI 탭과 세로 스크롤 |
 | `tools/validate_tiff_stack.py` | 실제 파일 first/middle/last 원본·표시·한도 검증, 읽기 전용 |
 | `tools/benchmark_tiff_scroll.py` | 생성 영상 또는 읽기 전용 실제 TIFF의 변환·캐시·게시 시간 측정 |
 
@@ -54,7 +54,7 @@ Qt Python wheel에는 Qt 바이너리가 포함됩니다. 별도의 Qt 개발 �
 .\.venv\Scripts\python.exe -m sic_xrt_analyzer
 ```
 
-`viewer` extra는 PySide6/NumPy/tifffile/imagecodecs만 설치합니다. 학습·추론 프레임워크는
+`viewer` extra는 PySide6/NumPy/tifffile/imagecodecs/roifile을 설치합니다. 학습·추론 프레임워크는
 스택 보기의 설치 요구 사항이 아닙니다. 기존 `ui` extra도 계속 사용할 수 있습니다.
 
 ## 조작
@@ -83,7 +83,7 @@ Qt Python wheel에는 Qt 바이너리가 포함됩니다. 별도의 Qt 개발 �
   저장 범위가 없거나 잘못되면 첫 페이지의 샘플 1~99 백분위(8-bit는 0~255)를 사용합니다.
   이 범위를 페이지 이동에도 유지합니다. `자동`은 현재 요청 페이지의 범위, `초기`는 파일 초기 범위입니다.
 - 아래 상태 표시줄은 원본 이미지 X/Y 좌표와 **캐시된 현재 페이지의 원본 픽셀값**을 표시합니다.
-  축소된 preview 값이나 표시용 8-bit 값을 보여주지 않습니다. 마우스 이동은 TIFF를 읽지 않습니다.
+  축소된 preview 값이나 표시용 8-bit 값을 보여주지 않습니다. 캐시된 스택 페이지에서는 TIFF를 다시 읽지 않습니다. 샘플만 보관하는 큰 단일 이미지는 제한된 원본 영역을 비동기로 읽습니다.
   탐색용 화면에서 원본이 준비되기 전에는 값이 `—`입니다. 다른 페이지의 값이나 축소 샘플을
   원본 픽셀값으로 표시하지 않습니다. 선택 페이지 원본이 로드되면 원본 값이 다시 나타납니다.
 - Viewer 헤더/Inspector에 현재 표시 페이지/전체 페이지, 해상도, dtype이 나타납니다.
@@ -303,6 +303,6 @@ QT_QPA_PLATFORM=offscreen .venv/bin/python -m pytest -q
 ## 남은 제약
 
 실제 4개 파일과 Linux 그래픽 세션의 현장 검증이 남아 있어 전체 요청 상태는 **PARTIAL**입니다.
-대형 단일 페이지의 tile streaming, 비표준 multi-series/복합 channel hyperstack UI, 촬영 방향·간격
+대형 단일 페이지의 제한된 미리보기·확대 정밀 영역은 Issue #25에서 추가했습니다. 범용 tile streaming, 큰 압축 단일 페이지, 비표준 multi-series/복합 channel hyperstack UI, 촬영 방향·간격
 교정, 물리 좌표, 3D 재구성, 실제 모델 분석/overlay/export는 이번 범위 밖입니다.
 3D는 슬라이스 순서·촬영 방향·실제 간격이 확인된 뒤 별도 단계로 진행합니다.
