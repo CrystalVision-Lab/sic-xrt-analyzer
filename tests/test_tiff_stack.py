@@ -404,7 +404,10 @@ def test_qml_stack_navigation_contrast_pixel_and_view(qt_app, stack_file, tmp_pa
         spin(qt_app, lambda: not state.property("loading"))
         assert state.property("dtype") == "uint16" and state.property("pageCount") == 7
         assert bridge.stackState["frames"] == 7 and bridge.stackState["low"] == 1000
+        inspector = window.findChild(QObject, "inspectorPanel")
+        assert inspector.property("tabIndex") == 3 and inspector.property("visible")
         slider = window.findChild(QObject, "pageSlider")
+        assert slider.property("visible")
         slider.setProperty("value", 3)
         invoke(slider, "moved")
         wait_page(3)
@@ -443,18 +446,44 @@ def test_qml_stack_navigation_contrast_pixel_and_view(qt_app, stack_file, tmp_pa
         high = window.findChild(QObject, "displayHighSlider")
         low.setProperty("value", 0)
         invoke(low, "moved")
-        high.setProperty("value", 20000)
-        invoke(high, "moved")
-        spin(qt_app, lambda: not bridge.stack_viewer.busy)
+        high_origin = high.mapToScene(QPointF(0, 0))
+        def high_position(fraction):
+            return QPoint(int(high_origin.x() + high.property("leftPadding") + high.property("availableWidth") * fraction),
+                          int(high_origin.y() + high.property("height") / 2))
+        QTest.mousePress(window, Qt.LeftButton, Qt.NoModifier, high_position(.91))
+        QTest.mouseMove(window, high_position(.3))
+        QTest.mouseRelease(window, Qt.LeftButton, Qt.NoModifier, high_position(.3))
+        spin(qt_app, lambda: not bridge.stack_viewer.busy and bridge.stackState["rawReady"])
+        assert 18000 < bridge.stackState["high"] < 22000
         assert provider.image.pixelColor(x, y).red() != before
         assert bridge.pixelValue(x, y) == value
         np.testing.assert_array_equal(bridge.stack_viewer.frame.pixels, pixels[1])
-        assert frame.property("width") > 0
-        window.resize(1100, 700)
-        qt_app.processEvents()
-        assert viewer.property("viewportWidth") > 500
-        controls = window.findChild(QObject, "stackControls")
-        assert controls.property("width") <= viewer.property("width")
+        saved_range = (bridge.stackState["low"], bridge.stackState["high"])
+        for size in [(1440, 900), (1100, 700)]:
+            window.resize(*size)
+            qt_app.processEvents()
+            QTest.qWait(30)
+            assert viewer.property("viewportWidth") > 500
+            # Image area now uses the full height below its 52px header.
+            assert viewport.property("height") >= viewer.property("height") - 53
+            assert 0 < frame.property("width") <= viewport.property("width") - 15
+            assert 0 < frame.property("height") <= viewport.property("height") - 15
+            assert abs(frame.property("width") / frame.property("height") - pixels.shape[2] / pixels.shape[1]) < .001
+            controls_origin = slider.mapToScene(QPointF(0, 0))
+            inspector_origin = inspector.mapToScene(QPointF(0, 0))
+            assert controls_origin.x() >= inspector_origin.x()
+            assert controls_origin.x() + slider.property("width") <= inspector_origin.x() + inspector.property("width")
+            # Clicking another tab does not alter the selected page, range or fit.
+            for index in (0, 1, 2, 3):
+                tabs = window.findChild(QObject, "inspectorTabs").childItems()
+                tab = next(item for item in tabs if item.objectName() == "inspectorTab" + str(index))
+                tab_pos = tab.mapToScene(QPointF(tab.property("width") / 2, tab.property("height") / 2))
+                QTest.mouseClick(window, Qt.LeftButton, Qt.NoModifier, tab_pos.toPoint())
+                qt_app.processEvents()
+                assert inspector.property("tabIndex") == index
+                assert slider.property("visible") == (index == 3)
+                assert state.property("pageIndex") == 1 and state.property("fitMode")
+                assert (bridge.stackState["low"], bridge.stackState["high"]) == saved_range
         assert not errors, "\n".join(errors)
     finally:
         bridge.waitForLoads()

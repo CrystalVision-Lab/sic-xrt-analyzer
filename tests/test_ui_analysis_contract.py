@@ -46,6 +46,7 @@ def test_ui_original_metadata_and_pipeline_states(qt_app, tmp_path):
         assert state.property("hasLoadedImage")
         assert (state.property("imageWidth"), state.property("imageHeight")) == (8000, 6000)
         assert (state.property("previewWidth"), state.property("previewHeight")) == (4000, 3000)
+        invoke(window, "openInspectorTab", 0)
         assert window.findChild(QObject, "previewSizeRow").property("visible")
         assert bridge.original_source is bridge.pipeline.source
         assert bridge.analysis["inputSource"] == "Original TIFF"

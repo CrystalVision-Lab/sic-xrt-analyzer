@@ -13,10 +13,11 @@ Rectangle {
         anchors.fill: parent; anchors.margins: 12; spacing: 12
         Text { text: "정보 및 분석"; color: theme.muted; font.pixelSize: 11; font.family: theme.fontFamily }
         RowLayout {
+            objectName: "inspectorTabs"
             spacing: 2; Layout.fillWidth: true
             Repeater {
-                model: ["이미지", "분석", "결과"]
-                AppButton { required property int index; required property string modelData; theme: root.theme; text: modelData; checked: root.tabIndex === index; Layout.fillWidth: true; onClicked: root.tabIndex = index }
+                model: ["이미지", "분석", "결과", "뷰어"]
+                AppButton { required property int index; required property string modelData; objectName: "inspectorTab" + index; theme: root.theme; text: modelData; checked: root.tabIndex === index; Layout.fillWidth: true; onClicked: root.tabIndex = index }
             }
         }
         ScrollView {
@@ -24,6 +25,15 @@ Rectangle {
             contentWidth: availableWidth
             ColumnLayout {
                 width: parent.width; spacing: 12
+                ColumnLayout {
+                    visible: root.tabIndex === 3; Layout.fillWidth: true; spacing: 12
+                    Text {
+                        visible: !uiState.hasLoadedImage; Layout.fillWidth: true
+                        text: "TIFF를 열면 페이지 탐색과 밝기·대비를 조절할 수 있습니다."
+                        color: theme.muted; font.pixelSize: 12; wrapMode: Text.Wrap
+                    }
+                    StackControls { theme: root.theme; uiState: root.uiState; Layout.fillWidth: true }
+                }
                 ColumnLayout {
                     visible: root.tabIndex === 0; Layout.fillWidth: true; spacing: 5
                     SectionHeader { theme: root.theme; text: "이미지 정보"; Layout.fillWidth: true }

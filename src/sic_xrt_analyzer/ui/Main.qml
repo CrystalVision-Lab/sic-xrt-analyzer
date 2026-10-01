@@ -89,6 +89,7 @@ ApplicationWindow {
             uiState.pageIndex = result.pageIndex; uiState.dtype = result.dtype
             uiState.imageSource = result.source; uiState.workspaceIndex = 0; uiState.demoMode = false
             uiState.activeTool = "Pan"; uiState.hasRoi = false; uiState.cursorX = -1; uiState.cursorY = -1
+            window.openInspectorTab(3)
             viewer.defaultView()
             viewer.focusView()
             uiState.statusText = "TIFF · " + result.pageCount + " 페이지 / 전체 준비 후 탐색"
