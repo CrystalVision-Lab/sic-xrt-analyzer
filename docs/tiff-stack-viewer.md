@@ -12,10 +12,11 @@ Qt UI와 기존 Pan/Zoom/FIT/ROI를 유지하고 아래 구성 요소를 추가�
 |---|---|
 | `imaging/tiff_pages.py` | 실제 TIFF IFD 및 ImageJ 단일 IFD의 논리 페이지 인덱스 |
 | `imaging/original_source.py` | 읽기 전용 원본 페이지/영역, dtype/값 보존, 변경 탐지 |
-| `imaging/tiff_stack.py` | 한 페이지 raw 읽기, byte/page 제한 LRU, ImageJ 범위와 표시 변환 |
-| `ui/stack_controller.py` | Qt worker의 읽기·렌더링, active 1개 + 최신 pending 1개 |
+| `imaging/tiff_stack.py` | raw/표시 LRU, uint16 표시 변환, ImageJ 범위, 준비된 화면 조회 |
+| `ui/stack_controller.py` | worker 읽기·렌더링, 최신 pending 1개, 앞뒤 페이지 준비, 캐시 즉시 게시 |
 | `ui/StackControls.qml` | 페이지 슬라이더와 표시 최솟값/최댓값 슬라이더·숫자 입력 |
 | `tools/validate_tiff_stack.py` | 실제 파일 first/middle/last 원본·표시·한도 검증, 읽기 전용 |
+| `tools/benchmark_tiff_scroll.py` | 생성 영상 또는 읽기 전용 실제 TIFF의 변환·캐시·게시 시간 측정 |
 
 [tifffile 공식 문서](https://www.cgohlke.com/docs/tifffile/)에서 multi-page/ImageJ TIFF,
 페이지 단위 `asarray`와 읽기 전용 memory map을 제공하므로 기존 라이브러리를 유지했습니다.
@@ -85,12 +86,22 @@ ImageJ `frames`/`slices`는 파일의 저장 라벨로만 보존합니다. frame
   원본 반환 배열은 **128 MiB/page** 제한입니다. 한도를 넘는 페이지에는 영역 decoder가 필요합니다.
 - LRU는 최대 **3페이지 및 96 MiB**의 raw 배열을 보관하며 둘 중 먼저 도달하는 한도를 지킵니다.
   한 페이지가 cache byte 한도보다 크면 보관하지 않습니다. 원본 배열은 non-writable입니다.
+- 별도의 표시 캐시는 **최대 32 MiB**이며 raw 캐시에 남은 페이지만 보관합니다. 페이지당 표시
+  범위 하나만 저장하고 raw eviction 시 해당 표시도 제거합니다. 이전 밝기·대비 화면을 잘못
+  게시하지 않도록 페이지와 표시 범위를 함께 검사합니다. uint16은 65,536단계 lookup table로
+  변환하여 전체 영상의 float64 임시 배열 생성을 피합니다. 원본 값은 바뀌지 않습니다.
 - 캐시 외 현재 표시 페이지와 작업 중 페이지/표시 변환 임시 배열/QImage가 추가로 존재합니다.
   96 MiB는 프로세스 전체 RAM quota가 아닙니다. 이미지 크기에 따른 메모리는 있지만
   페이지 수에 비례해 전체 스택을 쌓아 두지는 않습니다.
-- 읽기와 표시 변환은 worker에서 실행합니다. 작업 중에도 창과 Viewer가 반응합니다.
+- 읽기와 표시 변환은 worker에서 실행합니다. 캐시된 화면은 GUI 이벤트에서 바로 게시합니다.
+  이 조회는 원본 변경 여부를 stat으로 확인하며 TIFF 디코딩/표시 변환은 하지 않습니다.
+  짧은 lock으로 캐시 조회/교체를 보호하고 디스크 읽기·렌더링 중에는 lock을 잡지 않습니다.
 - 읽기 1개가 진행 중이면 pending 요청은 **최신 1개로 교체**합니다. 이미 시작한 decode는
-  강제 중단하지 않지만 완료 후 구 요청은 게시하지 않고 최신 요청을 처리합니다. Prefetch는 없습니다.
+  강제 중단하지 않지만 완료 후 구 요청은 게시하지 않고 최신 요청을 처리합니다.
+- 화면 게시 후 30ms 동안 새 요청이 없으면 진행 방향의 다음 페이지, 반대 방향의 이전 페이지를
+  worker에서 준비합니다. 사용자 요청은 prefetch를 취소하고 먼저 처리합니다. Prefetch는
+  로딩 표시나 현재 화면을 바꾸지 않으며, 캐시된 페이지는 다른 읽기가 끝나기 전에도 표시할 수
+  있습니다. 캐시 용량이 작으면 준비할 이웃 수를 줄이고 현재 페이지도 담지 못하면 생략합니다.
 - 새 파일은 이전 작업 결과를 무효화하며 이전 worker가 읽기를 끝낸 뒤 이전 cache를 비웁니다.
   TIFF/mmap handle은 페이지 읽기 후 닫습니다. 성공한 새 페이지로 현재 표시 raw도 교체합니다.
 - 새 파일/페이지 읽기 실패 시 이전 화면과 그 raw pixel snapshot을 유지하고 오류를 표시합니다.
@@ -107,7 +118,7 @@ synthetic capture 도구에만 있으며 임시 폴더를 사용합니다. `sour
 
 ### 구현 검증: PASS
 
-기존 **42개 유지 + 추가 17개 = 59개** 자동 테스트가 통과했습니다.
+기존 **42개 유지 + 스택 17개 + 탐색 성능 회귀 8개 = 67개** 자동 테스트가 통과했습니다.
 
 - uint16 BigTIFF/압축 multi-page, ImageJ TYX frames, ImageJ single-IFD truncated stack
 - 첫·중간·마지막 페이지, 원본 배열/ROI/dtype 동일, source bytes/mtime 보존
@@ -117,6 +128,10 @@ synthetic capture 도구에만 있으며 임시 폴더를 사용합니다. `sour
 - 이전 파일 읽기 중 새 파일 요청: 이전 파일 결과 무시
 - QML slider/방향키/Home/End/휠/Ctrl+휠/FIT, contrast sliders, 원본 cursor 값, 1100×700
 - 읽기/범위 오류, 이전 화면 유지, source 변경 탐지
+- uint16 전체 65,536값의 lookup 표시와 기존 float 변환 일치, MINISWHITE·소수 표시 범위
+- 표시 캐시 범위/파일 identity/eviction/byte 제한, 종료 시 raw·표시 캐시 해제
+- prefetch 중 캐시 페이지 즉시 게시·역방향 이동, 마지막 요청 우선, 범위 변경 후 새 표시 사용
+- prefetch 중 파일 교체 정리, QML 휠 이벤트에서 준비된 페이지 즉시 반영, benchmark CLI
 
 Ruff/compileall/pytest와 GitHub Actions Ubuntu offscreen에서 검증합니다.
 Windows native Qt 렌더링 screenshot은 **생성 테스트 스택**이며 실제 XRT 데이터가 아닙니다.
@@ -127,6 +142,35 @@ Linux 그래픽 세션에서의 직접 화면 조작과 네이티브 파일 dial
 [첫 페이지](screenshots/stack/first-page.png) · [마지막](screenshots/stack/last-page.png) ·
 [표시 범위와 원본 픽셀값](screenshots/stack/contrast-and-raw-pixel.png) ·
 [1100×700](screenshots/stack/minimum-1100x700.png)
+
+### 휠 탐색 성능 (Issue #15)
+
+Windows 개발 환경에서 3000×3000 uint16, 5페이지 생성 TIFF로 측정했습니다.
+개선 전 같은 raw 캐시 페이지도 재변환하며 5회 중앙값 **50.32ms**가 걸렸습니다.
+개선 후에는 다음과 같습니다. OS 파일 캐시가 존재할 수 있는 생성 파일이며 실제 USB 파일
+성능이나 디스크 최초 접근 시간으로 해석하지 않습니다.
+
+| 측정 | 시간 |
+|---|---:|
+| 페이지 캐시가 없을 때 읽기 + 표시 변환 1회 | 39.984ms |
+| uint16 표시 변환만, 5회 중앙값 | 18.496ms |
+| 준비된 StackFrame 조회, 5회 중앙값 | 0.030ms |
+| 준비된 페이지 전환 및 Qt 신호 게시, 5회 중앙값 | 0.039ms |
+
+게시 시간에는 QML 텍스처 업로드·모니터 프레임 표시 시간이 포함되지 않습니다. 캐시된
+페이지는 입력 이벤트에서 게시하지만, 빠른 대량 이동/캐시 미적중/느린 디스크/압축 디코딩은
+대기가 생길 수 있습니다. 실제 XRT 4개 파일의 시간은 이 환경에서 측정하지 못했습니다.
+
+```powershell
+.\.venv\Scripts\python.exe tools/benchmark_tiff_scroll.py
+# 실제 TIFF를 읽기 전용으로 측정할 경우:
+.\.venv\Scripts\python.exe tools/benchmark_tiff_scroll.py --path "D:\3D XRT\your-stack.tif"
+```
+
+Linux에서는 `.venv/bin/python tools/benchmark_tiff_scroll.py --path '실제 TIFF 경로'`로
+실행합니다. 기본 모드는 임시 폴더에 생성 영상만 만들고 종료 시 정리합니다. 페이지 두 개가
+캐시 한도 안에 들어가는 uint16 단일 채널 스택이 필요합니다. 시간 값 자체는 CI 통과 기준으로
+사용하지 않으며 동기 게시·픽셀 정확성·캐시 한도·작업 우선순위를 자동 검사합니다.
 
 ### 요청한 실제 파일 검증: NOT RUN
 

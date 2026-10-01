@@ -25,7 +25,7 @@ from PySide6.QtQml import QQmlApplicationEngine
 from PySide6.QtQuickControls2 import QQuickStyle
 from PySide6.QtTest import QTest
 
-from sic_xrt_analyzer.imaging.tiff_stack import TiffStack, imagej_window
+from sic_xrt_analyzer.imaging.tiff_stack import TiffStack, imagej_window, render_page
 from sic_xrt_analyzer.ui.bridge import FileBridge, TiffImageProvider
 from sic_xrt_analyzer.ui.stack_controller import StackController
 
@@ -108,6 +108,101 @@ def test_cache_and_window_never_change_or_redecode_raw(stack_file):
     assert stack.closed and not stack.cache and stack.cache_bytes == 0
 
 
+@pytest.mark.parametrize("window", [(123.5, 60000.75), (-100, 70000)])
+@pytest.mark.parametrize("invert", [False, True])
+def test_uint16_lookup_display_matches_float_conversion(tmp_path, window, invert):
+    path = tmp_path / "levels.tif"
+    raw = np.arange(65536, dtype=np.uint16).reshape(256, 256)
+    tifffile.imwrite(path, raw, photometric="miniswhite" if invert else "minisblack")
+    stack = TiffStack(path)
+    try:
+        preview = render_page(raw, stack.first_source, *window)
+        expected = raw.astype(np.float64)
+        expected -= window[0]
+        expected *= 255.0 / (window[1] - window[0])
+        expected = np.clip(expected, 0, 255).astype(np.uint8)
+        if invert:
+            expected = 255 - expected
+        actual = np.frombuffer(preview.image.constBits(), np.uint8).reshape(256, preview.image.bytesPerLine())[:, :256]
+        np.testing.assert_array_equal(actual, expected)
+        np.testing.assert_array_equal(raw, np.arange(65536, dtype=np.uint16).reshape(256, 256))
+    finally:
+        stack.close()
+
+
+def test_display_cache_window_identity_eviction_and_budgets(stack_file):
+    path, raw = stack_file
+    stack = TiffStack(path, max_cache_pages=2, max_display_bytes=raw[0].size * 2)
+    try:
+        first = stack.frame(0)
+        assert stack.frame(0) is first
+        assert stack.cached_frame(0, (100, 200)) is None
+        changed = stack.frame(0, (100, 200))
+        assert stack.cached_frame(0, (100, 200)) is changed
+        assert stack.cached_frame(0, (first.low, first.high)) is None
+        stack.frame(1)
+        stack.frame(2)
+        assert stack.cached_frame(0, (100, 200)) is None
+        assert set(stack._frames).issubset(stack.cache)
+        assert stack.display_bytes == sum(f.preview.image.sizeInBytes() for f in stack._frames.values())
+        assert stack.display_bytes <= stack.max_display_bytes
+        assert stack.cache_bytes <= stack.max_cache_bytes and len(stack.cache) <= 2
+        stat = path.stat()
+        os.utime(path, ns=(stat.st_atime_ns, stat.st_mtime_ns + 1_000_000))
+        with pytest.raises(ValueError):
+            stack.cached_frame(2, (first.low, first.high))
+    finally:
+        stack.close()
+    assert stack.display_bytes == 0 and not stack._frames and not stack._sources
+
+
+def test_prefetch_cache_publishes_immediately_and_demand_wins(qt_app, stack_file, monkeypatch):
+    path, raw = stack_file
+    controller = StackController()
+    gate, entered = Event(), Event()
+    calls, published = [], []
+    actual = TiffStack.read_page
+    def blocked_read(stack, index):
+        calls.append(index)
+        if index == 2:
+            entered.set()
+            assert gate.wait(5)
+        return actual(stack, index)
+    monkeypatch.setattr(TiffStack, "read_page", blocked_read)
+    controller.frameReady.connect(lambda f, opening: published.append(f.source.page_index))
+    try:
+        controller.open(str(path))
+        spin(qt_app, lambda: not controller.busy)
+        stack = controller._reader.stack
+        spin(qt_app, lambda: stack.cached_frame(1, controller.window) is not None)
+        spin(qt_app, lambda: controller._task is None)
+        assert not controller.busy and published == [0]  # Idle work is never displayed.
+        controller.page(1)
+        assert not controller.busy and controller.frame.source.page_index == 1
+        np.testing.assert_array_equal(controller.frame.pixels, raw[1])
+        spin(qt_app, entered.is_set)
+        controller.page(0)  # Direction reversal stays immediate while prefetch is blocked.
+        assert not controller.busy and controller.frame.source.page_index == 0
+        assert published == [0, 1, 0]
+        controller.page(5)
+        controller.page(6)
+        assert controller.busy and controller.requested_page == 6
+        gate.set()
+        spin(qt_app, lambda: not controller.busy)
+        assert published == [0, 1, 0, 6]
+        assert calls[:4] == [0, 1, 2, 6]  # Later idle prefetch may run; demand 5 was replaced.
+        controller.display_range(0, 20000)
+        spin(qt_app, lambda: not controller.busy)
+        spin(qt_app, lambda: stack.cached_frame(5, (0, 20000)) is not None)
+        controller.page(5)
+        assert not controller.busy and (controller.frame.low, controller.frame.high) == (0, 20000)
+        np.testing.assert_array_equal(controller.frame.pixels, raw[5])
+    finally:
+        gate.set()
+        controller.shutdown()
+    assert stack.closed and not stack._frames and stack.display_bytes == 0
+
+
 @pytest.mark.parametrize("metadata,expected", [({"min": "200", "max": "6000"}, (200, 6000)),
                                                ({"Ranges": [123, 456]}, (123, 456)),
                                                ({"Ranges": [[100, 500]]}, (100, 500)),
@@ -145,9 +240,54 @@ def test_validation_reports_missing_real_files_without_claiming_pass(tmp_path):
     assert len(reports) == 4 and all(r["status"] == "NOT_RUN" for r in reports)
 
 
-def test_latest_page_request_only_and_file_cache_cleanup(qt_app, stack_file, tmp_path, monkeypatch):
+def test_scroll_benchmark_reports_synchronous_publication(stack_file):
+    path, _ = stack_file
+    script = Path(__file__).parents[1] / "tools/benchmark_tiff_scroll.py"
+    result = subprocess.run([sys.executable, str(script), "--path", str(path), "--repeats", "4"],
+                            capture_output=True, text=True, encoding="utf-8", timeout=20, check=False)
+    assert result.returncode == 0, result.stderr + result.stdout
+    report = json.loads(result.stdout)
+    assert report["prepared_page_publication_ms"]["samples"] == 4
+    assert report["raw_cache_bytes"] <= report["raw_cache_limit_bytes"]
+    assert report["display_cache_bytes"] <= report["display_cache_limit_bytes"]
+    assert report["source_stat_unchanged"]
+
+
+def test_file_switch_during_prefetch_clears_both_caches(qt_app, stack_file, tmp_path, monkeypatch):
     path, _ = stack_file
     controller = StackController()
+    gate, entered = Event(), Event()
+    actual = TiffStack.read_page
+    def blocked_read(stack, index):
+        if stack.path == str(path.resolve()) and index == 1:
+            entered.set()
+            assert gate.wait(5)
+        return actual(stack, index)
+    monkeypatch.setattr(TiffStack, "read_page", blocked_read)
+    other = tmp_path / "other.tif"
+    tifffile.imwrite(other, np.full((16, 20), 4321, np.uint16))
+    published = []
+    controller.frameReady.connect(lambda f, opening: published.append(f.source.path))
+    try:
+        controller.open(str(path))
+        spin(qt_app, entered.is_set)
+        old_stack = controller._reader.stack
+        assert not controller.busy and old_stack.display_bytes > 0
+        controller.open(str(other))
+        gate.set()
+        spin(qt_app, lambda: not controller.busy)
+        assert published == [str(path.resolve()), str(other.resolve())]
+        assert old_stack.closed and old_stack.cache_bytes == old_stack.display_bytes == 0
+        assert not old_stack._frames and not old_stack.cache
+        assert controller.pixel_value(0, 0) == "4321"
+    finally:
+        gate.set()
+        controller.shutdown()
+
+
+def test_latest_page_request_only_and_file_cache_cleanup(qt_app, stack_file, tmp_path, monkeypatch):
+    path, _ = stack_file
+    controller = StackController(prefetch_enabled=False)
     gate, entered = Event(), Event()
     calls, threads = [], []
     actual = TiffStack.read_page
@@ -275,6 +415,8 @@ def test_qml_stack_navigation_contrast_pixel_and_view(qt_app, stack_file, tmp_pa
         wait_page(6)
         QTest.keyClick(window, Qt.Key_Home)
         wait_page(0)
+        spin(qt_app, lambda: bridge.stack_viewer._reader.stack.cached_frame(1, bridge.stack_viewer.window) is not None)
+        spin(qt_app, lambda: bridge.stack_viewer._task is None)
 
         viewport = window.findChild(QObject, "viewerViewport")
         frame = window.findChild(QObject, "imageFrame")
@@ -282,6 +424,7 @@ def test_qml_stack_navigation_contrast_pixel_and_view(qt_app, stack_file, tmp_pa
         pos = QPoint(int(origin.x() + viewport.property("width") / 2), int(origin.y() + viewport.property("height") / 2))
         wheel = QWheelEvent(QPointF(pos), QPointF(pos), QPoint(0, 0), QPoint(0, -120), Qt.NoButton, Qt.NoModifier, Qt.NoScrollPhase, False)
         qt_app.sendEvent(window, wheel)
+        assert not bridge.stack_viewer.busy and state.property("pageIndex") == 1
         wait_page(1)
         zoom = state.property("effectiveZoom")
         wheel = QWheelEvent(QPointF(pos), QPointF(pos), QPoint(0, 0), QPoint(0, 120), Qt.NoButton, Qt.ControlModifier, Qt.NoScrollPhase, False)

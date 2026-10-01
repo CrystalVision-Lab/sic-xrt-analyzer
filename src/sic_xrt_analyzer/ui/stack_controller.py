@@ -3,7 +3,7 @@ import math
 from dataclasses import dataclass
 from threading import Event
 
-from PySide6.QtCore import QObject, QRunnable, QThreadPool, Signal, Slot
+from PySide6.QtCore import QObject, QRunnable, QThreadPool, QTimer, Signal, Slot
 
 from sic_xrt_analyzer.imaging.tiff_stack import TiffStack
 
@@ -17,6 +17,7 @@ class _Request:
     opening: bool = False
     automatic: bool = False
     closing: bool = False
+    prefetch: bool = False
 
 
 class _Signals(QObject):
@@ -65,7 +66,7 @@ class StackController(QObject):
     frameReady = Signal(object, bool)
     failed = Signal(str, bool)
 
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, *, prefetch_enabled=True):
         super().__init__(parent)
         self._pool = QThreadPool(self)
         self._pool.setMaxThreadCount(1)
@@ -78,10 +79,19 @@ class StackController(QObject):
         self.error = ""
         self.busy = False
         self._closed = False
+        self._prefetch_enabled = prefetch_enabled
+        self._neighbors = []
+        self._direction = 1
+        self._prefetch_timer = QTimer(self)
+        self._prefetch_timer.setSingleShot(True)
+        self._prefetch_timer.setInterval(30)
+        self._prefetch_timer.timeout.connect(self._prefetch)
 
     def _submit(self, path, page, window, *, opening=False, automatic=False):
         if self._closed:
             return
+        self._prefetch_timer.stop()
+        self._neighbors.clear()
         self._serial += 1
         self.requested_page = page
         self.error, self.busy = "", True
@@ -103,10 +113,63 @@ class StackController(QObject):
         self._submit(path, 0, None, opening=True)
 
     def page(self, index):
-        if self.frame is None or type(index) is not int or not 0 <= index < self.frame.source.metadata.page_count:
+        if self._closed or self.frame is None or type(index) is not int or not 0 <= index < self.frame.source.metadata.page_count:
             return False
+        if index != self.requested_page:
+            self._direction = 1 if index > self.requested_page else -1
+        stack = self._reader.stack
+        cached = None
+        if stack is not None and stack.path == self.frame.source.path:
+            try:
+                cached = stack.cached_frame(index, self.window)
+            except (OSError, ValueError):
+                pass  # Worker reports source errors through the normal error signal.
+        if cached is not None:
+            # Publish on this GUI event, including while a canceled prefetch finishes.
+            self._serial += 1
+            self._pending = None
+            if self._task:
+                self._task.token.set()
+            self.requested_page = index
+            self.error, self.busy = "", False
+            self._publish(cached, False)
+            self.changed.emit()
+            return True
         self._submit(self.frame.source.path, index, self.window)
         return True
+
+    def _publish(self, frame, opening):
+        self.frame = frame
+        self.window = (frame.low, frame.high)
+        self.frameReady.emit(frame, opening)
+        stack = self._reader.stack
+        capacity = 0 if stack is None else min(stack.max_cache_pages,
+                                              stack.max_cache_bytes // frame.pixels.nbytes,
+                                              stack.max_display_bytes // frame.preview.image.sizeInBytes())
+        # Do not prefetch pages that would evict the displayed page from a tiny cache.
+        self._neighbors = [frame.source.page_index + self._direction,
+                           frame.source.page_index - self._direction][:max(0, capacity - 1)]
+        if self._prefetch_enabled and not self._closed:
+            self._prefetch_timer.start()
+
+    def _prefetch(self):
+        if self._closed or self.busy or self.frame is None or self._task or self._pending:
+            return
+        while self._neighbors:
+            index = self._neighbors.pop(0)
+            if not 0 <= index < self.frame.source.metadata.page_count:
+                continue
+            stack = self._reader.stack
+            if stack is None or stack.path != self.frame.source.path:
+                return
+            try:
+                if stack.cached_frame(index, self.window) is not None:
+                    continue
+            except (OSError, ValueError):
+                return
+            self._pending = _Request(self._serial, stack.path, index, self.window, prefetch=True)
+            self._launch()
+            return
 
     def display_range(self, low, high, *, automatic=False):
         if self.frame is None:
@@ -123,7 +186,7 @@ class StackController(QObject):
     @Slot(object, object, str)
     def _done(self, request, frame, error):
         self._task = None
-        if request.serial == self._serial and not self._closed:
+        if not request.prefetch and request.serial == self._serial and not self._closed:
             self.busy = False
             if error:
                 self.error = error
@@ -132,12 +195,12 @@ class StackController(QObject):
                     self.window = (self.frame.low, self.frame.high)
                 self.failed.emit(error, request.opening)
             elif frame is not None:
-                self.frame = frame
-                self.window = (frame.low, frame.high)
-                self.frameReady.emit(frame, request.opening)
+                self._publish(frame, request.opening)
             self.changed.emit()
         if self._pending is not None:
             self._launch()
+        elif self._neighbors and self._prefetch_enabled and not self._closed:
+            self._prefetch_timer.start()
 
     def pixel_value(self, x, y):
         if self.frame is None:
@@ -151,6 +214,8 @@ class StackController(QObject):
         return str(value.item())
 
     def clear(self):
+        self._prefetch_timer.stop()
+        self._neighbors.clear()
         self._serial += 1
         self.frame = self.window = self._pending = None
         self.busy, self.error = False, ""
@@ -164,6 +229,8 @@ class StackController(QObject):
 
     def shutdown(self):
         self._closed = True
+        self._prefetch_timer.stop()
+        self._neighbors.clear()
         self._pending = None
         if self._task:
             self._task.token.set()
