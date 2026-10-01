@@ -6,6 +6,13 @@ Rectangle {
     id: root
     property QtObject theme
     property QtObject uiState
+    property var openAction
+    property var demoAction
+    property var moveAction
+    property var selectRoiAction
+    property var fitAction
+    property var zoomInAction
+    property var zoomOutAction
     property real panX: 0
     property real panY: 0
     property real pressX: 0
@@ -14,8 +21,6 @@ Rectangle {
     property real pressPanY: 0
     readonly property real fitScale: Math.max(0.1, Math.min(
         (viewport.width - 48) / 960, (viewport.height - 48) / 600))
-    signal openRequested()
-    signal demoRequested()
 
     color: theme.viewer
 
@@ -94,8 +99,8 @@ Rectangle {
                     dark: true
                     quiet: true
                     checked: uiState.activeTool === "이동"
-                    enabled: uiState.canNavigateImage
-                    onClicked: uiState.activeTool = "이동"
+                    enabled: root.moveAction.enabled
+                    onClicked: root.moveAction.trigger()
                 }
                 AppButton {
                     theme: root.theme
@@ -103,16 +108,16 @@ Rectangle {
                     dark: true
                     quiet: true
                     checked: uiState.activeTool === "영역 선택"
-                    enabled: uiState.canNavigateImage
-                    onClicked: uiState.activeTool = "영역 선택"
+                    enabled: root.selectRoiAction.enabled
+                    onClicked: root.selectRoiAction.trigger()
                 }
                 AppButton {
                     theme: root.theme
                     text: "화면 맞춤"
                     dark: true
                     quiet: true
-                    enabled: uiState.canNavigateImage
-                    onClicked: root.fitView()
+                    enabled: root.fitAction.enabled
+                    onClicked: root.fitAction.trigger()
                 }
             }
         }
@@ -134,7 +139,7 @@ Rectangle {
                 DemoImage { anchors.fill: parent; theme: root.theme }
 
                 Rectangle {
-                    visible: uiState.hasRoi
+                    visible: uiState.hasRoi && uiState.roiLayerVisible
                     x: Math.min(uiState.roiStartX, uiState.roiEndX) * content.width
                     y: Math.min(uiState.roiStartY, uiState.roiEndY) * content.height
                     width: Math.abs(uiState.roiEndX - uiState.roiStartX) * content.width
@@ -185,8 +190,8 @@ Rectangle {
                         }
                     }
                     onWheel: function(wheel) {
-                        if (wheel.angleDelta.y > 0) root.zoomIn()
-                        else if (wheel.angleDelta.y < 0) root.zoomOut()
+                        if (wheel.angleDelta.y > 0) root.zoomInAction.trigger()
+                        else if (wheel.angleDelta.y < 0) root.zoomOutAction.trigger()
                         wheel.accepted = true
                     }
                 }
@@ -219,13 +224,13 @@ Rectangle {
                         text: "이미지 열기"
                         dark: true
                         primary: true
-                        onClicked: root.openRequested()
+                        onClicked: root.openAction.trigger()
                     }
                     AppButton {
                         theme: root.theme
                         text: "데모 이미지 보기"
                         dark: true
-                        onClicked: root.demoRequested()
+                        onClicked: root.demoAction.trigger()
                     }
                 }
             }
@@ -254,7 +259,7 @@ Rectangle {
                     text: "다른 이미지 열기"
                     dark: true
                     Layout.alignment: Qt.AlignHCenter
-                    onClicked: root.openRequested()
+                    onClicked: root.openAction.trigger()
                 }
             }
 

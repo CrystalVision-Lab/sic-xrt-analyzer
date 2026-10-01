@@ -6,11 +6,11 @@ Rectangle {
     id: root
     property QtObject theme
     property QtObject uiState
-    signal openRequested()
-    signal demoRequested()
-    signal fitRequested()
-    signal zoomInRequested()
-    signal zoomOutRequested()
+    property var openAction
+    property var demoAction
+    property var fitAction
+    property var zoomInAction
+    property var zoomOutAction
 
     implicitHeight: theme.toolbarHeight
     color: theme.panel
@@ -60,36 +60,36 @@ Rectangle {
             theme: root.theme
             text: "이미지 열기"
             primary: true
-            onClicked: root.openRequested()
+            onClicked: root.openAction.trigger()
         }
         AppButton {
             theme: root.theme
             text: "데모 보기"
             tip: "실제 검사 데이터가 아닌 합성 샘플입니다"
-            onClicked: root.demoRequested()
+            onClicked: root.demoAction.trigger()
         }
         Rectangle { width: 1; height: 28; color: theme.border }
         AppButton {
             theme: root.theme
             text: "화면 맞춤"
-            enabled: uiState.canNavigateImage
-            onClicked: root.fitRequested()
+            enabled: root.fitAction.enabled
+            onClicked: root.fitAction.trigger()
         }
         AppButton {
             theme: root.theme
             text: "-"
             implicitWidth: 36
-            enabled: uiState.canNavigateImage && uiState.zoom > 0.26
+            enabled: root.zoomOutAction.enabled
             tip: "축소"
-            onClicked: root.zoomOutRequested()
+            onClicked: root.zoomOutAction.trigger()
         }
         AppButton {
             theme: root.theme
             text: "+"
             implicitWidth: 36
-            enabled: uiState.canNavigateImage && uiState.zoom < 3.99
+            enabled: root.zoomInAction.enabled
             tip: "확대"
-            onClicked: root.zoomInRequested()
+            onClicked: root.zoomInAction.trigger()
         }
         AppButton {
             theme: root.theme
