@@ -5,7 +5,7 @@ from tempfile import TemporaryDirectory
 
 import numpy as np
 import tifffile
-from PySide6.QtCore import Q_ARG, QMetaObject, QObject, QPoint, QSettings, QUrl
+from PySide6.QtCore import Q_ARG, QMetaObject, QObject, QPoint, QSettings, Qt, QUrl
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtQml import QQmlApplicationEngine
 from PySide6.QtQuickControls2 import QQuickStyle
@@ -43,7 +43,7 @@ def main():
         def wait_loaded():
             for _ in range(200):
                 settle()
-                if not bridge.stack_viewer.busy and not state.property("loading"):
+                if not bridge.stack_viewer.busy and not bridge.stack_viewer.detail_busy and not state.property("loading"):
                     settle()
                     return
             raise AssertionError("Page loading timed out")
@@ -54,7 +54,23 @@ def main():
             assert QMetaObject.invokeMethod(window, "selectImagePath", Q_ARG("QVariant", str(path)))
             wait_loaded()
             assert state.property("pageCount") == 9
+            for _ in range(200):
+                settle()
+                if bridge.stack_viewer.preload_state["ready"] and bridge.stack_viewer._task is None:
+                    break
+            assert bridge.stack_viewer.preload_state["ready"]
             capture("first-page")
+            slider = window.findChild(QObject, "pageSlider")
+            slider_origin = slider.mapToScene(QPoint(0, 0))
+            def slider_position(fraction):
+                return QPoint(int(slider_origin.x() + slider.property("leftPadding") + slider.property("availableWidth") * fraction),
+                              int(slider_origin.y() + slider.property("height") / 2))
+            QTest.mousePress(window, Qt.LeftButton, Qt.NoModifier, slider_position(.005))
+            QTest.mouseMove(window, slider_position(.7))
+            assert bridge.stack_viewer.scrubbing and bridge.stack_viewer.frame.pixels is None
+            capture("scrubbing")
+            QTest.mouseRelease(window, Qt.LeftButton, Qt.NoModifier, slider_position(.7))
+            wait_loaded()
             bridge.requestPage(4)
             wait_loaded()
             capture("middle-page")
