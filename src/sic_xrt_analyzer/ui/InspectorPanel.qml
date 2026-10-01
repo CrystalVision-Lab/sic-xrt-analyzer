@@ -32,7 +32,8 @@ Rectangle {
                     InfoRow { theme: root.theme; label: "원본 해상도"; value: uiState.hasImage ? uiState.contentWidth + " × " + uiState.contentHeight + " px" : "—"; Layout.fillWidth: true }
                     InfoRow { objectName: "previewSizeRow"; theme: root.theme; visible: uiState.sampledPreview; label: "표시 미리보기"; value: uiState.previewWidth + " × " + uiState.previewHeight + " px"; Layout.fillWidth: true }
                     InfoRow { theme: root.theme; label: "비트 깊이"; value: uiState.hasLoadedImage ? uiState.bitDepth + " bit" : "—"; Layout.fillWidth: true }
-                    InfoRow { theme: root.theme; label: "페이지"; value: uiState.hasLoadedImage ? uiState.pageCount + " · 첫 페이지" : "—"; Layout.fillWidth: true }
+                    InfoRow { theme: root.theme; label: "페이지"; value: uiState.hasLoadedImage ? (uiState.pageIndex + 1) + " / " + uiState.pageCount : "—"; Layout.fillWidth: true }
+                    InfoRow { theme: root.theme; label: "데이터 타입"; value: uiState.dtype || "—"; Layout.fillWidth: true }
                     InfoRow { theme: root.theme; label: "픽셀 크기"; value: "—"; Layout.fillWidth: true }
                     InfoRow { theme: root.theme; label: "물리 크기"; value: "—"; Layout.fillWidth: true }
                     Text { text: uiState.sampledPreview ? "원본 좌표 기준 · 표시용 미리보기 축소" : "원본 좌표 기준 · 물리 스케일 미연결"; color: theme.muted; font.pixelSize: 11; wrapMode: Text.Wrap; Layout.fillWidth: true }
