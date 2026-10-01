@@ -2,6 +2,7 @@
 import time
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from threading import Event
 
 import numpy as np
 import tifffile
@@ -11,6 +12,7 @@ from PySide6.QtQml import QQmlApplicationEngine
 from PySide6.QtQuickControls2 import QQuickStyle
 from PySide6.QtTest import QTest
 
+from sic_xrt_analyzer.imaging.tiff_stack import TiffStack
 from sic_xrt_analyzer.ui.bridge import FileBridge, TiffImageProvider
 
 
@@ -50,8 +52,23 @@ def main():
         def capture(name):
             settle()
             assert window.grabWindow().save(str(output / (name + ".png")))
+        gate = Event()
+        original_read = TiffStack.read_page
+        def paused_read(stack, index):
+            if index == 1:
+                assert gate.wait(10)
+            return original_read(stack, index)
+        TiffStack.read_page = paused_read
         try:
             assert QMetaObject.invokeMethod(window, "selectImagePath", Q_ARG("QVariant", str(path)))
+            for _ in range(100):
+                settle()
+                if state.property("hasLoadedImage"):
+                    break
+            assert state.property("loading") and bridge.stack_viewer.initial_loading
+            capture("initial-loading")  # Pause the synthetic reader to capture the real loading phase.
+            gate.set()
+            TiffStack.read_page = original_read
             wait_loaded()
             assert state.property("pageCount") == 9
             for _ in range(200):
@@ -90,6 +107,8 @@ def main():
             capture("minimum-1100x700")
             assert not errors, "\n".join(errors)
         finally:
+            gate.set()
+            TiffStack.read_page = original_read
             bridge.waitForLoads()
             window.close()
             engine.deleteLater()

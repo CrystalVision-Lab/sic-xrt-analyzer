@@ -138,10 +138,33 @@ Rectangle {
                 Text { text: "또는 TIFF 파일을 이 영역에 놓으세요"; color: theme.muted; font.pixelSize: 11; Layout.alignment: Qt.AlignHCenter }
             }
             Rectangle {
+                objectName: "initialLoadingOverlay"
                 anchors.fill: parent; visible: uiState.loading; color: "#db111518"
-                ColumnLayout { anchors.centerIn: parent
-                    BusyIndicator { running: uiState.loading; Layout.alignment: Qt.AlignHCenter }
-                    Text { text: "이미지 로딩 중…"; color: theme.text }
+                ColumnLayout { anchors.centerIn: parent; width: Math.min(380, parent.width - 40); spacing: 12
+                    BusyIndicator { running: uiState.loading && !uiState.stack.preloadError; Layout.alignment: Qt.AlignHCenter }
+                    Text {
+                        objectName: "initialLoadingText"; Layout.fillWidth: true; wrapMode: Text.Wrap
+                        horizontalAlignment: Text.AlignHCenter; color: uiState.stack.preloadError ? theme.error : theme.text
+                        text: uiState.stack.preloadError ? "전체 페이지 로딩 실패\n" + uiState.stack.preloadError
+                              : uiState.stack.preload.total > 0 ? "전체 페이지 불러오는 중 · " + uiState.stack.preload.prepared + " / " + uiState.stack.preload.total
+                              : "TIFF 정보를 읽는 중…"
+                    }
+                    ProgressBar {
+                        id: preloadProgress
+                        objectName: "initialLoadingProgress"; Layout.fillWidth: true
+                        implicitHeight: 6; padding: 0
+                        visible: uiState.stack.preload.total > 0
+                        from: 0; to: Math.max(1, uiState.stack.preload.total); value: uiState.stack.preload.prepared
+                        background: Rectangle { color: theme.border; radius: 2 }
+                        contentItem: Item {
+                            Rectangle { width: parent.width * preloadProgress.visualPosition; height: parent.height; color: theme.accent; radius: 2 }
+                        }
+                    }
+                    Text { Layout.fillWidth: true; horizontalAlignment: Text.AlignHCenter; wrapMode: Text.Wrap; color: theme.muted; text: "전체 로딩이 완료되면 스크롤과 드래그가 활성화됩니다." }
+                    RowLayout { Layout.alignment: Qt.AlignHCenter
+                        AppButton { theme: root.theme; text: "다시 준비"; visible: !!uiState.stack.preloadError; onClicked: fileBridge.retryPreload() }
+                        AppButton { objectName: "cancelInitialLoading"; theme: root.theme; text: "취소"; onClicked: root.actions.closeImage.trigger() }
+                    }
                 }
             }
             DropArea { anchors.fill: parent; onDropped: function(drop) { if (drop.hasUrls && drop.urls.length > 0) root.fileDropped(drop.urls[0].toString()) } }
