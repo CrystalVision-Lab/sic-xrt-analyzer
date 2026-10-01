@@ -1,33 +1,35 @@
 import QtQuick
-
 QtObject {
-    readonly property color window: "#f1f3f4"
-    readonly property color panel: "#fafbfc"
-    readonly property color surface: "#ffffff"
-    readonly property color border: "#d7dfe3"
-    readonly property color text: "#203038"
-    readonly property color muted: "#647680"
-    readonly property color accent: "#087f8c"
-    readonly property color accentPale: "#dceff0"
-    readonly property color disabled: "#a5b1b7"
-    readonly property color viewer: "#20282d"
-    readonly property color viewerHeader: "#29343a"
-    readonly property color viewerText: "#edf4f4"
-    readonly property color viewerMuted: "#b7c6c9"
-
+    readonly property color window: "#161a1e"
+    readonly property color panel: "#1d2227"
+    readonly property color toolbar: "#20262b"
+    readonly property color surface: "#272d33"
+    readonly property color hover: "#30373e"
+    readonly property color border: "#343c43"
+    readonly property color text: "#e4e8eb"
+    readonly property color muted: "#929da6"
+    readonly property color disabled: "#77828a"
+    readonly property color accent: "#45c3cf"
+    readonly property color accentPale: "#253a40"
+    readonly property color success: "#68ba8b"
+    readonly property color warning: "#d6ac64"
+    readonly property color error: "#e68181"
+    readonly property color viewer: "#111518"
+    readonly property color viewerHeader: "#181e23"
+    readonly property color viewerText: text
+    readonly property color viewerMuted: muted
     readonly property string fontFamily: "Segoe UI"
     readonly property string monoFontFamily: "Consolas"
-
-    readonly property int space: 12
-    readonly property int panelWidth: 296
-    readonly property int navigationWidth: 204
-    readonly property int toolbarHeight: 62
-    readonly property int statusHeight: 34
-    readonly property int controlHeight: 34
-    readonly property int bodySize: 13
-    readonly property int smallSize: 12
+    readonly property int space: 8
+    readonly property int panelWidth: 282
+    readonly property int navigationWidth: 184
+    readonly property int toolbarHeight: 44
+    readonly property int statusHeight: 28
+    readonly property int controlHeight: 28
+    readonly property int bodySize: 12
+    readonly property int smallSize: 11
     readonly property int captionSize: 11
-    readonly property int sectionSize: 14
-    readonly property int emptyTitleSize: 19
-    readonly property int titleSize: 16
+    readonly property int sectionSize: 11
+    readonly property int emptyTitleSize: 17
+    readonly property int titleSize: 14
 }

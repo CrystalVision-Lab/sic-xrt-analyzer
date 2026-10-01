@@ -2,7 +2,7 @@
 
 from PySide6.QtCore import QSettings
 
-from sic_xrt_analyzer.__main__ import FileBridge
+from sic_xrt_analyzer.ui.bridge import FileBridge
 
 
 def test_recent_files_are_unique_bounded_and_persistent(tmp_path):

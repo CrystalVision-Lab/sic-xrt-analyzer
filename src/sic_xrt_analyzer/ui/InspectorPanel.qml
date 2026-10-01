@@ -4,170 +4,74 @@ import QtQuick.Layouts
 
 Rectangle {
     id: root
+    objectName: "inspectorPanel"
     property QtObject theme
     property QtObject uiState
-    property bool collapsed: false
     property int tabIndex: 0
-    signal collapseRequested()
-
-    implicitWidth: collapsed ? 54 : theme.panelWidth
-    color: theme.panel
-    border.color: theme.border
-    border.width: 1
-
+    color: theme.panel; border.color: theme.border
     ColumnLayout {
-        anchors.fill: parent
-        spacing: 0
-
+        anchors.fill: parent; anchors.margins: 12; spacing: 12
+        Text { text: "INSPECTOR"; color: theme.muted; font.pixelSize: 11; font.family: theme.fontFamily }
         RowLayout {
-            Layout.fillWidth: true
-            Layout.preferredHeight: 50
-            Layout.leftMargin: 12
-            Layout.rightMargin: 12
-            AppButton {
-                theme: root.theme
-                text: root.collapsed ? "<" : ">"
-                quiet: true
-                implicitWidth: 34
-                tip: root.collapsed ? "정보 패널 펼치기" : "정보 패널 접기"
-                onClicked: root.collapseRequested()
-            }
-            Text {
-                visible: !root.collapsed
-                text: "정보 및 설정"
-                color: theme.text
-                font.family: theme.fontFamily
-                font.pixelSize: theme.sectionSize
-                font.weight: Font.DemiBold
-                Layout.fillWidth: true
-            }
-        }
-
-        RowLayout {
-            visible: !root.collapsed
-            Layout.fillWidth: true
-            Layout.leftMargin: 12
-            Layout.rightMargin: 12
-            spacing: 3
+            spacing: 2; Layout.fillWidth: true
             Repeater {
-                model: ["이미지", "분석", "결과"]
-                delegate: AppButton {
-                    required property int index
-                    required property string modelData
-                    theme: root.theme
-                    text: modelData
-                    quiet: true
-                    checked: root.tabIndex === index
-                    Layout.fillWidth: true
-                    onClicked: root.tabIndex = index
-                }
+                model: ["IMAGE", "ANALYSIS", "RESULT"]
+                AppButton { required property int index; required property string modelData; theme: root.theme; text: modelData; checked: root.tabIndex === index; Layout.fillWidth: true; onClicked: root.tabIndex = index }
             }
         }
-
-        Flickable {
-            visible: !root.collapsed
-            Layout.fillWidth: true
-            Layout.fillHeight: true
-            clip: true
-            contentWidth: width
-            contentHeight: panelContent.implicitHeight + 28
-            boundsBehavior: Flickable.StopAtBounds
-
+        ScrollView {
+            Layout.fillWidth: true; Layout.fillHeight: true; clip: true
+            contentWidth: availableWidth
             ColumnLayout {
-                id: panelContent
-                x: 14
-                y: 16
-                width: parent.width - 28
-                spacing: 12
-
+                width: parent.width; spacing: 12
                 ColumnLayout {
-                    visible: root.tabIndex === 0
-                    Layout.fillWidth: true
-                    spacing: 6
-                    Text { text: "이미지 정보"; color: theme.text; font.family: theme.fontFamily; font.pixelSize: theme.sectionSize; font.weight: Font.DemiBold }
-                    InfoRow { theme: root.theme; label: "파일"; value: uiState.fileName || "—"; Layout.fillWidth: true }
-                    InfoRow { theme: root.theme; label: "형식"; value: uiState.hasSelectedFile ? "TIFF (파일명 기준)" : "—"; Layout.fillWidth: true }
-                    InfoRow { theme: root.theme; label: "이미지 크기"; value: "—"; Layout.fillWidth: true }
-                    InfoRow { theme: root.theme; label: "물리 스케일"; value: "—"; Layout.fillWidth: true }
-                    Text {
-                        text: uiState.hasSelectedFile ? "이미지 데이터와 메타데이터는 아직 읽지 않았습니다." : "파일을 열면 선택한 파일 정보가 표시됩니다."
-                        color: theme.muted
-                        font.family: theme.fontFamily
-                        font.pixelSize: theme.smallSize
-                        wrapMode: Text.WordWrap
-                        Layout.fillWidth: true
-                    }
-                    Rectangle { Layout.fillWidth: true; Layout.topMargin: 8; height: 1; color: theme.border }
-                    Text { text: "표시 설정"; color: theme.text; font.family: theme.fontFamily; font.pixelSize: theme.sectionSize; font.weight: Font.DemiBold; Layout.topMargin: 6 }
-                    Text { text: "TIFF 표시 연결 후 사용할 수 있습니다."; color: theme.muted; font.family: theme.fontFamily; font.pixelSize: theme.smallSize }
-                    Text { text: "밝기"; color: theme.muted; font.family: theme.fontFamily; font.pixelSize: theme.smallSize }
-                    Slider { enabled: false; from: -100; to: 100; value: 0; Layout.fillWidth: true }
-                    Text { text: "대비"; color: theme.muted; font.family: theme.fontFamily; font.pixelSize: theme.smallSize }
-                    Slider { enabled: false; from: -100; to: 100; value: 0; Layout.fillWidth: true }
-                    CheckBox { text: "결함 표시 레이어"; enabled: false; Layout.fillWidth: true }
+                    visible: root.tabIndex === 0; Layout.fillWidth: true; spacing: 5
+                    SectionHeader { theme: root.theme; text: "IMAGE INFORMATION"; Layout.fillWidth: true }
+                    Text { text: uiState.demoMode ? "합성 데모 이미지" : uiState.fileName || "No image selected"; color: theme.text; font.pixelSize: 12; wrapMode: Text.Wrap; Layout.fillWidth: true }
+                    InfoRow { theme: root.theme; label: "Format"; value: uiState.demoMode ? "SYNTHETIC" : uiState.hasLoadedImage ? "TIFF" : "—"; Layout.fillWidth: true }
+                    InfoRow { theme: root.theme; label: "Resolution"; value: uiState.hasImage ? uiState.contentWidth + " × " + uiState.contentHeight + " px" : "—"; Layout.fillWidth: true }
+                    InfoRow { theme: root.theme; label: "Bit depth"; value: uiState.hasLoadedImage ? uiState.bitDepth + " bit" : "—"; Layout.fillWidth: true }
+                    InfoRow { theme: root.theme; label: "Pages"; value: uiState.hasLoadedImage ? uiState.pageCount + " · 첫 페이지" : "—"; Layout.fillWidth: true }
+                    InfoRow { theme: root.theme; label: "Pixel size"; value: "—"; Layout.fillWidth: true }
+                    InfoRow { theme: root.theme; label: "Physical size"; value: "—"; Layout.fillWidth: true }
+                    Text { text: uiState.sampledPreview ? "원본 좌표 기준 · 표시용 미리보기 축소" : "원본 좌표 기준 · 물리 스케일 미연결"; color: theme.muted; font.pixelSize: 11; wrapMode: Text.Wrap; Layout.fillWidth: true }
+                    SectionHeader { theme: root.theme; text: "DISPLAY"; Layout.fillWidth: true; Layout.topMargin: 12 }
+                    Text { text: "TIFF는 표시용 정규화를 적용합니다. 원본 데이터는 변경하지 않습니다."; color: theme.muted; font.pixelSize: 11; wrapMode: Text.Wrap; Layout.fillWidth: true }
+                    Label { text: "Brightness / Contrast · 준비 중"; color: theme.disabled; font.pixelSize: 11 }
+                    AppSlider { theme: root.theme; enabled: false; Layout.fillWidth: true; value: 0.5 }
+                    AppComboBox { theme: root.theme; enabled: false; model: ["LUT · 준비 중"]; Layout.fillWidth: true }
+                    AppCheckBox { theme: root.theme; text: "ROI Overlay"; checked: uiState.roiLayerVisible; enabled: uiState.hasImage; onToggled: uiState.roiLayerVisible = checked }
+                    AppCheckBox { theme: root.theme; text: "Defect Overlay · 준비 중"; enabled: false }
+                    AppCheckBox { theme: root.theme; text: "Scale Bar · 스케일 미연결"; enabled: false }
                 }
-
                 ColumnLayout {
-                    visible: root.tabIndex === 1
-                    Layout.fillWidth: true
-                    spacing: 10
-                    Text { text: "분석 설정"; color: theme.text; font.family: theme.fontFamily; font.pixelSize: theme.sectionSize; font.weight: Font.DemiBold }
-                    InfoRow {
-                        theme: root.theme
-                        label: "관심 영역"
-                        value: uiState.hasRoi && uiState.demoMode ? "데모 영역 선택됨" : "선택 없음"
-                        Layout.fillWidth: true
+                    visible: root.tabIndex === 1; Layout.fillWidth: true; spacing: 5
+                    SectionHeader { theme: root.theme; text: "REGION OF INTEREST"; Layout.fillWidth: true }
+                    Text { visible: !uiState.hasRoi; text: "No region selected\nToolbar의 ROI 도구로 이미지에서 영역을 선택하세요."; color: theme.muted; font.pixelSize: 12; wrapMode: Text.Wrap; Layout.fillWidth: true }
+                    Repeater {
+                        model: ["X", "Y", "Width", "Height"]
+                        InfoRow { required property int index; required property string modelData; theme: root.theme; label: modelData; value: uiState.hasRoi ? [uiState.roiX, uiState.roiY, uiState.roiWidth, uiState.roiHeight][index] + " px" : "—"; Layout.fillWidth: true }
                     }
-                    Text {
-                        text: "관심 영역은 데모 이미지에서 선택 도구로 시험할 수 있습니다. 실제 이미지 좌표 연결은 준비 중입니다."
-                        color: theme.muted
-                        font.family: theme.fontFamily
-                        font.pixelSize: theme.smallSize
-                        wrapMode: Text.WordWrap
-                        Layout.fillWidth: true
-                    }
-                    Rectangle { Layout.fillWidth: true; height: 1; color: theme.border }
-                    InfoRow { theme: root.theme; label: "분석 방식"; value: "—"; Layout.fillWidth: true }
-                    InfoRow { theme: root.theme; label: "모델"; value: "모델 미연결"; Layout.fillWidth: true }
-                    AppButton {
-                        theme: root.theme
-                        text: "분석 실행"
-                        enabled: false
-                        Layout.fillWidth: true
-                    }
-                    Text {
-                        text: "승인된 모델과 이미지 로더가 연결되면 분석을 실행할 수 있습니다."
-                        color: theme.muted
-                        font.family: theme.fontFamily
-                        font.pixelSize: theme.smallSize
-                        wrapMode: Text.WordWrap
-                        Layout.fillWidth: true
-                    }
+                    SectionHeader { theme: root.theme; text: "MODEL"; Layout.fillWidth: true; Layout.topMargin: 12 }
+                    InfoRow { theme: root.theme; label: "Model"; value: "—"; Layout.fillWidth: true }
+                    InfoRow { theme: root.theme; label: "Version"; value: "—"; Layout.fillWidth: true }
+                    InfoRow { theme: root.theme; label: "Device"; value: "—"; Layout.fillWidth: true }
+                    StatusIndicator { theme: root.theme; text: "MODEL UNAVAILABLE"; ink: theme.warning }
+                    Text { text: uiState.analysisReason + "\n분석 실행은 사용할 수 없습니다."; color: theme.muted; font.pixelSize: 12; wrapMode: Text.Wrap; Layout.fillWidth: true }
+                    SectionHeader { theme: root.theme; text: "WORKFLOW"; Layout.fillWidth: true; Layout.topMargin: 12 }
+                    InfoRow { theme: root.theme; label: "Image"; value: uiState.hasLoadedImage ? "Loaded" : uiState.demoMode ? "Demo only" : "Not loaded"; Layout.fillWidth: true }
+                    InfoRow { theme: root.theme; label: "ROI"; value: uiState.hasRoi ? "Selected" : "Not selected"; Layout.fillWidth: true }
+                    InfoRow { theme: root.theme; label: "Analysis"; value: "Unavailable"; valueColor: theme.warning; Layout.fillWidth: true }
                 }
-
                 ColumnLayout {
-                    visible: root.tabIndex === 2
-                    Layout.fillWidth: true
-                    spacing: 10
-                    Text { text: "결과 요약"; color: theme.text; font.family: theme.fontFamily; font.pixelSize: theme.sectionSize; font.weight: Font.DemiBold }
-                    Text {
-                        text: "분석 결과가 없습니다"
-                        color: theme.text
-                        font.family: theme.fontFamily
-                        font.pixelSize: theme.sectionSize
-                        Layout.topMargin: 10
-                    }
-                    Text {
-                        text: "분석 기능이 연결되면 이곳에서 결과와 관심 영역을 검토할 수 있습니다."
-                        color: theme.muted
-                        font.family: theme.fontFamily
-                        font.pixelSize: theme.smallSize
-                        wrapMode: Text.WordWrap
-                        Layout.fillWidth: true
-                    }
+                    visible: root.tabIndex === 2; Layout.fillWidth: true; spacing: 12
+                    SectionHeader { theme: root.theme; text: "ANALYSIS RESULT"; Layout.fillWidth: true }
+                    Text { text: "No analysis result"; color: theme.text; font.pixelSize: 14 }
+                    Text { text: "승인된 모델과 분석 파이프라인이 연결된 후 분석을 실행하면 결함과 처리 결과를 이곳에서 확인할 수 있습니다."; color: theme.muted; wrapMode: Text.Wrap; font.pixelSize: 12; Layout.fillWidth: true }
+                    AppButton { theme: root.theme; text: "View Detected Defects"; enabled: false; iconName: "roi"; Layout.fillWidth: true }
+                    AppButton { theme: root.theme; text: "Export Result"; enabled: false; iconName: "export"; Layout.fillWidth: true }
                 }
             }
         }
-        Item { visible: root.collapsed; Layout.fillHeight: true }
     }
 }
