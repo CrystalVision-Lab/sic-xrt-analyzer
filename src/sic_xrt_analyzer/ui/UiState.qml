@@ -14,6 +14,8 @@ QtObject {
     property int imageHeight: 0
     property int bitDepth: 0
     property int pageCount: 0
+    property int previewWidth: 0
+    property int previewHeight: 0
     property bool sampledPreview: false
     property bool loading: false
     property string loadError: ""
@@ -30,9 +32,19 @@ QtObject {
     property string viewerBackground: "#111518"
     property string defaultView: "fit"
     property string statusText: "TIFF 이미지를 열거나 합성 데모를 확인하세요"
-    readonly property bool modelAvailable: false
-    readonly property bool analysisRunning: false
-    readonly property bool hasResult: false
+    property var analysis: fileBridge.analysis
+    property string analysisScope: ""
+    readonly property bool modelAvailable: analysis.modelAvailable
+    readonly property bool analysisRunning: analysis.state === "RUNNING"
+    readonly property bool hasResult: analysis.hasResult
+    function syncCurrentRoi() {
+        fileBridge.setCurrentRoi(hasRoi && hasLoadedImage, roiX, roiY, roiWidth, roiHeight)
+    }
+    onHasRoiChanged: Qt.callLater(syncCurrentRoi)
+    onRoiXChanged: Qt.callLater(syncCurrentRoi)
+    onRoiYChanged: Qt.callLater(syncCurrentRoi)
+    onRoiWidthChanged: Qt.callLater(syncCurrentRoi)
+    onRoiHeightChanged: Qt.callLater(syncCurrentRoi)
     readonly property bool projectModified: false
     readonly property bool hasSelectedFile: filePath.length > 0
     readonly property bool hasLoadedImage: imageSource.length > 0 && hasSelectedFile
@@ -40,8 +52,8 @@ QtObject {
     readonly property int contentWidth: demoMode ? 960 : imageWidth
     readonly property int contentHeight: demoMode ? 600 : imageHeight
     readonly property bool canNavigateImage: workspaceIndex === 0 && hasImage && !loading
-    readonly property bool canAnalyze: hasLoadedImage && modelAvailable && !analysisRunning && !loading
-    readonly property string analysisReason: "승인된 모델과 분석 파이프라인이 연결되지 않았습니다"
+    readonly property bool canAnalyze: hasLoadedImage && analysis.sourceReady && modelAvailable && !analysisRunning && !loading && analysis.supportedScopes.indexOf(analysisScope) >= 0 && (analysisScope === "FULL_IMAGE" || (analysisScope === "ROI" && hasRoi && roiWidth > 0 && roiHeight > 0))
+    readonly property string analysisReason: analysis.errorMessage || (!modelAvailable ? "승인된 모델이 연결되지 않았습니다" : !analysis.sourceReady ? "원본 TIFF를 여세요" : analysisRunning ? "분석 중입니다" : !analysisScope ? "분석 범위를 선택하세요" : analysis.supportedScopes.indexOf(analysisScope) < 0 ? "모델이 선택한 분석 범위를 지원하지 않습니다" : analysisScope === "ROI" && !hasRoi ? "ROI를 선택하세요" : "원본 TIFF 분석")
     readonly property string workflowLabel: loading ? "로딩 중" : loadError ? "파일 오류" : hasImage ? (hasRoi ? "ROI 선택됨" : "이미지 준비 완료") : "이미지 없음"
     readonly property string viewerStatus: loading ? "로딩 중" : loadError ? "파일 오류" : hasImage ? "준비 완료" : "이미지 없음"
     readonly property real effectiveZoom: fitMode ? fitZoom : zoom
