@@ -14,7 +14,7 @@ Rectangle {
     property real pressY: 0
     property real pressPanX: 0
     property real pressPanY: 0
-    readonly property real fitScale: Math.max(0, Math.min((viewport.width - 48) / Math.max(1, uiState.contentWidth), (viewport.height - 48) / Math.max(1, uiState.contentHeight)))
+    readonly property real fitScale: Math.max(0, Math.min((viewport.width - 16) / Math.max(1, uiState.contentWidth), (viewport.height - 16) / Math.max(1, uiState.contentHeight)))
     readonly property real viewportWidth: viewport.width
     readonly property real displayScale: uiState.fitMode ? fitScale : uiState.zoom / uiState.displayPixelRatio
     Binding { target: root.uiState; property: "fitZoom"; value: root.fitScale * root.uiState.displayPixelRatio }
@@ -174,7 +174,6 @@ Rectangle {
                 Text { anchors.centerIn: parent; text: "페이지 " + (uiState.stack.requestedPage + 1) + " 읽는 중…"; color: theme.text; font.pixelSize: 11 }
             }
         }
-        StackControls { theme: root.theme; uiState: root.uiState; Layout.fillWidth: true }
         Rectangle {
             visible: uiState.loadError.length > 0 || uiState.stack.error.length > 0
             Layout.fillWidth: true; Layout.preferredHeight: errorText.implicitHeight + 18
