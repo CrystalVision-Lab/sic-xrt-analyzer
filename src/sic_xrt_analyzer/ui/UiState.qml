@@ -9,6 +9,7 @@ QtObject {
     property real zoom: 1.0
     property bool demoMode: false
     property bool hasRoi: false
+    property bool roiLayerVisible: true
     property real roiStartX: 0
     property real roiStartY: 0
     property real roiEndX: 0
