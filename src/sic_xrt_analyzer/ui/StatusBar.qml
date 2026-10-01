@@ -10,7 +10,7 @@ Rectangle {
     RowLayout {
         anchors.fill: parent; anchors.leftMargin: 10; anchors.rightMargin: 10; spacing: 12
         StatusIndicator { theme: root.theme; text: uiState.viewerStatus; ink: uiState.loadError ? theme.error : uiState.loading ? theme.warning : uiState.hasImage ? theme.success : theme.muted }
-        Text { text: uiState.canNavigateImage ? uiState.activeTool : "—"; color: theme.text; font.pixelSize: theme.smallSize }
+        Text { text: uiState.canNavigateImage ? (uiState.roiEditMode ? "ROI 편집" : uiState.activeTool) : "—"; color: theme.text; font.pixelSize: theme.smallSize }
         Text { objectName: "statusZoomLabel"; text: uiState.zoomLabel; color: theme.text; font.family: theme.monoFontFamily; font.pixelSize: theme.smallSize }
         Text { text: uiState.cursorX >= 0 ? "X " + uiState.cursorX + "  Y " + uiState.cursorY : "X —  Y —"; color: theme.muted; font.family: theme.monoFontFamily; font.pixelSize: theme.smallSize; Layout.preferredWidth: 125 }
         Text { objectName: "pixelValueLabel"; text: "값 " + (uiState.cursorValue || "—"); color: theme.muted; font.family: theme.monoFontFamily; font.pixelSize: theme.smallSize; Layout.preferredWidth: 160; elide: Text.ElideRight }

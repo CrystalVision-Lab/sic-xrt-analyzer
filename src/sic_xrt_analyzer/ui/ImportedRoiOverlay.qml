@@ -8,6 +8,10 @@ Canvas {
     property real imageY: 0
     property real imageScale: 1
     property bool layerVisible: true
+    property bool editMode: false
+    property int selectedVertex: -1
+    onEditModeChanged: requestPaint()
+    onSelectedVertexChanged: requestPaint()
     onRoisChanged: requestPaint()
     onImageXChanged: requestPaint()
     onImageYChanged: requestPaint()
@@ -42,6 +46,14 @@ Canvas {
                 if (roi.kind === "polygon") c.closePath()
             }
             c.stroke()
+            if (editMode && roi.selected) {
+                var handle = 4 / imageScale
+                for (var v = 0; v < roi.paths[0].length; ++v) {
+                    var point = roi.paths[0][v]
+                    c.fillStyle = v === selectedVertex ? "#ffffff" : roi.color
+                    c.fillRect(point[0] - handle, point[1] - handle, handle * 2, handle * 2)
+                }
+            }
         }
     }
 }

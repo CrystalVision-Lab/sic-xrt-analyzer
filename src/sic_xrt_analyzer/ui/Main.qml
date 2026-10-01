@@ -30,6 +30,18 @@ ApplicationWindow {
     property bool navigationCollapsed: false
     property bool inspectorCollapsed: false
     property bool statusBarVisible: true
+    property var discardNext: null
+    property bool allowQuit: false
+    function confirmRoiDiscard(callback) {
+        if (!uiState.importedRois.dirty) { callback(); return }
+        discardNext = callback; roiDiscardDialog.open()
+    }
+    onClosing: function(close) {
+        if (uiState.importedRois.dirty && !allowQuit) {
+            close.accepted = false
+            confirmRoiDiscard(function() { window.allowQuit = true; window.close() })
+        }
+    }
     property var commands: ({
         open: openAction, save: saveAction, demo: demoAction, closeImage: closeImageAction, quit: quitAction,
         pan: panAction, roi: roiAction, clearRoi: clearRoiAction, copyRoi: copyRoiAction,
@@ -67,19 +79,29 @@ ApplicationWindow {
         uiState.selectingRoi = false; uiState.fitMode = true
         viewer.resetPan(); fileBridge.clearImage()
     }
-    function closeImage() { clearImageState(); uiState.zoom = 1; uiState.statusText = "현재 이미지를 닫았습니다" }
+    function closeImage() { confirmRoiDiscard(function() { clearImageState(); uiState.roiEditMode = false; uiState.zoom = 1; uiState.statusText = "현재 이미지를 닫았습니다" }) }
     function showDemo() {
         if (uiState.loading) return
-        clearImageState(); uiState.workspaceIndex = 0; uiState.demoMode = true; viewer.defaultView()
-        uiState.statusText = "합성 데모 · 실제 XRT 데이터 및 분석 결과 아님"
+        confirmRoiDiscard(function() {
+            clearImageState(); uiState.roiEditMode = false; uiState.workspaceIndex = 0; uiState.demoMode = true; viewer.defaultView()
+            uiState.statusText = "합성 데모 · 실제 XRT 데이터 및 분석 결과 아님"
+        })
     }
     function selectImagePath(path) { selectImageFile(fileBridge.localUrl(path)) }
     function selectImageFile(url) {
+        confirmRoiDiscard(function() { window.startImageLoad(url) })
+    }
+    function startImageLoad(url) {
+        uiState.roiEditMode = false
         uiState.opening = true; uiState.loadError = ""; uiState.statusText = "이미지 불러오는 중…"
         fileBridge.requestImage(url)
     }
     Connections {
         target: window.desktopBridge
+        function onRoiSaved(result) {
+            if (result.ok) uiState.statusText = "ROI 복사본 저장 완료: " + result.path
+            else window.showInfo("ROI 저장 실패", result.error)
+        }
         function onImageOpened(result) {
             uiState.opening = false
             if (!result.ok) { uiState.loadError = result.error; uiState.statusText = "이미지 열기 실패: " + result.error; return }
@@ -142,8 +164,8 @@ ApplicationWindow {
     Action { id: demoAction; text: "합성 데모 이미지 보기"; enabled: !uiState.loading; onTriggered: window.showDemo() }
     Action { id: closeImageAction; objectName: "closeImageAction"; text: "현재 이미지 닫기"; shortcut: StandardKey.Close; enabled: uiState.hasImage || uiState.loading; onTriggered: window.closeImage() }
     Action { id: quitAction; text: "종료"; shortcut: "Ctrl+Q"; onTriggered: window.close() }
-    Action { id: panAction; objectName: "panAction"; text: "Pan"; shortcut: "H"; enabled: uiState.canNavigateImage; onTriggered: uiState.activeTool = "Pan" }
-    Action { id: roiAction; objectName: "roiAction"; text: "ROI 선택"; shortcut: "R"; enabled: uiState.canNavigateImage; onTriggered: uiState.activeTool = "ROI" }
+    Action { id: panAction; objectName: "panAction"; text: "Pan"; shortcut: "H"; enabled: uiState.canNavigateImage; onTriggered: { uiState.roiEditMode = false; uiState.activeTool = "Pan" } }
+    Action { id: roiAction; objectName: "roiAction"; text: "ROI 선택"; shortcut: "R"; enabled: uiState.canNavigateImage; onTriggered: { uiState.roiEditMode = false; uiState.activeTool = "ROI" } }
     Action { id: clearRoiAction; objectName: "clearRoiAction"; text: "ROI 초기화"; enabled: uiState.hasRoi && !uiState.loading; onTriggered: window.clearRoi() }
     Action { id: copyRoiAction; objectName: "copyRoiAction"; text: "ROI 좌표 복사"; enabled: uiState.hasRoi && !uiState.loading; onTriggered: window.copyRoiInfo() }
     Action { id: zoomInAction; objectName: "zoomInAction"; text: "확대"; shortcut: "Ctrl++"; enabled: uiState.canNavigateImage && uiState.effectiveZoom < 16; onTriggered: viewer.zoomIn() }
@@ -182,11 +204,20 @@ ApplicationWindow {
                 }
             }
         }
-        InspectorPanel { id: inspector; theme: theme; uiState: uiState; visible: !window.inspectorCollapsed; Layout.preferredWidth: theme.panelWidth; Layout.fillHeight: true; onImportRequested: importRoisAction.trigger(); onBoundsRequested: window.selectImportedBounds() }
+        InspectorPanel { id: inspector; theme: theme; uiState: uiState; visible: !window.inspectorCollapsed; Layout.preferredWidth: theme.panelWidth; Layout.fillHeight: true; onImportRequested: importRoisAction.trigger(); onBoundsRequested: window.selectImportedBounds(); onSaveRequested: roiSaveDialog.open() }
     }
     footer: StatusBar { theme: theme; uiState: uiState; height: visible ? theme.statusHeight : 0; visible: window.statusBarVisible }
     FileDialog { id: openDialog; objectName: "openImageDialog"; title: "XRT 이미지 열기"; nameFilters: ["XRT 이미지 (*.tif *.tiff *.jpg *.jpeg)", "TIFF 이미지 (*.tif *.tiff)", "JPEG 이미지 (*.jpg *.jpeg)", "모든 파일 (*)"]; onAccepted: window.selectImageFile(selectedFile.toString()) }
     FileDialog { id: roiDialog; objectName: "roiFileDialog"; title: "대응하는 이미지의 ImageJ ROI 가져오기"; fileMode: FileDialog.OpenFiles; nameFilters: ["ImageJ ROI (*.roi *.zip)", "ROI 파일 (*.roi)", "ROI ZIP (*.zip)"]; onAccepted: fileBridge.importRois(selectedFiles) }
+    FileDialog { id: roiSaveDialog; objectName: "roiSaveDialog"; title: "새 ROI ZIP 복사본 저장 (기존 파일 덮어쓰기 불가)"; fileMode: FileDialog.SaveFile; nameFilters: ["ROI ZIP (*.zip)"]; defaultSuffix: "zip"; onAccepted: fileBridge.saveRoiCopy(selectedFile.toString()) }
+    Dialog {
+        id: roiDiscardDialog; objectName: "roiDiscardDialog"; modal: true; title: "저장하지 않은 ROI 변경"
+        x: (window.width - width) / 2; y: (window.height - height) / 2
+        standardButtons: Dialog.Discard | Dialog.Cancel
+        Label { text: "ROI ZIP 복사본을 저장하지 않은 변경이 있습니다.\n변경을 버리고 계속할까요? 취소 후 ROI 탭에서 저장할 수 있습니다." }
+        onDiscarded: { var next = window.discardNext; window.discardNext = null; if (next) next() }
+        onRejected: window.discardNext = null
+    }
     AppDialog { id: infoDialog; objectName: "infoDialog"; theme: theme; x: (window.width - width) / 2; y: (window.height - height) / 2 }
     SettingsDialog { id: settingsDialog; theme: theme; fileBridge: window.desktopBridge; x: (window.width - width) / 2; y: (window.height - height) / 2; onApplied: function(preferences) { window.applyPreferences(preferences) } }
 }

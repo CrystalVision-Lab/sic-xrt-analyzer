@@ -41,6 +41,7 @@ QtObject {
     readonly property bool pageLoading: stack.busy && !loading
     readonly property string cursorValue: stack.revision >= 0 && stack.cursorRevision >= 0 && hasLoadedImage && cursorX >= 0 && cursorY >= 0 ? fileBridge.pixelValue(cursorX, cursorY) : ""
     property var importedRois: fileBridge.roiState
+    property bool roiEditMode: false
     property var detail: fileBridge.detailState
     property string analysisScope: ""
     readonly property bool modelAvailable: analysis.modelAvailable
