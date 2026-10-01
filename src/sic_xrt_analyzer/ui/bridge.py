@@ -24,7 +24,7 @@ from sic_xrt_analyzer.imaging.tiff_preview import load_tiff_preview
 DEFAULTS = {
     "smoothImages": True,
     "viewerBackground": "#111518",
-    "defaultZoom": 1.0,
+    "defaultView": "fit",
     "roiVisible": True,
     "rememberRecentFiles": True,
     "recentFileLimit": 10,
@@ -87,8 +87,10 @@ class FileBridge(QObject):
                 output[key] = values[key]
         if values.get("viewerBackground") in ("#111518", "#080b0e"):
             output["viewerBackground"] = values["viewerBackground"]
-        if values.get("defaultZoom") in (1, 1.25, 2):
-            output["defaultZoom"] = float(values["defaultZoom"])
+        # Legacy fit-relative defaultZoom cannot describe a true pixel scale.
+        # Keep other preferences and migrate legacy views to the safe fit default.
+        if values.get("defaultView") in ("fit", "actual", "125", "200"):
+            output["defaultView"] = values["defaultView"]
         limit = values.get("recentFileLimit")
         if isinstance(limit, int) and not isinstance(limit, bool) and 1 <= limit <= 10:
             output["recentFileLimit"] = limit

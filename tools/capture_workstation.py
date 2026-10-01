@@ -23,8 +23,8 @@ def invoke(obj, name, *args):
 def main():
     app = QGuiApplication([])
     QQuickStyle.setStyle("Basic")
-    output = Path(__file__).resolve().parents[1] / "docs/screenshots"
-    output.mkdir(exist_ok=True)
+    output = Path(__file__).resolve().parents[1] / "docs/screenshots/polish"
+    output.mkdir(parents=True, exist_ok=True)
     with TemporaryDirectory() as directory:
         folder = Path(directory)
         engine = QQmlApplicationEngine()
@@ -47,9 +47,11 @@ def main():
             time.sleep(0.02)
             QTest.qWait(200)
 
+        names = {"main-image": "01-main-image", "main-roi": "02-main-roi", "analysis-roi": "03-analysis", "result-empty": "04-result-empty", "settings-general": "05-settings-general", "settings-viewer": "06-settings-viewer", "minimum": "07-minimum-1100x700"}
+
         def capture(name):
             settle()
-            assert window.grabWindow().save(str(output / ("industrial-" + name + ".png")))
+            assert window.grabWindow().save(str(output / (names.get(name, name) + ".png")))
 
         state = window.findChild(QObject, "uiState")
         inspector = window.findChild(QObject, "inspectorPanel")
@@ -67,6 +69,9 @@ def main():
                 break
         assert state.property("hasLoadedImage"), (state.property("loading"), state.property("loadError"), errors, bridge._task, bridge.provider.image.size())
         capture("main-image")
+        invoke(window.findChild(QObject, "actualSizeAction"), "trigger")
+        capture("actual-size-100")
+        invoke(window.findChild(QObject, "fitAction"), "trigger")
         QTest.keyClick(window, Qt.Key_R)
         viewport = window.findChild(QObject, "viewerViewport")
         frame = window.findChild(QObject, "imageFrame")
@@ -76,6 +81,7 @@ def main():
         QTest.mousePress(window, Qt.LeftButton, Qt.NoModifier, start)
         QTest.mouseMove(window, end, 30)
         QTest.mouseRelease(window, Qt.LeftButton, Qt.NoModifier, end)
+        capture("main-roi")
         inspector.setProperty("tabIndex", 1)
         capture("analysis-roi")
         inspector.setProperty("tabIndex", 2)
@@ -98,6 +104,13 @@ def main():
             QTest.keyClick(window, key, Qt.AltModifier)
             capture(name)
             QTest.keyClick(window, Qt.Key_Escape)
+        window.resize(1100, 700)
+        capture("minimum")
+        invoke(settings, "openPreferences")
+        settings.setProperty("category", 1)
+        capture("minimum-settings")
+        invoke(settings, "reject")
+        window.resize(1440, 900)
         bad = folder / "damaged.tif"
         bad.write_bytes(b"invalid TIFF")
         invoke(window, "selectImagePath", str(bad))
