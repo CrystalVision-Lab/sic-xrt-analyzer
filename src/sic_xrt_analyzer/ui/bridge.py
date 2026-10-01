@@ -1,4 +1,4 @@
-﻿"""Local desktop integration and persisted, applicable UI preferences."""
+"""Local desktop integration and persisted, applicable UI preferences."""
 import os
 import platform
 from importlib.metadata import PackageNotFoundError, version
@@ -221,4 +221,3 @@ class FileBridge(QObject):
     @Slot(result=bool)
     def openIssueTracker(self):
         return QDesktopServices.openUrl(QUrl("https://github.com/CrystalVision-Lab/sic-xrt-analyzer/issues"))
-

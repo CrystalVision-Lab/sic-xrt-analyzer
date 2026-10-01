@@ -1,4 +1,4 @@
-﻿"""Preferences must survive restarts and reject unsupported values."""
+"""Preferences must survive restarts and reject unsupported values."""
 from PySide6.QtCore import QSettings
 
 from sic_xrt_analyzer.ui.bridge import DEFAULTS, FileBridge
@@ -18,4 +18,3 @@ def test_applied_preferences_and_recent_privacy(tmp_path):
     assert not FileBridge(settings=QSettings(path, QSettings.IniFormat)).recentFiles
     assert bridge.recentFiles  # Session navigation still works.
     assert bridge.applyPreferences({"recentFileLimit": -1, "defaultZoom": 500, "viewerBackground": "white", "smoothImages": "false"}) == DEFAULTS
-

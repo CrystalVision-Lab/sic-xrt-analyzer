@@ -1,4 +1,4 @@
-﻿import QtQuick
+import QtQuick
 Canvas {
     id: root
     property string name: ""

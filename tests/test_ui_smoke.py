@@ -1,4 +1,4 @@
-﻿"""Integration checks for the workstation UI using generated data only."""
+"""Integration checks for the workstation UI using generated data only."""
 import os
 import time
 from pathlib import Path
@@ -207,6 +207,3 @@ def test_workstation_flow(tmp_path):
     window.close()
     engine.deleteLater()
     settle(app)
-
-
-

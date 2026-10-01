@@ -1,4 +1,4 @@
-﻿import QtQuick
+import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 
@@ -127,6 +127,3 @@ AppDialog {
         onAccepted: { root.loadDraft(root.fileBridge.defaultPreferences()); root.applyDraft() }
     }
 }
-
-
-

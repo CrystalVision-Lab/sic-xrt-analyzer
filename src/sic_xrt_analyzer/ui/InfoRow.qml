@@ -1,4 +1,4 @@
-﻿import QtQuick
+import QtQuick
 import QtQuick.Layouts
 RowLayout {
     id: row
@@ -11,4 +11,3 @@ RowLayout {
     Text { text: row.label; color: theme.muted; font.family: theme.fontFamily; font.pixelSize: theme.smallSize; Layout.preferredWidth: 86 }
     Text { text: row.value; color: row.valueColor; font.family: theme.monoFontFamily; font.pixelSize: theme.bodySize; horizontalAlignment: Text.AlignRight; elide: Text.ElideMiddle; Layout.fillWidth: true }
 }
-

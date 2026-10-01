@@ -1,4 +1,4 @@
-﻿"""Recent files contain only selected paths and survive app restarts."""
+"""Recent files contain only selected paths and survive app restarts."""
 
 from PySide6.QtCore import QSettings
 
@@ -26,4 +26,3 @@ def test_recent_files_are_unique_bounded_and_persistent(tmp_path):
     assert not restored.isAccessible(str(paths[5]))
     restored.clearRecentFiles()
     assert restored.recentFiles == []
-

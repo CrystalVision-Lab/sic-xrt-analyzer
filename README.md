@@ -1,4 +1,4 @@
-﻿# sic-xrt-analyzer
+# sic-xrt-analyzer
 
 SiC XRT 이미지를 탐색하는 PySide6/QML 데스크톱 앱입니다. 산업용 Dark Gray 화면, TIFF 뷰어, ROI와 독립 설정창을 제공합니다. **모델 분석은 아직 연결되지 않았습니다.**
 
@@ -80,4 +80,3 @@ python -m venv .venv
 웨이퍼 맵, 정합, 3D 및 승인된 ONNX 추론은 이 저장소 경계에 속하지만 현재 연결되지 않았습니다. 학습·평가는 sic-xrt-ml, 데이터 변환·검증은 sic-xrt-data-tools에서 담당합니다. 외부 모델 계약 변경은 별도 Issue에서 버전·해시·입출력 규약을 정합니다. 이번 UI 변경은 외부 모델 계약을 변경하지 않습니다.
 
 작업 규칙: [AGENTS.md](AGENTS.md), [공통 handbook](https://github.com/CrystalVision-Lab/engineering-handbook).
-

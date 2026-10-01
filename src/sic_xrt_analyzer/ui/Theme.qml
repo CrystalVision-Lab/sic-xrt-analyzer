@@ -1,4 +1,4 @@
-﻿import QtQuick
+import QtQuick
 QtObject {
     readonly property color window: "#161a1e"
     readonly property color panel: "#1d2227"
