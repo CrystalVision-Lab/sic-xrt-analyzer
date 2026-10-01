@@ -23,7 +23,7 @@ QtObject {
     readonly property int space: 8
     readonly property int panelWidth: 282
     readonly property int navigationWidth: 184
-    readonly property int toolbarHeight: 44
+    readonly property int toolbarHeight: 80
     readonly property int statusHeight: 28
     readonly property int controlHeight: 28
     readonly property int bodySize: 12

@@ -216,6 +216,7 @@ class RoiManager(QObject):
                            'visible': roi.id not in self.hidden, 'active': active, 'selected': self.selected == roi.id,
                            'pointCount': sum(len(p) for p in roi.paths)})
             result[-1]['modified'] = roi.id in self.modified
+            result[-1].update(tool=roi.tool, text=roi.text, strokeWidth=roi.stroke_width)
         return result
 
     def invalidate_pending(self):

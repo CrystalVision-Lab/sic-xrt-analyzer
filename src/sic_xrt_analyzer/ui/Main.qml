@@ -32,6 +32,16 @@ ApplicationWindow {
     property bool statusBarVisible: true
     property var discardNext: null
     property bool allowQuit: false
+    function imagejCommand(command, options) { imagejDialog.showCommand(command, options) }
+    function imagejTools() { imagejDialog.tabsIndex = 3; imagejDialog.open() }
+    function imagejMacro() { imagejDialog.showMacro() }
+    function imagejPlugin() { imagejDialog.showPlugin() }
+    function imagejCatalog() { imagejDialog.tabsIndex = 1; imagejDialog.open(); fileBridge.imagej.loadCommands() }
+    function imagejResults() { imagejDialog.tabsIndex = 2; imagejDialog.open() }
+    function saveImageCopy() { imageSaveDialog.open() }
+    function saveMeasurements() { measurementsSaveDialog.open() }
+    function imagejStatistics(kind) { imagejResults(); fileBridge.imagej.statistics(kind) }
+    function imagejStackCommand(command, options) { imagejDialog.showCommand(command, options); imagejDialog.wholeStack = true }
     function confirmRoiDiscard(callback) {
         if (!uiState.importedRois.dirty) { callback(); return }
         discardNext = callback; roiDiscardDialog.open()
@@ -105,6 +115,7 @@ ApplicationWindow {
         function onImageOpened(result) {
             uiState.opening = false
             if (!result.ok) { uiState.loadError = result.error; uiState.statusText = "이미지 열기 실패: " + result.error; return }
+            var sizeChanged = uiState.imageWidth !== result.width || uiState.imageHeight !== result.height
             uiState.filePath = result.path; uiState.fileName = result.name
             uiState.imageWidth = result.width; uiState.imageHeight = result.height
             uiState.previewWidth = result.previewWidth; uiState.previewHeight = result.previewHeight
@@ -112,9 +123,11 @@ ApplicationWindow {
             uiState.pageIndex = result.pageIndex; uiState.dtype = result.dtype
             uiState.imageFormat = result.format
             uiState.imageSource = result.source; uiState.workspaceIndex = 0; uiState.demoMode = false
-            uiState.activeTool = "Pan"; uiState.hasRoi = false; uiState.cursorX = -1; uiState.cursorY = -1
+            if (!result.workingCopy) uiState.activeTool = "Pan"
+            if (!result.workingCopy || sizeChanged) uiState.hasRoi = false
+            uiState.cursorX = -1; uiState.cursorY = -1
             window.openInspectorTab(3)
-            viewer.defaultView()
+            if (!result.workingCopy || sizeChanged) viewer.defaultView()
             viewer.focusView()
             uiState.statusText = result.format + " · " + result.pageCount + " 페이지 / " + (result.pageCount > 1 ? "전체 준비 후 탐색" : "화면 맞춤")
         }
@@ -136,6 +149,11 @@ ApplicationWindow {
             uiState.statusText = "페이지 " + (result.pageIndex + 1) + " / " + result.pageCount
                                  + (result.browsePreview ? " · 탐색 미리보기 / 원본 준비 중" : " · 원본 픽셀")
         }
+    }
+    Connections {
+        target: fileBridge.imagej
+        function onResultReady(path) { uiState.opening = true; fileBridge.requestWorkingCopy(path) }
+        function onSaveFinished(result) { uiState.statusText = "복사본 저장 완료: " + result.path }
     }
     function clearRoi() { uiState.hasRoi = false; uiState.statusText = "ROI를 초기화했습니다" }
     function selectImportedBounds() {
@@ -160,7 +178,7 @@ ApplicationWindow {
     function showInfo(heading, body) { infoDialog.title = heading; infoDialog.bodyText = body; infoDialog.open() }
     Action { id: openAction; objectName: "openAction"; text: "이미지 열기…"; shortcut: StandardKey.Open; onTriggered: window.openImageDialog() }
     Action { id: importRoisAction; objectName: "importRoisAction"; text: "ImageJ ROI 가져오기…"; enabled: uiState.hasLoadedImage && !uiState.loading; onTriggered: { window.openInspectorTab(4); roiDialog.open() } }
-    Action { id: saveAction; text: "프로젝트 저장"; enabled: false }
+    Action { id: saveAction; text: "이미지 복사본 저장…"; shortcut: StandardKey.Save; enabled: uiState.hasLoadedImage && !uiState.loading && !fileBridge.imagej.state.busy; onTriggered: window.saveImageCopy() }
     Action { id: demoAction; text: "합성 데모 이미지 보기"; enabled: !uiState.loading; onTriggered: window.showDemo() }
     Action { id: closeImageAction; objectName: "closeImageAction"; text: "현재 이미지 닫기"; shortcut: StandardKey.Close; enabled: uiState.hasImage || uiState.loading; onTriggered: window.closeImage() }
     Action { id: quitAction; text: "종료"; shortcut: "Ctrl+Q"; onTriggered: window.close() }
@@ -187,7 +205,7 @@ ApplicationWindow {
     Action { id: reportIssueAction; text: "문제 보고"; onTriggered: { if (!fileBridge.openIssueTracker()) window.showInfo("문제 보고", "브라우저를 열지 못했습니다. GitHub 저장소의 Issues에서 보고해 주세요.") } }
     Action { id: aboutAction; objectName: "aboutAction"; text: "프로그램 정보"; onTriggered: window.showInfo("SiC XRT Analyzer", "XRT 이미지 검사·분석\n버전 " + fileBridge.appVersion + "\n" + fileBridge.systemInfo + "\n\nTIFF/JPG · ImageJ ROI 뷰어\n모델 분석 미연결\nCrystalVision-Lab") }
     menuBar: AppMenuBar { theme: theme; uiState: uiState; hostWindow: window; fileBridge: window.desktopBridge; actions: window.commands }
-    header: TopToolbar { objectName: "topToolbar"; theme: theme; uiState: uiState; actions: window.commands; height: theme.toolbarHeight }
+    header: TopToolbar { objectName: "topToolbar"; theme: theme; uiState: uiState; actions: window.commands; hostWindow: window; height: theme.toolbarHeight }
     RowLayout {
         anchors.fill: parent; spacing: 0
         NavigationPanel { theme: theme; uiState: uiState; collapsed: window.navigationCollapsed; recentFiles: fileBridge.recentFiles; Layout.preferredWidth: implicitWidth; Layout.fillHeight: true; onCollapseRequested: window.navigationCollapsed = !window.navigationCollapsed; onWorkspaceRequested: function(index) { window.selectWorkspace(index) }; onRecentRequested: function(path) { window.selectImagePath(path) } }
@@ -210,6 +228,8 @@ ApplicationWindow {
     FileDialog { id: openDialog; objectName: "openImageDialog"; title: "XRT 이미지 열기"; nameFilters: ["XRT 이미지 (*.tif *.tiff *.jpg *.jpeg)", "TIFF 이미지 (*.tif *.tiff)", "JPEG 이미지 (*.jpg *.jpeg)", "모든 파일 (*)"]; onAccepted: window.selectImageFile(selectedFile.toString()) }
     FileDialog { id: roiDialog; objectName: "roiFileDialog"; title: "대응하는 이미지의 ImageJ ROI 가져오기"; fileMode: FileDialog.OpenFiles; nameFilters: ["ImageJ ROI (*.roi *.zip)", "ROI 파일 (*.roi)", "ROI ZIP (*.zip)"]; onAccepted: fileBridge.importRois(selectedFiles) }
     FileDialog { id: roiSaveDialog; objectName: "roiSaveDialog"; title: "새 ROI ZIP 복사본 저장 (기존 파일 덮어쓰기 불가)"; fileMode: FileDialog.SaveFile; nameFilters: ["ROI ZIP (*.zip)"]; defaultSuffix: "zip"; onAccepted: fileBridge.saveRoiCopy(selectedFile.toString()) }
+    FileDialog { id: imageSaveDialog; title: "이미지 전체 파일의 새 복사본 저장 (기존 파일 덮어쓰기 불가)"; fileMode: FileDialog.SaveFile; nameFilters: uiState.imageFormat === "JPEG" ? ["JPEG (*.jpg *.jpeg)"] : ["TIFF (*.tif *.tiff)"]; defaultSuffix: uiState.imageFormat === "JPEG" ? "jpg" : "tif"; onAccepted: fileBridge.imagej.saveImageCopy(selectedFile.toString()) }
+    FileDialog { id: measurementsSaveDialog; title: "측정 결과 TSV 저장"; fileMode: FileDialog.SaveFile; nameFilters: ["TSV (*.tsv)"]; defaultSuffix: "tsv"; onAccepted: fileBridge.imagej.saveResults(selectedFile.toString()) }
     Dialog {
         id: roiDiscardDialog; objectName: "roiDiscardDialog"; modal: true; title: "저장하지 않은 ROI 변경"
         x: (window.width - width) / 2; y: (window.height - height) / 2
@@ -220,4 +240,5 @@ ApplicationWindow {
     }
     AppDialog { id: infoDialog; objectName: "infoDialog"; theme: theme; x: (window.width - width) / 2; y: (window.height - height) / 2 }
     SettingsDialog { id: settingsDialog; theme: theme; fileBridge: window.desktopBridge; x: (window.width - width) / 2; y: (window.height - height) / 2; onApplied: function(preferences) { window.applyPreferences(preferences) } }
+    ImageJDialog { id: imagejDialog; theme: theme; backend: fileBridge.imagej; x: (window.width - width) / 2; y: (window.height - height) / 2 }
 }

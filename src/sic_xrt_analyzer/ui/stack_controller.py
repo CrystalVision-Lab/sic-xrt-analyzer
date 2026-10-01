@@ -226,12 +226,16 @@ class StackController(QObject):
         self.changed.emit()
 
     def _publish(self, frame, opening):
-        if self.frame is not None and self.frame.source is not frame.source:
+        if self.frame is not None and self.frame.source is not frame.source and not (
+                getattr(self.frame.source, 'display_group', None) is not None and
+                getattr(self.frame.source, 'display_group', None) is getattr(frame.source, 'display_group', None)):
             self._close_prepared_frame()
         self.frame = frame
         if isinstance(self._reader.stack, SampledImageStack) and self._reader.stack.first_source is frame.source:
             # A failed next open must retain this frame's native cache. The
             # displayed-frame owner releases it on successful replacement/close.
+            self._reader.stack.retain_prepared = True
+        elif getattr(frame.source, 'display_group', None) is not None and self._reader.stack is not None:
             self._reader.stack.retain_prepared = True
         self.window = (frame.low, frame.high)
         self.frameReady.emit(frame, opening)
@@ -366,6 +370,12 @@ class StackController(QObject):
         self.frame = None
 
     def _close_prepared_frame(self):
+        group = getattr(self.frame.source, 'display_group', None) if self.frame else None
+        if group is not None:
+            group.close()
+        pyramid = getattr(self.frame.source, 'display_pyramid', None) if self.frame else None
+        if pyramid is not None:
+            pyramid.close()
         cache = getattr(self.frame.source, 'prepared', None) if self.frame else None
         if cache is not None:
             cache.close()

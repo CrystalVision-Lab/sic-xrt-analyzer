@@ -1,4 +1,5 @@
 """PySide6/QML application entry point."""
+import os
 import sys
 from pathlib import Path
 
@@ -11,6 +12,8 @@ from sic_xrt_analyzer.ui.bridge import FileBridge, TiffImageProvider
 
 
 def main() -> int:
+    # Python-painted items run on the GUI thread; avoid render-thread/GIL waits.
+    os.environ.setdefault('QSG_RENDER_LOOP', 'basic')
     app = QGuiApplication(sys.argv)
     app.setApplicationName("sic-xrt-analyzer")
     app.setOrganizationName("CrystalVision-Lab")

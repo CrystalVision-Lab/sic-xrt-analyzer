@@ -39,7 +39,7 @@ ColumnLayout {
     }
     Text {
         visible: uiState.stack.browsePreview; Layout.fillWidth: true; wrapMode: Text.Wrap
-        text: "탐색 미리보기 · 놓으면 정밀 표시"; color: theme.muted; font.pixelSize: 11
+        text: uiState.stack.preparedDisplay ? "전체 정밀 표시 준비 완료 · 드래그 중에도 현재 배율 유지" : "탐색 미리보기 · 놓으면 정밀 표시"; color: theme.muted; font.pixelSize: 11
     }
     AppButton { theme: root.theme; text: "다시 준비"; visible: !!uiState.stack.preloadError; onClicked: fileBridge.retryPreload() }
 
