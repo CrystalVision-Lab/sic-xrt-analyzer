@@ -103,7 +103,8 @@ ApplicationWindow {
             uiState.imageSource = result.source; uiState.loadError = ""
             if (changedPage) { uiState.hasRoi = false; uiState.selectingRoi = false }
             if (changedSize) viewer.defaultView()
-            uiState.statusText = "페이지 " + (result.pageIndex + 1) + " / " + result.pageCount + " · 원본 픽셀"
+            uiState.statusText = "페이지 " + (result.pageIndex + 1) + " / " + result.pageCount
+                                 + (result.browsePreview ? " · 탐색 미리보기 / 원본 준비 중" : " · 원본 픽셀")
         }
     }
     function clearRoi() { uiState.hasRoi = false; uiState.statusText = "ROI를 초기화했습니다" }
