@@ -1,5 +1,8 @@
 """Synthetic multi-page and ImageJ frame stacks; no inspection data in Git."""
+import json
 import os
+import subprocess
+import sys
 import time
 from pathlib import Path
 from threading import Event, get_ident
@@ -116,18 +119,29 @@ def test_imagej_display_range_parsing(metadata, expected):
 
 
 def test_readonly_validation_tool(stack_file):
-    from tools.validate_tiff_stack import validate
     path, _ = stack_file
-    report = validate(path, (96, 64, 7))
+    script = Path(__file__).parents[1] / "tools/validate_tiff_stack.py"
+    result = subprocess.run([sys.executable, str(script), "--folder", str(path.parent), "--files", path.name],
+                            capture_output=True, text=True, encoding="utf-8", timeout=20,
+                            env={**os.environ, "PYTHONIOENCODING": "utf-8"}, check=False)
+    assert result.returncode == 0, result.stderr + result.stdout
+    report = json.loads(result.stdout)["files"][0]
     assert report["status"] == "PASS", report
+    assert (report["width"], report["height"], report["pages"]) == (96, 64, 7)
     assert [r["page"] for r in report["checks"]] == [1, 4, 7]
     assert report["source_stat_unchanged"]
     assert all(r["contrast_changed"] and r["raw_equal"] for r in report["checks"])
 
 
 def test_validation_reports_missing_real_files_without_claiming_pass(tmp_path):
-    from tools.validate_tiff_stack import EXPECTED, validate
-    reports = [validate(tmp_path / name, dimensions) for name, dimensions in EXPECTED.items()]
+    script = Path(__file__).parents[1] / "tools/validate_tiff_stack.py"
+    result = subprocess.run([sys.executable, str(script), "--folder", str(tmp_path)],
+                            capture_output=True, text=True, encoding="utf-8", timeout=20,
+                            env={**os.environ, "PYTHONIOENCODING": "utf-8"}, check=False)
+    assert result.returncode == 1, result.stderr + result.stdout
+    report = json.loads(result.stdout)
+    assert report["status"] == "PARTIAL"
+    reports = report["files"]
     assert len(reports) == 4 and all(r["status"] == "NOT_RUN" for r in reports)
 
 
