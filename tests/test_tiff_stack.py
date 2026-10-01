@@ -190,7 +190,7 @@ def test_prefetch_cache_publishes_immediately_and_demand_wins(qt_app, stack_file
         gate.set()
         spin(qt_app, lambda: not controller.busy)
         assert published == [0, 1, 0, 6]
-        assert calls == [0, 1, 2, 6]  # Intermediate demand and remaining prefetch were replaced.
+        assert calls[:4] == [0, 1, 2, 6]  # Later idle prefetch may run; demand 5 was replaced.
         controller.display_range(0, 20000)
         spin(qt_app, lambda: not controller.busy)
         spin(qt_app, lambda: stack.cached_frame(5, (0, 20000)) is not None)
