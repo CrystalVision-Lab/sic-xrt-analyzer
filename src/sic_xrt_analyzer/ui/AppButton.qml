@@ -34,6 +34,6 @@ Button {
         radius: 3
         color: !control.enabled ? theme.toolbar : control.down ? theme.hover : control.checked ? theme.accentPale : control.hovered ? theme.hover : control.quiet ? "transparent" : theme.surface
         border.width: 1
-        border.color: control.activeFocus || (control.primary && control.enabled) || control.checked ? theme.accent : control.quiet && control.enabled ? "transparent" : theme.border
+        border.color: control.activeFocus || (control.primary && control.enabled) || (control.checked && control.enabled) ? theme.accent : control.quiet && control.enabled ? "transparent" : theme.border
     }
 }

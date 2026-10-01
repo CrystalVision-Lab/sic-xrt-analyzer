@@ -1,4 +1,4 @@
-"""Integration checks for the workstation UI using generated data only."""
+﻿"""Integration checks for the workstation UI using generated data only."""
 import os
 import time
 from pathlib import Path
@@ -10,7 +10,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from PySide6.QtCore import Q_ARG, QMetaObject, QObject, QPoint, QSettings, Qt, QUrl
 from PySide6.QtGui import QGuiApplication, QWindow
-from PySide6.QtQml import QQmlApplicationEngine
+from PySide6.QtQml import QQmlApplicationEngine, QQmlExpression
 from PySide6.QtQuickControls2 import QQuickStyle
 from PySide6.QtTest import QTest
 
@@ -80,13 +80,16 @@ def test_workstation_flow(tmp_path):
     settle(app)
     assert state.property("canNavigateImage")
     QTest.keyClick(window, Qt.Key_R)
-    assert state.property("activeTool") == "영역 선택"
+    assert state.property("activeTool") == "ROI"
     QTest.keyClick(window, Qt.Key_H)
-    assert state.property("activeTool") == "이동"
+    assert state.property("activeTool") == "Pan"
+    fit_zoom = state.property("effectiveZoom")
+    assert state.property("zoomLabel") == "FIT"
     invoke(viewer, "zoomIn")
-    assert state.property("zoom") > 1
+    assert state.property("effectiveZoom") > fit_zoom
     QTest.keyClick(window, Qt.Key_0, Qt.ControlModifier)
-    assert state.property("zoom") == 1
+    assert state.property("fitMode")
+    assert state.property("zoomLabel") == "FIT"
 
     old_width = viewer.property("viewportWidth")
     invoke(window.findChild(QObject, "inspectorPanelAction"), "trigger")
@@ -100,6 +103,8 @@ def test_workstation_flow(tmp_path):
     invoke(settings, "openPreferences")
     settle(app)
     assert settings.property("visible"), (warnings, settings.metaObject().className(), settings.property("title"), settings.property("opened"))
+    assert settings.property("title") == "설정"
+    assert settings.property("categories").toVariant() == ["일반", "뷰어", "이미지", "분석", "AI / 모델", "보정", "성능", "내보내기", "단축키", "진단"]
     assert inspector.property("tabIndex") == 0
     for category in range(10):
         settings.setProperty("category", category)
@@ -111,19 +116,19 @@ def test_workstation_flow(tmp_path):
     QTest.keyClick(window, Qt.Key_Down)
     QTest.keyClick(window, Qt.Key_Return)
     settle(app)
-    assert settings.property("draftZoom") == 1.25
+    assert settings.property("draftView") == "actual"
     settings.setProperty("draftSmooth", False)
-    settings.setProperty("draftZoom", 2.0)
+    settings.setProperty("draftView", "200")
     invoke(settings, "reject")
     assert bridge.preferences()["smoothImages"]
     invoke(settings, "openPreferences")
     assert settings.property("draftSmooth")
     settings.setProperty("draftSmooth", False)
-    settings.setProperty("draftZoom", 1.25)
+    settings.setProperty("draftView", "125")
     invoke(settings, "applyDraft")
     assert settings.property("visible"), (warnings, settings.metaObject().className(), settings.property("title"), settings.property("opened"))
     assert not state.property("smoothImages")
-    assert bridge.preferences()["defaultZoom"] == 1.25
+    assert bridge.preferences()["defaultView"] == "125"
     # Cancel after Apply retains applied values but discards later edits.
     settings.setProperty("draftSmooth", True)
     invoke(settings, "reject")
@@ -138,11 +143,11 @@ def test_workstation_flow(tmp_path):
     invoke(reset, "accept")
     assert bridge.preferences() == bridge.defaultPreferences()
     assert state.property("smoothImages")
-    settings.setProperty("draftZoom", 2.0)
+    settings.setProperty("draftView", "200")
     ok = window.findChild(QObject, "okSettingsButton")
     invoke(ok, "clicked")
     assert not settings.property("visible")
-    assert bridge.preferences()["defaultZoom"] == 2
+    assert bridge.preferences()["defaultView"] == "200"
     bridge.applyPreferences(bridge.defaultPreferences())
     invoke(window, "applyPreferences", bridge.preferences())
 
@@ -159,8 +164,33 @@ def test_workstation_flow(tmp_path):
     assert bridge.recentFiles == [str(path)]
     assert not state.property("canAnalyze")
 
+    # Absolute view choices use original pixels and display pixel density.
+    for mode, scale in [("actual", 1), ("125", 1.25), ("200", 2)]:
+        settings.setProperty("draftView", mode)
+        invoke(settings, "applyDraft")
+        invoke(window, "selectImagePath", str(path))
+        wait_loaded(app, state)
+        assert not state.property("fitMode")
+        assert state.property("effectiveZoom") == scale
+        assert abs(frame.property("width") * state.property("displayPixelRatio") - 512 * scale) < .001
+        assert state.property("zoomLabel") == f"{scale * 100:g}%"
+    invoke(window.findChild(QObject, "actualSizeAction"), "trigger")
+    assert state.property("zoomLabel") == "100%"
+    state.setProperty("displayPixelRatio", 2)
+    assert abs(frame.property("width") - 256) < .001
+    state.setProperty("displayPixelRatio", window.devicePixelRatio())
+    invoke(viewer, "fitView")
+    assert state.property("zoomLabel") == "FIT"
+    original_fit = state.property("effectiveZoom")
+    window.resize(1200, 800)
+    settle(app)
+    assert state.property("fitMode") and state.property("effectiveZoom") != original_fit
+    assert state.property("zoomLabel") == "FIT"
+    window.resize(1440, 900)
+    settle(app)
+
     # Mouse coordinates and ROI use original pixels, independent of zoom.
-    state.setProperty("activeTool", "영역 선택")
+    state.setProperty("activeTool", "ROI")
     viewport = window.findChild(QObject, "viewerViewport")
     origin = viewport.mapToScene(QPoint(0, 0))
     start = QPoint(int(origin.x() + frame.property("x") + frame.property("width") * .2),
@@ -169,14 +199,23 @@ def test_workstation_flow(tmp_path):
                  int(origin.y() + frame.property("y") + frame.property("height") * .6))
     QTest.mousePress(window, Qt.LeftButton, Qt.NoModifier, start)
     QTest.mouseMove(window, end, 20)
+    assert state.property("selectingRoi")
+    overlay = window.findChild(QObject, "roiOverlay")
+    assert QQmlExpression(engine.rootContext(), overlay, "border.width").evaluate()[0] == 2
+    assert .07 < overlay.property("color").alphaF() < .09
     QTest.mouseRelease(window, Qt.LeftButton, Qt.NoModifier, end)
     settle(app)
     assert state.property("hasRoi")
+    assert not state.property("selectingRoi")
+    assert QQmlExpression(engine.rootContext(), overlay, "border.width").evaluate()[0] == 1
+    assert .03 < overlay.property("color").alphaF() < .05
+    assert state.property("workflowLabel") == "ROI 선택됨"
+    assert state.property("viewerStatus") == "준비 완료"
     assert 200 <= state.property("roiWidth") <= 210
     assert state.property("cursorX") >= 0
     invoke(window, "copyRoiInfo")
     assert "ROI (original pixels)" in app.clipboard().text()
-    state.setProperty("activeTool", "이동")
+    state.setProperty("activeTool", "Pan")
     QTest.mousePress(window, Qt.LeftButton, Qt.NoModifier, start)
     QTest.mouseMove(window, start + QPoint(20, 10), 20)
     QTest.mouseRelease(window, Qt.LeftButton, Qt.NoModifier, start + QPoint(20, 10))
@@ -192,7 +231,7 @@ def test_workstation_flow(tmp_path):
     assert state.property("loadError")
     assert state.property("imageSource") == old_source
     assert bridge.recentFiles == [str(path)]
-    assert state.property("workflowLabel") == "FILE ERROR"
+    assert state.property("workflowLabel") == "파일 오류"
     for index in range(3):
         inspector.setProperty("tabIndex", index)
         settle(app)
@@ -207,3 +246,4 @@ def test_workstation_flow(tmp_path):
     window.close()
     engine.deleteLater()
     settle(app)
+

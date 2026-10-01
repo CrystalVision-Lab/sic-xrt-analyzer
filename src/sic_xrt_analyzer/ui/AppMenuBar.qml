@@ -45,7 +45,7 @@ MenuBar {
         AppMenuItem { text: "프로젝트 열기…"; enabled: false }
         AppMenuItem { action: root.actions.save; shortcutLabel: "Ctrl+S" }
         AppMenuItem { text: "다른 이름으로 저장…"; enabled: false }
-        AppMenu { title: "Export…"; enabled: false
+        AppMenu { title: "내보내기…"; enabled: false
             AppMenuItem { text: "분석 결과 CSV…"; enabled: false }
             AppMenuItem { text: "현재 화면 PNG…"; enabled: false }
             AppMenuItem { text: "분석 보고서…"; enabled: false }
@@ -66,7 +66,7 @@ MenuBar {
         AppMenuItem { action: root.actions.fit; shortcutLabel: "Ctrl+0" }
         AppMenuItem { action: root.actions.zoomIn; shortcutLabel: "Ctrl++" }
         AppMenuItem { action: root.actions.zoomOut; shortcutLabel: "Ctrl+-" }
-        AppMenuItem { text: "실제 크기 100% · 준비 중"; enabled: false }
+        AppMenuItem { action: root.actions.actualSize; shortcutLabel: "Ctrl+1" }
         MenuSeparator {}
         AppMenuItem { objectName: "navigationPanelMenuItem"; action: root.actions.navigationPanel; checkable: true; checked: !root.hostWindow.navigationCollapsed }
         AppMenuItem { objectName: "infoPanelMenuItem"; action: root.actions.inspectorPanel; checkable: true; checked: !root.hostWindow.inspectorCollapsed }
@@ -74,9 +74,9 @@ MenuBar {
         AppMenu {
             title: "표시 레이어"
             AppMenuItem { action: root.actions.roiLayer; checkable: true; checked: root.uiState.roiLayerVisible }
-            AppMenuItem { text: "Defect Overlay · 준비 중"; checkable: true; enabled: false }
-            AppMenuItem { text: "Scale Bar · 스케일 미연결"; checkable: true; enabled: false }
-            AppMenuItem { text: "좌표 격자 · 준비 중"; checkable: true; enabled: false }
+            AppMenuItem { text: "결함 표시"; checkable: true; enabled: false }
+            AppMenuItem { text: "스케일 바"; checkable: true; enabled: false }
+            AppMenuItem { text: "좌표 격자"; checkable: true; enabled: false }
         }
         MenuSeparator {}
         AppMenuItem { action: root.actions.fullScreen; shortcutLabel: "F11"; checkable: true; checked: root.hostWindow.visibility === Window.FullScreen }
@@ -87,11 +87,11 @@ MenuBar {
         AppMenuItem { text: "이미지 분석"; checkable: true; checked: root.uiState.workspaceIndex === 0; onTriggered: root.hostWindow.selectWorkspace(0) }
         AppMenuItem { text: "Wafer Map"; checkable: true; checked: root.uiState.workspaceIndex === 1; onTriggered: root.hostWindow.selectWorkspace(1) }
         AppMenuItem { text: "이미지 정합"; checkable: true; checked: root.uiState.workspaceIndex === 2; onTriggered: root.hostWindow.selectWorkspace(2) }
-        AppMenuItem { text: "3D Viewer"; checkable: true; checked: root.uiState.workspaceIndex === 3; onTriggered: root.hostWindow.selectWorkspace(3) }
+        AppMenuItem { text: "3D 뷰어"; checkable: true; checked: root.uiState.workspaceIndex === 3; onTriggered: root.hostWindow.selectWorkspace(3) }
     }
     AppMenu {
         id: analysisMenu; objectName: "analysisMenu"; title: "분석"
-        AppMenuItem { action: root.actions.roi; shortcutLabel: "R"; checkable: true; checked: root.uiState.activeTool === "영역 선택" }
+        AppMenuItem { action: root.actions.roi; shortcutLabel: "R"; checkable: true; checked: root.uiState.activeTool === "ROI" }
         AppMenuItem { action: root.actions.clearRoi }
         MenuSeparator {}
         AppMenuItem { action: root.actions.run; iconName: "run"; ToolTip.text: root.uiState.analysisReason; ToolTip.visible: hovered }
@@ -100,8 +100,8 @@ MenuBar {
     }
     AppMenu {
         id: toolsMenu; objectName: "toolsMenu"; title: "도구"
-        AppMenuItem { text: "픽셀·거리 측정 · 준비 중"; enabled: false }
-        AppMenuItem { text: "스케일 설정 · 미연결"; enabled: false }
+        AppMenuItem { text: "픽셀·거리 측정"; enabled: false }
+        AppMenuItem { text: "스케일 설정"; enabled: false }
         MenuSeparator {}
         AppMenuItem { action: root.actions.modelInfo }
     }
