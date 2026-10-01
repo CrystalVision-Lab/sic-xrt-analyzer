@@ -40,6 +40,7 @@ MenuBar {
             AppMenuItem { text: "목록 비우기"; enabled: root.fileBridge.recentFiles.length > 0; onTriggered: root.fileBridge.clearRecentFiles() }
         }
         AppMenuItem { action: root.actions.demo }
+        AppMenuItem { action: root.actions.importRois; iconName: "roi" }
         MenuSeparator {}
         AppMenuItem { text: "새 분석 프로젝트"; enabled: false }
         AppMenuItem { text: "프로젝트 열기…"; enabled: false }
