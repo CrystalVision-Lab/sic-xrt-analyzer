@@ -27,7 +27,9 @@ from sic_xrt_analyzer.analysis.contracts import (
 from sic_xrt_analyzer.analysis.pipeline import AnalysisPipeline
 from sic_xrt_analyzer.imaging.image_stack import open_stack
 from sic_xrt_analyzer.imaging.original_source import OriginalImageSource
+from sic_xrt_analyzer.imaging.roi_edit import export_copy
 from sic_xrt_analyzer.ui.detail_reader import DetailReader
+from sic_xrt_analyzer.ui.latest_reader import LatestReader
 from sic_xrt_analyzer.ui.pixel_reader import PixelReader
 from sic_xrt_analyzer.ui.roi_manager import RoiManager
 from sic_xrt_analyzer.ui.stack_controller import StackController
@@ -62,6 +64,7 @@ class FileBridge(QObject):
     roisChanged = Signal()
     roiImportFinished = Signal("QVariantMap")
     detailChanged = Signal()
+    roiSaved = Signal("QVariantMap")
 
     def __init__(self, provider=None, parent=None, settings=None):
         super().__init__(parent)
@@ -79,6 +82,8 @@ class FileBridge(QObject):
         self.roi_manager = RoiManager(self)
         self.roi_manager.changed.connect(self.roisChanged)
         self.roi_manager.reader.ready.connect(self._on_roi_imported)
+        self.roi_exporter = LatestReader(self)
+        self.roi_exporter.ready.connect(self._on_roi_saved)
         self.pipeline = AnalysisPipeline(parent=self)
         self.pipeline.changed.connect(self.analysisChanged)
         self._settings = settings or QSettings("CrystalVision-Lab", "sic-xrt-analyzer")
@@ -133,6 +138,7 @@ class FileBridge(QObject):
         return {
             "busy": s.busy, "error": s.error, "revision": self.revision,
             "initialLoading": s.initial_loading,
+            "preparing": s.preparing,
             "preload": s.preload_state, "preloadError": s.preload_error,
             "detailBusy": s.detail_busy, "rawReady": f is not None and f.pixels is not None,
             "browsePreview": f is not None and f.pixels is None and f.source.metadata.page_count > 1,
@@ -192,8 +198,83 @@ class FileBridge(QObject):
 
     @Property("QVariantMap", notify=roisChanged)
     def roiState(self):
+        manager = self.roi_manager
+        selected = next((r for r in manager.records if r.id == manager.selected), None)
+        point = selected.paths[0][manager.vertex] if selected and len(selected.paths) == 1 and 0 <= manager.vertex < len(selected.paths[0]) else (0, 0)
         return {"items": self.roi_manager.view(self.stack_viewer.frame), "busy": self.roi_manager.busy,
-                "errors": list(self.roi_manager.errors), "selected": self.roi_manager.selected}
+                "errors": list(manager.errors), "selected": manager.selected,
+                "vertex": manager.vertex, "pointX": point[0], "pointY": point[1],
+                "canUndo": bool(manager.undo_stack), "canRedo": bool(manager.redo_stack),
+                "dirty": manager.dirty, "editError": manager.edit_error}
+
+    def _edit(self, method, *args):
+        if self.stack_viewer.initial_loading:
+            return False
+        try:
+            return method(*args, self.stack_viewer.frame)
+        except (ValueError, IndexError) as exc:
+            self.roi_manager.edit_error = str(exc)
+            self.roisChanged.emit()
+            return False
+
+    @Slot()
+    def newPointRoi(self):
+        self._edit(self.roi_manager.new_points)
+
+    @Slot(int)
+    def selectRoiVertex(self, index):
+        self._edit(self.roi_manager.select_vertex, index)
+
+    @Slot(float, float)
+    def moveRoiVertex(self, x, y):
+        self._edit(self.roi_manager.move_vertex, x, y)
+
+    @Slot(float, float)
+    def addRoiVertex(self, x, y):
+        self._edit(self.roi_manager.add_vertex, x, y)
+
+    @Slot()
+    def deleteRoiVertex(self):
+        self._edit(self.roi_manager.delete_vertex)
+
+    @Slot(float, float)
+    def translateRoi(self, dx, dy):
+        self._edit(self.roi_manager.move_roi, dx, dy)
+
+    @Slot(str)
+    def renameRoi(self, name):
+        self._edit(self.roi_manager.rename, name)
+
+    @Slot(float, float, float, result=bool)
+    def beginRoiDrag(self, x, y, tolerance):
+        return bool(self._edit(self.roi_manager.begin_drag, x, y, tolerance))
+
+    @Slot(float, float)
+    def dragRoiVertex(self, x, y):
+        if self.roi_manager.gesture is not None:
+            self.roi_manager.move_vertex(x, y, self.stack_viewer.frame, remember=False)
+
+    @Slot(bool)
+    def finishRoiDrag(self, cancel):
+        self.roi_manager.finish_drag(cancel)
+
+    @Slot(bool)
+    def roiHistory(self, redo):
+        if not self.stack_viewer.initial_loading:
+            self.roi_manager.history(redo)
+
+    @Slot(str)
+    def saveRoiCopy(self, url):
+        path, records = self.localPath(url), tuple(self.roi_manager.records)
+        self.roi_exporter.submit(lambda: (export_copy(path, records), path, records))
+
+    @Slot(object, str)
+    def _on_roi_saved(self, result, error):
+        if not error and tuple(self.roi_manager.records) == result[2]:
+            self.roi_manager.modified.clear()
+            self.roi_manager.saved_records = result[2]
+            self.roisChanged.emit()
+        self.roiSaved.emit({'ok': not bool(error), 'error': error, 'path': result[1] if result else ''})
 
     @Property("QVariantMap", notify=detailChanged)
     def detailState(self):
@@ -254,10 +335,13 @@ class FileBridge(QObject):
     def selectImportedRoi(self, roi_id):
         if any(r.id == roi_id for r in self.roi_manager.records):
             self.roi_manager.selected = roi_id
+            self.roi_manager.vertex = 0
             self.roisChanged.emit()
 
     @Slot(str)
     def removeImportedRoi(self, roi_id):
+        self.roi_manager.remember(self.roi_manager.snapshot())
+        self.roi_manager.modified.add(roi_id)
         self.roi_manager.records = [r for r in self.roi_manager.records if r.id != roi_id]
         self.roi_manager.hidden.discard(roi_id)
         if self.roi_manager.selected == roi_id:
@@ -266,7 +350,7 @@ class FileBridge(QObject):
 
     @Slot()
     def clearImportedRois(self):
-        self.roi_manager.clear()
+        self.roi_manager.clear_list()
 
     @Property("QVariantMap", notify=analysisChanged)
     def analysis(self):
@@ -466,6 +550,7 @@ class FileBridge(QObject):
         self.pixel_reader.shutdown()
         self.detail_reader.shutdown()
         self.roi_manager.shutdown()
+        self.roi_exporter.shutdown()
         self.pipeline.shutdown()
 
     @Slot(str)

@@ -13,8 +13,8 @@ Rectangle {
         AppButton { theme: root.theme; action: root.actions.open; text: "열기"; iconName: "open"; tip: "TIFF/JPG 열기 · Ctrl+O" }
         AppButton { theme: root.theme; action: root.actions.save; text: ""; iconName: "save"; tip: "프로젝트 저장 형식이 연결되지 않았습니다" }
         Rectangle { width: 1; height: 22; color: theme.border; Layout.leftMargin: 6; Layout.rightMargin: 6 }
-        AppButton { theme: root.theme; action: root.actions.pan; text: "Pan"; iconName: "pan"; checked: uiState.activeTool === "Pan"; tip: "Pan · H" }
-        AppButton { theme: root.theme; action: root.actions.roi; text: "ROI"; iconName: "roi"; checked: uiState.activeTool === "ROI"; tip: "ROI · R" }
+        AppButton { theme: root.theme; action: root.actions.pan; text: "Pan"; iconName: "pan"; checked: uiState.activeTool === "Pan" && !uiState.roiEditMode; tip: "Pan · H" }
+        AppButton { theme: root.theme; action: root.actions.roi; text: "ROI"; iconName: "roi"; checked: uiState.activeTool === "ROI" && !uiState.roiEditMode; tip: "ROI · R" }
         Rectangle { width: 1; height: 22; color: theme.border; Layout.leftMargin: 6; Layout.rightMargin: 6 }
         AppButton { theme: root.theme; action: root.actions.zoomOut; text: ""; iconName: "minus"; tip: "축소 · Ctrl+-" }
         Text {
