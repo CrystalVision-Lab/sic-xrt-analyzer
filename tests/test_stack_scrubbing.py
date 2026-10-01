@@ -10,7 +10,17 @@ from threading import Event
 import numpy as np
 import pytest
 import tifffile
-from PySide6.QtCore import Q_ARG, QMetaObject, QObject, QPoint, QSettings, Qt, QUrl
+from PySide6.QtCore import (
+    Q_ARG,
+    QMetaObject,
+    QObject,
+    QPoint,
+    QPointF,
+    QSettings,
+    Qt,
+    QUrl,
+)
+from PySide6.QtGui import QWheelEvent
 from PySide6.QtQml import QQmlApplicationEngine
 from PySide6.QtQuickControls2 import QQuickStyle
 from PySide6.QtTest import QTest
@@ -214,12 +224,14 @@ def test_file_switch_during_whole_preload_clears_samples(qt_app, browse_file, tm
         old_stack = controller._reader.stack
         assert old_stack.browse.bytes > 0
         controller.begin_scrub()
-        controller.page(2)
-        assert controller.frame.pixels is None
+        assert not controller.page(2) and not controller.scrubbing
+        assert controller.initial_loading and controller.frame.source.page_index == 0
         controller.open(str(other))
+        assert controller.initial_loading and controller.preload_state["prepared"] == 0
         controller.end_scrub()  # Disabling the pressed slider must not reopen the old file.
         gate.set()
         spin(qt_app, lambda: controller.frame.source.path == str(other.resolve()) and controller.preload_state["ready"])
+        spin(qt_app, lambda: not controller.initial_loading)
         assert old_stack.closed and old_stack.browse.bytes == old_stack.cache_bytes == 0
         assert not old_stack.browse.indices
         assert controller.pixel_value(0, 0) == "4321"
@@ -282,6 +294,89 @@ def test_qml_pressed_drag_updates_each_page_before_release(qt_app, browse_file, 
         np.testing.assert_array_equal(controller.frame.pixels, raw[final])
         assert not warnings, "\n".join(warnings)
     finally:
+        bridge.waitForLoads()
+        window.close()
+        engine.deleteLater()
+        qt_app.processEvents()
+
+
+@pytest.mark.parametrize("outcome", ["complete", "cancel", "retry"])
+def test_qml_initial_loading_blocks_navigation_until_whole_stack_ready(qt_app, browse_file, tmp_path, monkeypatch, outcome):
+    path, _ = browse_file
+    gate, entered = Event(), Event()
+    fail = outcome == "retry"
+    actual = TiffStack.read_page
+    def block(stack, index):
+        if index == 4:
+            entered.set()
+            assert gate.wait(5)
+            if fail:
+                raise ValueError("Synthetic preload failure")
+        return actual(stack, index)
+    monkeypatch.setattr(TiffStack, "read_page", block)
+    QQuickStyle.setStyle("Basic")
+    engine = QQmlApplicationEngine()
+    provider = TiffImageProvider()
+    bridge = FileBridge(provider, engine, QSettings(str(tmp_path / "loading.ini"), QSettings.IniFormat))
+    engine.addImageProvider("tiff", provider)
+    engine.rootContext().setContextProperty("fileBridge", bridge)
+    warnings = []
+    engine.warnings.connect(lambda items: warnings.extend(item.toString() for item in items))
+    engine.load(QUrl.fromLocalFile(str(Path(__file__).parents[1] / "src/sic_xrt_analyzer/ui/Main.qml")))
+    window = engine.rootObjects()[0]
+    state = window.findChild(QObject, "uiState")
+    controller = bridge.stack_viewer
+    try:
+        assert QMetaObject.invokeMethod(window, "selectImagePath", Q_ARG("QVariant", str(path)))
+        spin(qt_app, entered.is_set)
+        old_stack = controller._reader.stack
+        overlay = window.findChild(QObject, "initialLoadingOverlay")
+        label = window.findChild(QObject, "initialLoadingText")
+        slider = window.findChild(QObject, "pageSlider")
+        assert controller.preload_state["prepared"] == 4
+        assert state.property("loading") and overlay.property("visible")
+        assert "4 / 20" in label.property("text")
+        assert not slider.property("enabled")
+        assert not window.findChild(QObject, "viewerMouseArea").property("enabled")
+        assert not window.findChild(QObject, "displayLowSlider").property("enabled")
+        assert not window.findChild(QObject, "zoomInAction").property("enabled")
+        assert window.findChild(QObject, "closeImageAction").property("enabled")
+        assert not bridge.requestPage(2)  # Already cached, but the whole stack is not ready.
+        assert not bridge.setDisplayRange(0, 50000)
+        bridge.beginScrub()
+        assert not controller.scrubbing
+        QTest.keyClick(window, Qt.Key_Right)
+        viewport = window.findChild(QObject, "viewerViewport")
+        origin = viewport.mapToScene(QPointF(0, 0))
+        pos = QPointF(origin.x() + viewport.property("width") / 2, origin.y() + viewport.property("height") / 2)
+        wheel = QWheelEvent(pos, pos, QPoint(0, 0), QPoint(0, -120), Qt.NoButton, Qt.NoModifier, Qt.NoScrollPhase, False)
+        qt_app.sendEvent(window, wheel)
+        assert controller.requested_page == state.property("pageIndex") == 0
+        if outcome == "cancel":
+            cancel = window.findChild(QObject, "cancelInitialLoading")
+            cancel_pos = cancel.mapToScene(QPointF(cancel.property("width") / 2, cancel.property("height") / 2))
+            QTest.mouseClick(window, Qt.LeftButton, Qt.NoModifier, cancel_pos.toPoint())
+            assert not state.property("loading") and not overlay.property("visible")
+            assert not state.property("hasImage")
+            gate.set()
+            spin(qt_app, lambda: controller._reader.stack is None)
+            assert old_stack.browse.bytes == 0
+        else:
+            gate.set()
+            if outcome == "retry":
+                spin(qt_app, lambda: bool(controller.preload_error))
+                assert state.property("loading") and not slider.property("enabled")
+                assert "실패" in label.property("text")
+                fail = False
+                bridge.retryPreload()
+            spin(qt_app, lambda: not state.property("loading"))
+            assert controller.preload_state["ready"] and not controller.initial_loading
+            assert not overlay.property("visible") and slider.property("enabled")
+            qt_app.sendEvent(window, wheel)
+            assert state.property("pageIndex") == 1 and not state.property("loading")
+        assert not warnings, "\n".join(warnings)
+    finally:
+        gate.set()
         bridge.waitForLoads()
         window.close()
         engine.deleteLater()
