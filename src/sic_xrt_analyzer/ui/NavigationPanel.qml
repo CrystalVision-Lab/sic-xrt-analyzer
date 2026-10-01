@@ -8,6 +8,7 @@ Rectangle {
     property QtObject uiState
     property bool collapsed: false
     signal collapseRequested()
+    signal workspaceRequested(int index)
 
     implicitWidth: collapsed ? 54 : theme.navigationWidth
     color: theme.panel
@@ -58,10 +59,7 @@ Rectangle {
                 checked: root.uiState.workspaceIndex === index
                 Layout.fillWidth: true
                 implicitHeight: 42
-                onClicked: {
-                    root.uiState.workspaceIndex = index
-                    root.uiState.statusText = index === 0 ? "이미지 분석 화면" : modelData.name + " 화면 준비 중"
-                }
+                onClicked: root.workspaceRequested(index)
             }
         }
         Item { Layout.fillHeight: true }

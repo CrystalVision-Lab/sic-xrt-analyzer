@@ -43,7 +43,7 @@ Rectangle {
             font.pixelSize: theme.smallSize
         }
         Text {
-            text: "이미지 크기  —"
+            text: "이미지 크기  " + (uiState.hasLoadedImage ? uiState.imageWidth + "×" + uiState.imageHeight : "—")
             color: theme.muted
             font.family: theme.monoFontFamily
             font.pixelSize: theme.smallSize

@@ -12,8 +12,10 @@ Rectangle {
     property real pressY: 0
     property real pressPanX: 0
     property real pressPanY: 0
-    readonly property real fitScale: Math.max(0.1, Math.min(
-        (viewport.width - 48) / 960, (viewport.height - 48) / 600))
+    readonly property real imageWidth: uiState.hasLoadedImage ? uiState.imageWidth : 960
+    readonly property real imageHeight: uiState.hasLoadedImage ? uiState.imageHeight : 600
+    readonly property real fitScale: Math.max(0, Math.min(
+        (viewport.width - 48) / imageWidth, (viewport.height - 48) / imageHeight))
     signal openRequested()
     signal demoRequested()
 
@@ -28,16 +30,22 @@ Rectangle {
     function zoomIn() {
         if (!uiState.canNavigateImage) return
         uiState.zoom = Math.min(4, Math.round(uiState.zoom * 125) / 100)
-        uiState.statusText = "데모 이미지 확대"
+        uiState.statusText = "이미지를 확대했습니다"
     }
     function zoomOut() {
         if (!uiState.canNavigateImage) return
         uiState.zoom = Math.max(0.25, Math.round(uiState.zoom * 80) / 100)
-        uiState.statusText = "데모 이미지 축소"
+        uiState.statusText = "이미지를 축소했습니다"
     }
     Connections {
         target: root.uiState
         function onDemoModeChanged() {
+            root.panX = 0
+            root.panY = 0
+            uiState.zoom = 1
+            uiState.hasRoi = false
+        }
+        function onImageSourceChanged() {
             root.panX = 0
             root.panY = 0
             uiState.zoom = 1
@@ -126,12 +134,20 @@ Rectangle {
             Item {
                 id: content
                 visible: uiState.canNavigateImage
-                width: 960 * root.fitScale * uiState.zoom
-                height: 600 * root.fitScale * uiState.zoom
+                width: root.imageWidth * root.fitScale * uiState.zoom
+                height: root.imageHeight * root.fitScale * uiState.zoom
                 x: (viewport.width - width) / 2 + root.panX
                 y: (viewport.height - height) / 2 + root.panY
 
-                DemoImage { anchors.fill: parent; theme: root.theme }
+                DemoImage { anchors.fill: parent; theme: root.theme; visible: uiState.demoMode }
+                Image {
+                    objectName: "tiffImage"
+                    anchors.fill: parent
+                    visible: uiState.hasLoadedImage
+                    source: uiState.imageSource
+                    cache: false
+                    fillMode: Image.Stretch
+                }
 
                 Rectangle {
                     visible: uiState.hasRoi
@@ -179,9 +195,9 @@ Rectangle {
                         if (uiState.activeTool === "영역 선택") {
                             uiState.hasRoi = Math.abs(uiState.roiEndX - uiState.roiStartX) > 0.005 &&
                                            Math.abs(uiState.roiEndY - uiState.roiStartY) > 0.005
-                            uiState.statusText = uiState.hasRoi ? "데모 이미지의 관심 영역을 선택했습니다" : "관심 영역 선택을 취소했습니다"
+                            uiState.statusText = uiState.hasRoi ? "관심 영역을 선택했습니다" : "관심 영역 선택을 취소했습니다"
                         } else {
-                            uiState.statusText = "데모 이미지 위치를 이동했습니다"
+                            uiState.statusText = "이미지 위치를 이동했습니다"
                         }
                     }
                     onWheel: function(wheel) {
@@ -228,33 +244,13 @@ Rectangle {
                         onClicked: root.demoRequested()
                     }
                 }
-            }
-
-            ColumnLayout {
-                visible: uiState.workspaceIndex === 0 && !uiState.demoMode && uiState.hasSelectedFile
-                anchors.centerIn: parent
-                spacing: 10
                 Text {
-                    text: uiState.fileName
-                    color: theme.viewerText
+                    visible: uiState.loadError.length > 0
+                    text: "TIFF 열기 실패: " + uiState.loadError
+                    color: "#e88a8a"
                     font.family: theme.fontFamily
-                    font.pixelSize: theme.emptyTitleSize
-                    font.weight: Font.DemiBold
+                    font.pixelSize: theme.smallSize
                     Layout.alignment: Qt.AlignHCenter
-                }
-                Text {
-                    text: "파일을 선택했습니다. TIFF 이미지 표시는 아직 연결되지 않았습니다."
-                    color: theme.viewerMuted
-                    font.family: theme.fontFamily
-                    font.pixelSize: theme.bodySize
-                    Layout.alignment: Qt.AlignHCenter
-                }
-                AppButton {
-                    theme: root.theme
-                    text: "다른 이미지 열기"
-                    dark: true
-                    Layout.alignment: Qt.AlignHCenter
-                    onClicked: root.openRequested()
                 }
             }
 

@@ -12,7 +12,7 @@ dependencies = []
 
 [project.optional-dependencies]
 dev = ["ruff>=0.6,<1", "pytest>=8,<9"]
-ui = ["PySide6>=6.7,<7", "numpy>=1.26", "opencv-python-headless>=4.8", "scikit-image>=0.22", "tifffile>=2024.2", "onnxruntime>=1.18"]
+ui = ["PySide6>=6.7,<7", "numpy>=1.26", "opencv-python-headless>=4.8", "scikit-image>=0.22", "tifffile>=2024.2", "imagecodecs>=2024.1", "onnxruntime>=1.18"]
 
 [tool.setuptools.packages.find]
 where = ["src"]

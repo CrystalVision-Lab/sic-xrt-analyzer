@@ -86,11 +86,12 @@ Rectangle {
                     spacing: 6
                     Text { text: "이미지 정보"; color: theme.text; font.family: theme.fontFamily; font.pixelSize: theme.sectionSize; font.weight: Font.DemiBold }
                     InfoRow { theme: root.theme; label: "파일"; value: uiState.fileName || "—"; Layout.fillWidth: true }
-                    InfoRow { theme: root.theme; label: "형식"; value: uiState.hasSelectedFile ? "TIFF (파일명 기준)" : "—"; Layout.fillWidth: true }
-                    InfoRow { theme: root.theme; label: "이미지 크기"; value: "—"; Layout.fillWidth: true }
+                    InfoRow { theme: root.theme; label: "형식"; value: uiState.hasLoadedImage ? "TIFF · " + uiState.bitDepth + "비트" : "—"; Layout.fillWidth: true }
+                    InfoRow { theme: root.theme; label: "이미지 크기"; value: uiState.hasLoadedImage ? uiState.imageWidth + " × " + uiState.imageHeight : "—"; Layout.fillWidth: true }
+                    InfoRow { theme: root.theme; label: "페이지"; value: uiState.hasLoadedImage ? "1 / " + uiState.pageCount : "—"; Layout.fillWidth: true }
                     InfoRow { theme: root.theme; label: "물리 스케일"; value: "—"; Layout.fillWidth: true }
                     Text {
-                        text: uiState.hasSelectedFile ? "이미지 데이터와 메타데이터는 아직 읽지 않았습니다." : "파일을 열면 선택한 파일 정보가 표시됩니다."
+                        text: uiState.hasLoadedImage ? (uiState.sampledPreview ? "큰 이미지의 축소 미리보기를 표시합니다. 분석 데이터로 사용하지 않습니다." : "첫 번째 TIFF 페이지를 표시합니다.") : "파일을 열면 이미지 정보가 표시됩니다."
                         color: theme.muted
                         font.family: theme.fontFamily
                         font.pixelSize: theme.smallSize
@@ -99,7 +100,7 @@ Rectangle {
                     }
                     Rectangle { Layout.fillWidth: true; Layout.topMargin: 8; height: 1; color: theme.border }
                     Text { text: "표시 설정"; color: theme.text; font.family: theme.fontFamily; font.pixelSize: theme.sectionSize; font.weight: Font.DemiBold; Layout.topMargin: 6 }
-                    Text { text: "TIFF 표시 연결 후 사용할 수 있습니다."; color: theme.muted; font.family: theme.fontFamily; font.pixelSize: theme.smallSize }
+                    Text { text: "밝기·대비 조절과 결함 레이어는 준비 중입니다."; color: theme.muted; font.family: theme.fontFamily; font.pixelSize: theme.smallSize }
                     Text { text: "밝기"; color: theme.muted; font.family: theme.fontFamily; font.pixelSize: theme.smallSize }
                     Slider { enabled: false; from: -100; to: 100; value: 0; Layout.fillWidth: true }
                     Text { text: "대비"; color: theme.muted; font.family: theme.fontFamily; font.pixelSize: theme.smallSize }
@@ -115,11 +116,11 @@ Rectangle {
                     InfoRow {
                         theme: root.theme
                         label: "관심 영역"
-                        value: uiState.hasRoi && uiState.demoMode ? "데모 영역 선택됨" : "선택 없음"
+                        value: uiState.hasRoi ? (uiState.demoMode ? "데모 영역 선택됨" : "영역 선택됨") : "선택 없음"
                         Layout.fillWidth: true
                     }
                     Text {
-                        text: "관심 영역은 데모 이미지에서 선택 도구로 시험할 수 있습니다. 실제 이미지 좌표 연결은 준비 중입니다."
+                        text: "관심 영역은 이미지 위에 표시됩니다. 실제 이미지 좌표의 분석 연결은 준비 중입니다."
                         color: theme.muted
                         font.family: theme.fontFamily
                         font.pixelSize: theme.smallSize
@@ -136,7 +137,7 @@ Rectangle {
                         Layout.fillWidth: true
                     }
                     Text {
-                        text: "승인된 모델과 이미지 로더가 연결되면 분석을 실행할 수 있습니다."
+                        text: "승인된 모델과 분석 파이프라인이 연결되면 분석을 실행할 수 있습니다."
                         color: theme.muted
                         font.family: theme.fontFamily
                         font.pixelSize: theme.smallSize
