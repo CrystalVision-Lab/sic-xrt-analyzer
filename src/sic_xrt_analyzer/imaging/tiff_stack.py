@@ -3,6 +3,7 @@ import math
 from collections import OrderedDict
 from dataclasses import dataclass
 from pathlib import Path
+from threading import Lock
 
 import numpy as np
 import tifffile
@@ -54,7 +55,10 @@ def render_page(pixels, source, low, high):
         raise ValueError("표시 최솟값은 최댓값보다 작아야 합니다")
     m = source.metadata
     step = max(1, math.ceil(max(m.width, m.height) / MAX_PREVIEW_EDGE))
-    values = pixels[::step, ::step].astype(np.float64)
+    samples = pixels[::step, ::step]
+    # Window 65,536 intensity levels once, rather than millions of float pixels.
+    # Keep the same float64 arithmetic/truncation as the general display path.
+    values = np.arange(65536, dtype=np.float64) if pixels.dtype == np.uint16 else samples.astype(np.float64)
     finite = np.isfinite(values)
     with np.errstate(invalid="ignore", over="ignore"):
         values -= low
@@ -62,6 +66,8 @@ def render_page(pixels, source, low, high):
         np.clip(values, 0, 255, out=values)
         values[~finite] = 0
         display = np.ascontiguousarray(values.astype(np.uint8))
+    if pixels.dtype == np.uint16:
+        display = np.ascontiguousarray(display[samples])
     with tifffile.TiffFile(source.path) as tif:
         page, _, _ = page_layout(tif, source.page_index)
         invert = page.photometric == tifffile.PHOTOMETRIC.MINISWHITE
@@ -97,16 +103,22 @@ class StackFrame:
 
 
 class TiffStack:
-    """Worker-owned cache, bounded by both page count and raw bytes; no prefetch."""
+    """Worker reads; GUI may retrieve prepared frames under a short cache lock."""
 
-    def __init__(self, path, *, max_cache_bytes=96 * 1024**2, max_cache_pages=3):
-        if max_cache_bytes <= 0 or max_cache_pages < 1:
+    def __init__(self, path, *, max_cache_bytes=96 * 1024**2, max_cache_pages=3,
+                 max_display_bytes=32 * 1024**2):
+        if max_cache_bytes <= 0 or max_cache_pages < 1 or max_display_bytes <= 0:
             raise ValueError("Cache limits must be positive")
         self.path = str(Path(path).resolve(strict=True))
         self.first_source = OriginalImageSource(self.path)
         self.page_count = self.first_source.metadata.page_count
         self.max_cache_bytes, self.max_cache_pages = max_cache_bytes, max_cache_pages
         self.cache = OrderedDict()
+        self._sources = {}
+        self._frames = OrderedDict()
+        self._lock = Lock()
+        self.max_display_bytes = max_display_bytes
+        self.display_bytes = 0
         self.cache_bytes = 0
         self.decode_count = 0
         with tifffile.TiffFile(self.path) as tif:
@@ -123,23 +135,60 @@ class TiffStack:
         if self.closed:
             raise ValueError("TIFF stack is closed")
         self.first_source.validate_identity()
-        source = OriginalImageSource(self.path, index)
-        if index in self.cache:
-            self.cache.move_to_end(index)
-            return self.cache[index], source
+        with self._lock:
+            if index in self.cache:
+                self.cache.move_to_end(index)
+                return self.cache[index], self._sources[index]
+        source = self.first_source if index == 0 else OriginalImageSource(self.path, index)
         pixels = source.read_full()  # One page only; source has read/decode limits.
         pixels.setflags(write=False)
         self.decode_count += 1
-        if pixels.nbytes <= self.max_cache_bytes:
-            while self.cache and (len(self.cache) >= self.max_cache_pages or
-                                  self.cache_bytes + pixels.nbytes > self.max_cache_bytes):
-                _, old = self.cache.popitem(last=False)
-                self.cache_bytes -= old.nbytes
-            self.cache[index] = pixels
-            self.cache_bytes += pixels.nbytes
+        with self._lock:
+            if pixels.nbytes <= self.max_cache_bytes:
+                while self.cache and (len(self.cache) >= self.max_cache_pages or
+                                      self.cache_bytes + pixels.nbytes > self.max_cache_bytes):
+                    old_index, old = self.cache.popitem(last=False)
+                    self.cache_bytes -= old.nbytes
+                    del self._sources[old_index]
+                    self._drop_frame(old_index)
+                self.cache[index] = pixels
+                self._sources[index] = source
+                self.cache_bytes += pixels.nbytes
         return pixels, source
 
+    def _drop_frame(self, index):
+        old = self._frames.pop(index, None)
+        if old is not None:
+            self.display_bytes -= old.preview.image.sizeInBytes()
+
+    def cached_frame(self, index, window):
+        """No TIFF decoding or conversion. Validate identity even on a display hit."""
+        self.first_source.validate_identity()
+        with self._lock:
+            frame = self._frames.get(index)
+            if self.closed or frame is None or window != (frame.low, frame.high):
+                return None
+            self._frames.move_to_end(index)
+            self.cache.move_to_end(index)
+            return frame
+
+    def _cache_frame(self, frame):
+        with self._lock:
+            index = frame.source.page_index
+            size = frame.preview.image.sizeInBytes()
+            if self.closed or index not in self.cache or size > self.max_display_bytes:
+                return
+            self._drop_frame(index)
+            while self._frames and self.display_bytes + size > self.max_display_bytes:
+                self._drop_frame(next(iter(self._frames)))
+            self._frames[index] = frame
+            self.display_bytes += size
+
     def frame(self, index, window=None, *, automatic=False, canceled=lambda: False):
+        if not automatic:
+            cached = self.cached_frame(index, window or self.default_window)
+            if cached is not None:
+                return None if canceled() else cached
         pixels, source = self.read_page(index)
         if canceled():
             return None
@@ -168,10 +217,15 @@ class TiffStack:
         range_min, range_max = min(range_min, low), max(range_max, high)
         if range_max <= range_min:
             range_max = range_min + 1
-        return StackFrame(source, preview, pixels, low, high, *self.default_window,
-                          range_min, range_max, self.imagej_frames, self.imagej_slices, self.range_origin)
+        frame = StackFrame(source, preview, pixels, low, high, *self.default_window,
+                           range_min, range_max, self.imagej_frames, self.imagej_slices, self.range_origin)
+        self._cache_frame(frame)
+        return frame
 
     def close(self):
-        self.cache.clear()
-        self.cache_bytes = 0
-        self.closed = True
+        with self._lock:
+            self.cache.clear()
+            self._sources.clear()
+            self._frames.clear()
+            self.cache_bytes = self.display_bytes = 0
+            self.closed = True
