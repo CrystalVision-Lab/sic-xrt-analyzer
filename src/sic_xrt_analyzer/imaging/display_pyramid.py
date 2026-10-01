@@ -115,15 +115,28 @@ class DisplayGroup:
     """Disk display levels shared by all page sources and retained by the active viewer."""
     def __init__(self):
         self.pages = {}
+        self.lock = RLock()
         self.closed = False
         self.max_cache_bytes = 4 * 1024**3
 
     @property
     def cache_bytes(self):
-        return sum(p.cache_bytes for p in self.pages.values())
+        with self.lock:
+            return sum(p.cache_bytes for p in self.pages.values())
+
+    def install(self, index, pyramid):
+        with self.lock:
+            if self.closed:
+                return False
+            if self.cache_bytes + pyramid.cache_bytes > self.max_cache_bytes:
+                raise ValueError('전체 정밀 표시 캐시가 4GiB 한도를 초과합니다')
+            self.pages[index] = pyramid
+            return True
 
     def close(self):
-        self.closed = True
-        for pyramid in self.pages.values():
+        with self.lock:
+            self.closed = True
+            pages = list(self.pages.values())
+            self.pages.clear()
+        for pyramid in pages:
             pyramid.close()
-        self.pages.clear()

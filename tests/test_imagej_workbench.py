@@ -4,6 +4,7 @@ import subprocess
 import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+from threading import Event
 
 import numpy as np
 import pytest
@@ -14,6 +15,8 @@ from PySide6.QtQml import QQmlApplicationEngine
 from PySide6.QtQuickControls2 import QQuickStyle
 from PySide6.QtTest import QTest
 from roifile import ROI_SUBTYPE, ROI_TYPE, ImagejRoi
+from test_analysis_pipeline import spin
+from test_prepared_roi_editor import invoke
 
 from sic_xrt_analyzer.imaging.display_pyramid import DisplayPyramid
 from sic_xrt_analyzer.imaging.image_stack import open_stack
@@ -24,8 +27,6 @@ from sic_xrt_analyzer.imaging.original_source import OriginalImageSource
 from sic_xrt_analyzer.imaging.roi_edit import encode_roi
 from sic_xrt_analyzer.ui.bridge import FileBridge, TiffImageProvider
 from sic_xrt_analyzer.ui.prepared_view import PreparedView
-from tests.test_analysis_pipeline import spin
-from tests.test_prepared_roi_editor import invoke
 
 
 def test_area_pyramid_has_screen_resolution_and_native_exact_pixels(tmp_path):
@@ -367,3 +368,31 @@ def test_running_macro_can_be_cancelled_and_engine_restarted(imagej, tmp_path):
         assert len(client.commands()) >= 400
     finally:
         client.close(); stack.close()
+
+
+def test_closing_stack_during_preparation_releases_late_pyramid(tmp_path, monkeypatch):
+    path = tmp_path/'closing-stack.tif'
+    tifffile.imwrite(path, np.zeros((2,1100,1100), np.uint16), photometric='minisblack')
+    stack = open_stack(path, browse_enabled=True)
+    frame = stack.frame(0)
+    entered, finish = Event(), Event()
+    original_prepare = DisplayPyramid.prepare
+    directories = []
+    def paused(pyramid, *args, **kwargs):
+        ready = original_prepare(pyramid, *args, **kwargs)
+        directories.append(Path(pyramid.directory.name))
+        entered.set()
+        assert finish.wait(5)
+        return ready
+    monkeypatch.setattr(DisplayPyramid, 'prepare', paused)
+    try:
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            future = executor.submit(stack.prepare_browse, 1, (frame.low,frame.high))
+            assert entered.wait(5)
+            stack.display_group.close()
+            finish.set()
+            future.result(timeout=5)
+        assert stack.display_group.closed and not stack.display_group.pages
+        assert all(not directory.exists() for directory in directories)
+    finally:
+        finish.set(); stack.close()

@@ -335,6 +335,8 @@ class TiffStack:
         if self.browse is None or self.browse.step == 1 or canceled():
             return
         group = self.display_group
+        if group.closed:
+            return
         index = source.page_index
         if index not in group.pages:
             pyramid = DisplayPyramid(source, pixels)
@@ -345,13 +347,12 @@ class TiffStack:
                 if not pyramid.prepare(canceled):
                     pyramid.close()
                     return
+                if not group.install(index, pyramid):
+                    pyramid.close()
+                    return
             except Exception:
                 pyramid.close()
                 raise
-            if group.cache_bytes + pyramid.cache_bytes > group.max_cache_bytes:
-                pyramid.close()
-                raise ValueError('전체 정밀 표시 캐시가 4GiB 한도를 초과합니다')
-            group.pages[index] = pyramid
         object.__setattr__(source, 'display_pyramid', group.pages[index])
         object.__setattr__(source, 'display_group', group)
 
