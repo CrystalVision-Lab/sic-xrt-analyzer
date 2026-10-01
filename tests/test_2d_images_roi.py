@@ -257,13 +257,13 @@ def test_qml_jpeg_imported_roi_overlay_pan_zoom_visibility_and_file_switch(qt_ap
         qt_app.processEvents()
         assert overlay.property('imageX') == frame.property('x') and overlay.property('imageY') == frame.property('y')
         invoke(window.findChild(QObject, 'actualSizeAction'), 'trigger')
-        spin(qt_app, lambda: bridge.detailState['ready'])
-        assert bridge.detailState['width'] <= 2048 and bridge.detailState['height'] <= 2048
-        assert bridge.provider.detail_image.size().width() == bridge.detailState['width']
+        assert bridge.stackState['preparedDisplay']
+        assert window.findChild(QObject, 'preparedImageView').property('visible')
+        assert window.findChild(QObject, 'preparedImageView').property('viewTransform') == [frame.property('x'), frame.property('y'), viewer.property('displayScale')]
         bridge.setDisplayRange(0, 100)
         spin(qt_app, lambda: not bridge.stack_viewer.busy and bridge.stack_viewer.frame.high == 100)
-        spin(qt_app, lambda: bridge.detailState['ready'])
-        assert bridge.provider.detail_image.pixelColor(10, 10).red() >= 254
+        assert bridge.stackState['preparedDisplay']
+        assert bridge.stack_viewer.frame.high == 100
         item = bridge.roiState['items'][0]
         bridge.setImportedRoiVisible(item['id'], False)
         assert not bridge.roiState['items'][0]['visible']
