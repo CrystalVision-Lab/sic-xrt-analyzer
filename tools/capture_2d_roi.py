@@ -1,4 +1,5 @@
 """Native Qt captures of generated JPEG and ImageJ ROI data only."""
+import argparse
 import time
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -16,9 +17,12 @@ from sic_xrt_analyzer.ui.bridge import FileBridge, TiffImageProvider
 
 
 def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--editor', action='store_true', help='Capture the ROI editor with generated data')
+    args = parser.parse_args()
     app = QGuiApplication([])
     QQuickStyle.setStyle('Basic')
-    output = Path(__file__).resolve().parents[1] / 'docs/screenshots/2d-roi'
+    output = Path(__file__).resolve().parents[1] / ('docs/screenshots/roi-editor' if args.editor else 'docs/screenshots/2d-roi')
     output.mkdir(parents=True, exist_ok=True)
     with TemporaryDirectory() as directory:
         folder = Path(directory)
@@ -67,6 +71,10 @@ def main():
             wait(lambda: not state.property('loading'))
             assert bridge.importRois([bridge.localUrl(str(archive))])
             wait(lambda: len(bridge.roiState['items']) == 3)
+            if args.editor:
+                state.setProperty('roiEditMode', True)
+                bridge.selectRoiVertex(1)
+                bridge.moveRoiVertex(1490, 1495)
             capture('jpeg-roi-fit')
             invoke(window.findChild(QObject, 'actualSizeAction'), 'trigger')
             wait(lambda: bridge.detailState['ready'])
@@ -81,6 +89,7 @@ def main():
             assert not warnings, '\n'.join(warnings)
         finally:
             bridge.waitForLoads()
+            window.setProperty('allowQuit', True)
             window.close()
             engine.deleteLater()
             app.processEvents()
