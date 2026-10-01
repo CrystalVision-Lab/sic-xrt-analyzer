@@ -1,4 +1,4 @@
-﻿"""Integration checks for the workstation UI using generated data only."""
+"""Integration checks for the workstation UI using generated data only."""
 import os
 import time
 from pathlib import Path
@@ -87,6 +87,9 @@ def test_workstation_flow(tmp_path):
     assert state.property("zoomLabel") == "FIT"
     invoke(viewer, "zoomIn")
     assert state.property("effectiveZoom") > fit_zoom
+    invoke(viewer, "zoomOut")
+    assert abs(state.property("effectiveZoom") - fit_zoom) < .001
+    assert not state.property("fitMode")
     QTest.keyClick(window, Qt.Key_0, Qt.ControlModifier)
     assert state.property("fitMode")
     assert state.property("zoomLabel") == "FIT"
@@ -238,6 +241,12 @@ def test_workstation_flow(tmp_path):
     window.resize(1100, 700)
     settle(app)
     assert viewer.property("viewportWidth") > 500
+    invoke(settings, "openPreferences")
+    settings.setProperty("category", 1)
+    settle(app)
+    assert settings.property("width") <= window.width()
+    assert settings.property("height") < window.height() - 100
+    invoke(settings, "reject")
     invoke(window, "closeImage")
     assert not state.property("hasImage")
     assert provider.image.isNull()
@@ -246,4 +255,3 @@ def test_workstation_flow(tmp_path):
     window.close()
     engine.deleteLater()
     settle(app)
-
