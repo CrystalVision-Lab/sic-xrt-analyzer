@@ -60,7 +60,8 @@ Viewer의 drag clamp는 유지합니다. 화면·정규화 좌표를 원본 정�
 Inspector는 원본 8000×6000과 표시 미리보기 4000×3000을 각각 표시합니다.
 미리보기 크기는 축소 시에만 표시합니다. 100%는 원본 좌표 격자의 표시 배율이며
 샘플링으로 사라진 세부 픽셀을 복원하지 않습니다. 향후 원본 region/tile viewer가 별도로 필요합니다.
-Gray 값 조회와 `read_pixel()`은 연결하지 않았습니다. 마우스 이동은 원본 디코딩을 호출하지 않습니다.
+스택 뷰어 TD에서 Gray 값 조회는 현재 표시 페이지의 제한된 raw 캐시에 연결했습니다.
+OriginalImageSource의 `read_pixel()`은 별도 추가하지 않았으며 마우스 이동은 원본 디코딩을 호출하지 않습니다.
 
 ## Large TIFF 정책
 
@@ -199,7 +200,9 @@ generation과 source_identity가 현재 값과 일치할 때만 완료를 게시
 ROI만 바꾸면 기존 결과를 유지하고 `result_roi_mismatch`로 다른 ROI임을 추적합니다.
 전체 분석 결과도 현재 ROI가 생기면 범위 차이를 표시합니다. 새 실행 시 교체합니다.
 종료 시 token을 설정하고 worker가 끝날 때까지 기다립니다. 비협력 모델은 종료를 지연할 수 있습니다.
-다중 페이지 선택 UI는 미구현이나 source와 요청 계약에는 page_index가 포함되어 있습니다.
+스택 뷰어 TD에서 다중 페이지 선택 UI를 연결했습니다. ImageJ single-IFD contiguous 파일도
+논리 페이지별로 읽으며 source와 요청의 page_index는 해당 원본 2D 페이지를 식별합니다.
+자세한 정책과 최신 검증은 [스택 뷰어 문서](tiff-stack-viewer.md)에 기록합니다.
 
 ## 오류와 UI 연결
 
