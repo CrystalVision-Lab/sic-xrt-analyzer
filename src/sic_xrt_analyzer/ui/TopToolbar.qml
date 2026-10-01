@@ -1,101 +1,36 @@
-import QtQuick
+﻿import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
-
 Rectangle {
     id: root
     property QtObject theme
     property QtObject uiState
-    signal openRequested()
-    signal demoRequested()
-    signal fitRequested()
-    signal zoomInRequested()
-    signal zoomOutRequested()
-
-    implicitHeight: theme.toolbarHeight
-    color: theme.panel
-    border.color: theme.border
-    border.width: 1
-
+    property var actions
+    color: theme.toolbar
     RowLayout {
-        anchors.fill: parent
-        anchors.leftMargin: 18
-        anchors.rightMargin: 18
-        spacing: 8
-
-        ColumnLayout {
-            spacing: 0
-            Layout.preferredWidth: 182
-            Text {
-                text: "SiC XRT Analyzer"
-                color: theme.text
-                font.family: theme.fontFamily
-                font.pixelSize: theme.titleSize
-                font.weight: Font.DemiBold
-            }
-            Text {
-                text: "연구용 이미지 분석"
-                color: theme.muted
-                font.family: theme.fontFamily
-                font.pixelSize: theme.captionSize
-            }
-        }
-
-        Rectangle { width: 1; height: 28; color: theme.border }
-
+        anchors.fill: parent; anchors.leftMargin: 10; anchors.rightMargin: 10
+        spacing: 5
+        AppButton { theme: root.theme; action: root.actions.open; text: "열기"; iconName: "open"; tip: "TIFF 열기 · Ctrl+O" }
+        AppButton { theme: root.theme; action: root.actions.save; text: ""; iconName: "save"; tip: "프로젝트 저장 형식 준비 중" }
+        Rectangle { width: 1; height: 22; color: theme.border; Layout.leftMargin: 6; Layout.rightMargin: 6 }
+        AppButton { theme: root.theme; action: root.actions.pan; text: "Pan"; iconName: "pan"; checked: uiState.activeTool === "이동"; tip: "이동 도구 · H" }
+        AppButton { theme: root.theme; action: root.actions.roi; text: "ROI"; iconName: "roi"; checked: uiState.activeTool === "영역 선택"; tip: "관심 영역 선택 · R" }
+        Rectangle { width: 1; height: 22; color: theme.border; Layout.leftMargin: 6; Layout.rightMargin: 6 }
+        AppButton { theme: root.theme; action: root.actions.zoomOut; text: ""; iconName: "minus"; tip: "축소 · Ctrl+-" }
         Text {
-            text: uiState.fileName || (uiState.demoMode ? "데모 이미지" : "선택된 파일 없음")
-            color: uiState.fileName ? theme.text : theme.muted
-            font.family: theme.fontFamily
-            font.pixelSize: theme.bodySize
-            elide: Text.ElideMiddle
-            Layout.fillWidth: true
-            Layout.minimumWidth: 110
-            ToolTip.visible: fileHover.containsMouse && uiState.filePath.length > 0
-            ToolTip.text: uiState.filePath
-            MouseArea { id: fileHover; anchors.fill: parent; hoverEnabled: true; acceptedButtons: Qt.NoButton }
+            text: uiState.zoomLabel
+            color: theme.text; font.family: theme.monoFontFamily; font.pixelSize: theme.bodySize
+            horizontalAlignment: Text.AlignHCenter; Layout.preferredWidth: 52
+            ToolTip.text: "화면 맞춤을 100%로 표시"; ToolTip.visible: zoomHover.containsMouse
+            MouseArea { id: zoomHover; anchors.fill: parent; hoverEnabled: true; acceptedButtons: Qt.NoButton }
         }
-
-        AppButton {
-            theme: root.theme
-            text: "이미지 열기"
-            primary: true
-            onClicked: root.openRequested()
-        }
-        AppButton {
-            theme: root.theme
-            text: "데모 보기"
-            tip: "실제 검사 데이터가 아닌 합성 샘플입니다"
-            onClicked: root.demoRequested()
-        }
-        Rectangle { width: 1; height: 28; color: theme.border }
-        AppButton {
-            theme: root.theme
-            text: "화면 맞춤"
-            enabled: uiState.canNavigateImage
-            onClicked: root.fitRequested()
-        }
-        AppButton {
-            theme: root.theme
-            text: "-"
-            implicitWidth: 36
-            enabled: uiState.canNavigateImage && uiState.zoom > 0.26
-            tip: "축소"
-            onClicked: root.zoomOutRequested()
-        }
-        AppButton {
-            theme: root.theme
-            text: "+"
-            implicitWidth: 36
-            enabled: uiState.canNavigateImage && uiState.zoom < 3.99
-            tip: "확대"
-            onClicked: root.zoomInRequested()
-        }
-        AppButton {
-            theme: root.theme
-            text: "분석 실행"
-            enabled: false
-            tip: "모델 연결 후 사용할 수 있습니다"
-        }
+        AppButton { theme: root.theme; action: root.actions.zoomIn; text: ""; iconName: "plus"; tip: "확대 · Ctrl++" }
+        AppButton { theme: root.theme; action: root.actions.fit; text: "Fit"; iconName: "fit"; tip: "화면 맞춤 · Ctrl+0" }
+        Rectangle { width: 1; height: 22; color: theme.border; Layout.leftMargin: 6; Layout.rightMargin: 6 }
+        StatusIndicator { theme: root.theme; text: "MODEL UNAVAILABLE"; ink: theme.warning }
+        Item { Layout.fillWidth: true }
+        Text { text: uiState.loading ? "Loading TIFF…" : uiState.hasRoi ? "ROI SELECTED" : uiState.hasImage ? "IMAGE READY" : "NO IMAGE"; color: theme.muted; font.pixelSize: theme.smallSize; visible: root.width > 1200 }
+        AppButton { theme: root.theme; action: root.actions.run; text: "분석 실행"; iconName: "run"; primary: true; tip: uiState.analysisReason }
     }
+    Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 1; color: theme.border }
 }

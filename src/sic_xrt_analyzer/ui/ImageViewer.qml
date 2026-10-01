@@ -1,279 +1,124 @@
-import QtQuick
+﻿import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 
 Rectangle {
     id: root
+    objectName: "imageViewer"
     property QtObject theme
     property QtObject uiState
+    property var actions
     property real panX: 0
     property real panY: 0
     property real pressX: 0
     property real pressY: 0
     property real pressPanX: 0
     property real pressPanY: 0
-    readonly property real imageWidth: uiState.hasLoadedImage ? uiState.imageWidth : 960
-    readonly property real imageHeight: uiState.hasLoadedImage ? uiState.imageHeight : 600
-    readonly property real fitScale: Math.max(0, Math.min(
-        (viewport.width - 48) / imageWidth, (viewport.height - 48) / imageHeight))
-    signal openRequested()
-    signal demoRequested()
-
+    readonly property real fitScale: Math.max(0, Math.min((viewport.width - 48) / Math.max(1, uiState.contentWidth), (viewport.height - 48) / Math.max(1, uiState.contentHeight)))
+    readonly property real viewportWidth: viewport.width
+    signal fileDropped(string url)
     color: theme.viewer
-
-    function fitView() {
-        uiState.zoom = 1
-        panX = 0
-        panY = 0
-        uiState.statusText = "화면에 맞게 표시했습니다"
+    function resetPan() { panX = 0; panY = 0 }
+    function fitView() { resetPan(); uiState.zoom = 1; uiState.statusText = "화면 맞춤 기준 100%" }
+    function zoomIn() { if (uiState.canNavigateImage) uiState.zoom = Math.min(8, uiState.zoom * 1.25) }
+    function zoomOut() { if (uiState.canNavigateImage) uiState.zoom = Math.max(0.1, uiState.zoom / 1.25) }
+    function imagePoint(x, y) {
+        return Qt.point(Math.max(0, Math.min(1, (x - imageFrame.x) / imageFrame.width)), Math.max(0, Math.min(1, (y - imageFrame.y) / imageFrame.height)))
     }
-    function zoomIn() {
-        if (!uiState.canNavigateImage) return
-        uiState.zoom = Math.min(4, Math.round(uiState.zoom * 125) / 100)
-        uiState.statusText = "이미지를 확대했습니다"
-    }
-    function zoomOut() {
-        if (!uiState.canNavigateImage) return
-        uiState.zoom = Math.max(0.25, Math.round(uiState.zoom * 80) / 100)
-        uiState.statusText = "이미지를 축소했습니다"
-    }
-    Connections {
-        target: root.uiState
-        function onDemoModeChanged() {
-            root.panX = 0
-            root.panY = 0
-            uiState.zoom = 1
-            uiState.hasRoi = false
-        }
-        function onImageSourceChanged() {
-            root.panX = 0
-            root.panY = 0
-            uiState.zoom = 1
-            uiState.hasRoi = false
-        }
-    }
-
     ColumnLayout {
         anchors.fill: parent
         spacing: 0
-
         Rectangle {
-            Layout.fillWidth: true
-            Layout.preferredHeight: 56
+            Layout.fillWidth: true; Layout.preferredHeight: 52
             color: theme.viewerHeader
-
             RowLayout {
-                anchors.fill: parent
-                anchors.leftMargin: 16
-                anchors.rightMargin: 16
-                spacing: 8
+                anchors.fill: parent; anchors.margins: 12; spacing: 14
                 ColumnLayout {
-                    spacing: 0
-                    Layout.fillWidth: true
-                    Text {
-                        text: uiState.workspaceIndex === 0 ? "이미지 뷰어" :
-                              ["", "Wafer Map", "이미지 정합", "3D 보기"][uiState.workspaceIndex]
-                        color: theme.viewerText
-                        font.family: theme.fontFamily
-                        font.pixelSize: theme.sectionSize
-                        font.weight: Font.DemiBold
-                    }
-                    Text {
-                        text: uiState.workspaceIndex !== 0 ? "기능 연결 예정" :
-                              uiState.fileName || (uiState.demoMode ? "데모 이미지 · 합성 샘플" : "선택된 이미지 없음")
-                        color: theme.viewerMuted
-                        font.family: theme.fontFamily
-                        font.pixelSize: theme.captionSize
-                        elide: Text.ElideMiddle
-                        Layout.maximumWidth: 270
-                    }
+                    spacing: 3; Layout.fillWidth: true
+                    Text { text: "XRT VIEWER"; color: theme.muted; font.family: theme.fontFamily; font.pixelSize: 11 }
+                    Text { text: uiState.demoMode ? "SYNTHETIC DEMO · 실제 XRT 데이터 아님" : uiState.fileName || "No XRT image loaded"; color: theme.text; font.family: theme.fontFamily; font.pixelSize: 12; elide: Text.ElideMiddle; Layout.fillWidth: true }
                 }
-                Text {
-                    text: uiState.zoomLabel
-                    visible: uiState.workspaceIndex === 0
-                    color: theme.viewerText
-                    font.family: theme.monoFontFamily
-                    font.pixelSize: theme.smallSize
-                    Layout.rightMargin: 6
-                }
-                AppButton {
-                    theme: root.theme
-                    text: "이동"
-                    dark: true
-                    quiet: true
-                    checked: uiState.activeTool === "이동"
-                    enabled: uiState.canNavigateImage
-                    onClicked: uiState.activeTool = "이동"
-                }
-                AppButton {
-                    theme: root.theme
-                    text: "영역 선택"
-                    dark: true
-                    quiet: true
-                    checked: uiState.activeTool === "영역 선택"
-                    enabled: uiState.canNavigateImage
-                    onClicked: uiState.activeTool = "영역 선택"
-                }
-                AppButton {
-                    theme: root.theme
-                    text: "화면 맞춤"
-                    dark: true
-                    quiet: true
-                    enabled: uiState.canNavigateImage
-                    onClicked: root.fitView()
-                }
+                Text { text: uiState.hasImage ? uiState.contentWidth + " × " + uiState.contentHeight + (uiState.demoMode ? " · DEMO" : " · " + uiState.bitDepth + "-bit") : "TIFF / TIF"; color: theme.muted; font.family: theme.monoFontFamily; font.pixelSize: 11 }
+                StatusIndicator { theme: root.theme; text: uiState.activeTool === "이동" ? "PAN" : "ROI"; ink: theme.accent; visible: uiState.canNavigateImage }
             }
         }
-
-        Item {
+        Rectangle {
             id: viewport
-            Layout.fillWidth: true
-            Layout.fillHeight: true
-            clip: true
-
+            objectName: "viewerViewport"
+            Layout.fillWidth: true; Layout.fillHeight: true
+            clip: true; color: uiState.viewerBackground
             Item {
-                id: content
-                visible: uiState.canNavigateImage
-                width: root.imageWidth * root.fitScale * uiState.zoom
-                height: root.imageHeight * root.fitScale * uiState.zoom
+                id: imageFrame
+                objectName: "imageFrame"
+                visible: uiState.hasImage
+                width: uiState.contentWidth * root.fitScale * uiState.zoom
+                height: uiState.contentHeight * root.fitScale * uiState.zoom
                 x: (viewport.width - width) / 2 + root.panX
                 y: (viewport.height - height) / 2 + root.panY
-
-                DemoImage { anchors.fill: parent; theme: root.theme; visible: uiState.demoMode }
-                Image {
-                    objectName: "tiffImage"
-                    anchors.fill: parent
-                    visible: uiState.hasLoadedImage
-                    source: uiState.imageSource
-                    cache: false
-                    fillMode: Image.Stretch
-                }
-
+                DemoImage { theme: root.theme; anchors.fill: parent; visible: uiState.demoMode }
+                Image { objectName: "tiffImage"; anchors.fill: parent; source: uiState.imageSource; visible: uiState.hasLoadedImage && !uiState.demoMode; smooth: uiState.smoothImages; cache: false }
                 Rectangle {
-                    visible: uiState.hasRoi
-                    x: Math.min(uiState.roiStartX, uiState.roiEndX) * content.width
-                    y: Math.min(uiState.roiStartY, uiState.roiEndY) * content.height
-                    width: Math.abs(uiState.roiEndX - uiState.roiStartX) * content.width
-                    height: Math.abs(uiState.roiEndY - uiState.roiStartY) * content.height
-                    color: "#3320c0cc"
-                    border.color: "#52dce5"
-                    border.width: 2
-                }
-
-                MouseArea {
-                    anchors.fill: parent
-                    enabled: uiState.canNavigateImage
-                    hoverEnabled: true
-                    cursorShape: uiState.activeTool === "이동" ? Qt.OpenHandCursor : Qt.CrossCursor
-                    onPressed: function(mouse) {
-                        const point = mapToItem(viewport, mouse.x, mouse.y)
-                        root.pressX = point.x
-                        root.pressY = point.y
-                        root.pressPanX = root.panX
-                        root.pressPanY = root.panY
-                        if (uiState.activeTool === "영역 선택") {
-                            uiState.roiStartX = Math.max(0, Math.min(1, mouse.x / width))
-                            uiState.roiStartY = Math.max(0, Math.min(1, mouse.y / height))
-                            uiState.roiEndX = uiState.roiStartX
-                            uiState.roiEndY = uiState.roiStartY
-                            uiState.hasRoi = false
-                        }
-                    }
-                    onPositionChanged: function(mouse) {
-                        if (!pressed) return
-                        if (uiState.activeTool === "이동") {
-                            const point = mapToItem(viewport, mouse.x, mouse.y)
-                            root.panX = root.pressPanX + point.x - root.pressX
-                            root.panY = root.pressPanY + point.y - root.pressY
-                        } else {
-                            uiState.roiEndX = Math.max(0, Math.min(1, mouse.x / width))
-                            uiState.roiEndY = Math.max(0, Math.min(1, mouse.y / height))
-                            uiState.hasRoi = true
-                        }
-                    }
-                    onReleased: {
-                        if (uiState.activeTool === "영역 선택") {
-                            uiState.hasRoi = Math.abs(uiState.roiEndX - uiState.roiStartX) > 0.005 &&
-                                           Math.abs(uiState.roiEndY - uiState.roiStartY) > 0.005
-                            uiState.statusText = uiState.hasRoi ? "관심 영역을 선택했습니다" : "관심 영역 선택을 취소했습니다"
-                        } else {
-                            uiState.statusText = "이미지 위치를 이동했습니다"
-                        }
-                    }
-                    onWheel: function(wheel) {
-                        if (wheel.angleDelta.y > 0) root.zoomIn()
-                        else if (wheel.angleDelta.y < 0) root.zoomOut()
-                        wheel.accepted = true
-                    }
+                    visible: uiState.hasRoi && uiState.roiLayerVisible
+                    x: Math.min(uiState.roiStartX, uiState.roiEndX) * parent.width
+                    y: Math.min(uiState.roiStartY, uiState.roiEndY) * parent.height
+                    width: Math.abs(uiState.roiEndX - uiState.roiStartX) * parent.width
+                    height: Math.abs(uiState.roiEndY - uiState.roiStartY) * parent.height
+                    color: "#1645c3cf"; border.color: theme.accent; border.width: 1
                 }
             }
-
+            MouseArea {
+                objectName: "viewerMouseArea"
+                anchors.fill: parent; enabled: uiState.canNavigateImage; hoverEnabled: true
+                cursorShape: uiState.activeTool === "이동" ? (pressed ? Qt.ClosedHandCursor : Qt.OpenHandCursor) : Qt.CrossCursor
+                onPressed: function(mouse) {
+                    root.pressX = mouse.x; root.pressY = mouse.y; root.pressPanX = root.panX; root.pressPanY = root.panY
+                    if (uiState.activeTool !== "이동") {
+                        var p = root.imagePoint(mouse.x, mouse.y)
+                        uiState.roiStartX = p.x; uiState.roiStartY = p.y
+                        uiState.roiEndX = p.x; uiState.roiEndY = p.y; uiState.hasRoi = false
+                    }
+                }
+                onPositionChanged: function(mouse) {
+                    var inside = mouse.x >= imageFrame.x && mouse.x < imageFrame.x + imageFrame.width && mouse.y >= imageFrame.y && mouse.y < imageFrame.y + imageFrame.height
+                    var p = root.imagePoint(mouse.x, mouse.y)
+                    uiState.cursorX = inside ? Math.min(uiState.contentWidth - 1, Math.floor(p.x * uiState.contentWidth)) : -1
+                    uiState.cursorY = inside ? Math.min(uiState.contentHeight - 1, Math.floor(p.y * uiState.contentHeight)) : -1
+                    if (!pressed) return
+                    if (uiState.activeTool === "이동") {
+                        root.panX = root.pressPanX + mouse.x - root.pressX
+                        root.panY = root.pressPanY + mouse.y - root.pressY
+                    } else {
+                        uiState.roiEndX = p.x; uiState.roiEndY = p.y
+                        uiState.hasRoi = uiState.roiWidth > 0 && uiState.roiHeight > 0
+                    }
+                }
+                onExited: { uiState.cursorX = -1; uiState.cursorY = -1 }
+                onWheel: function(wheel) { if (wheel.angleDelta.y > 0) root.actions.zoomIn.trigger(); else root.actions.zoomOut.trigger() }
+            }
             ColumnLayout {
-                visible: uiState.workspaceIndex === 0 && !uiState.demoMode && !uiState.hasSelectedFile
-                anchors.centerIn: parent
-                spacing: 12
-                Text {
-                    text: "분석할 XRT 이미지를 선택하세요."
-                    color: theme.viewerText
-                    font.family: theme.fontFamily
-                    font.pixelSize: theme.emptyTitleSize
-                    font.weight: Font.DemiBold
-                    Layout.alignment: Qt.AlignHCenter
-                }
-                Text {
-                    text: "TIFF 파일을 열어 이미지 탐색을 시작할 수 있습니다."
-                    color: theme.viewerMuted
-                    font.family: theme.fontFamily
-                    font.pixelSize: theme.bodySize
-                    Layout.alignment: Qt.AlignHCenter
-                }
-                RowLayout {
-                    Layout.alignment: Qt.AlignHCenter
-                    spacing: 8
-                    AppButton {
-                        theme: root.theme
-                        text: "이미지 열기"
-                        dark: true
-                        primary: true
-                        onClicked: root.openRequested()
-                    }
-                    AppButton {
-                        theme: root.theme
-                        text: "데모 이미지 보기"
-                        dark: true
-                        onClicked: root.demoRequested()
-                    }
-                }
-                Text {
-                    visible: uiState.loadError.length > 0
-                    text: "TIFF 열기 실패: " + uiState.loadError
-                    color: "#e88a8a"
-                    font.family: theme.fontFamily
-                    font.pixelSize: theme.smallSize
-                    Layout.alignment: Qt.AlignHCenter
+                anchors.centerIn: parent; spacing: 10
+                visible: !uiState.hasImage && !uiState.loading
+                Text { text: "No XRT image loaded"; color: theme.text; font.family: theme.fontFamily; font.pixelSize: 17 }
+                Text { text: "TIFF / TIF · 16-bit grayscale supported"; color: theme.muted; font.family: theme.fontFamily; font.pixelSize: 12 }
+                AppButton { theme: root.theme; action: root.actions.open; text: "Open XRT Image"; iconName: "open"; Layout.alignment: Qt.AlignHCenter }
+                Text { text: "또는 TIFF 파일을 이 영역에 놓으세요"; color: theme.muted; font.pixelSize: 11; Layout.alignment: Qt.AlignHCenter }
+            }
+            Rectangle {
+                anchors.fill: parent; visible: uiState.loading; color: "#db111518"
+                ColumnLayout { anchors.centerIn: parent
+                    BusyIndicator { running: uiState.loading; Layout.alignment: Qt.AlignHCenter }
+                    Text { text: "Loading image…"; color: theme.text }
                 }
             }
-
-            ColumnLayout {
-                visible: uiState.workspaceIndex !== 0
-                anchors.centerIn: parent
-                spacing: 10
-                Text {
-                    text: ["", "Wafer Map", "이미지 정합", "3D 보기"][uiState.workspaceIndex]
-                    color: theme.viewerText
-                    font.family: theme.fontFamily
-                    font.pixelSize: theme.emptyTitleSize
-                    font.weight: Font.DemiBold
-                    Layout.alignment: Qt.AlignHCenter
-                }
-                Text {
-                    text: "이 작업 영역은 준비 중입니다. 이미지 분석 화면에서 파일과 도구를 확인할 수 있습니다."
-                    color: theme.viewerMuted
-                    font.family: theme.fontFamily
-                    font.pixelSize: theme.bodySize
-                    Layout.alignment: Qt.AlignHCenter
-                }
-            }
+            DropArea { anchors.fill: parent; onDropped: function(drop) { if (drop.hasUrls && drop.urls.length > 0) root.fileDropped(drop.urls[0].toString()) } }
+        }
+        Rectangle {
+            visible: uiState.loadError.length > 0
+            Layout.fillWidth: true; Layout.preferredHeight: errorText.implicitHeight + 18
+            color: "#332427"
+            Text { id: errorText; anchors.fill: parent; anchors.margins: 9; text: "FILE ERROR · " + uiState.loadError + (uiState.hasImage ? "\n이전 이미지를 유지했습니다." : ""); color: theme.error; font.pixelSize: 11; wrapMode: Text.Wrap }
         }
     }
 }
+
+
