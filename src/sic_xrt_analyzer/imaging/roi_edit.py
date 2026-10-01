@@ -5,7 +5,7 @@ from pathlib import Path
 from zipfile import ZIP_DEFLATED, ZipFile
 
 import numpy as np
-from roifile import ROI_TYPE, ImagejRoi
+from roifile import ROI_SUBTYPE, ROI_TYPE, ImagejRoi
 
 
 def geometry(record, paths, metadata):
@@ -28,6 +28,35 @@ def geometry(record, paths, metadata):
     return replace(record, paths=paths, bbox=(left, top, right - left, bottom - top))
 
 
+def encode_roi(record):
+    roi = ImagejRoi.frompoints(np.asarray(record.paths[0], dtype=np.float32))
+    roi.roitype = {'point': ROI_TYPE.POINT, 'line': ROI_TYPE.POLYLINE, 'polygon': ROI_TYPE.POLYGON}[record.kind]
+    x, y, w, h = record.bbox
+    if record.tool in ('Rectangle', 'Oval', 'Text'):
+        roi = ImagejRoi(roitype=ROI_TYPE.OVAL if record.tool == 'Oval' else ROI_TYPE.RECT,
+                        left=x, top=y, right=x + w, bottom=y + h)
+        if record.tool == 'Text':
+            roi.subtype = ROI_SUBTYPE.TEXT
+            roi.text, roi.text_name, roi.text_size = record.text, 'SansSerif', round(record.stroke_width)
+    elif record.tool in ('Line', 'Arrow'):
+        roi = ImagejRoi(roitype=ROI_TYPE.LINE, x1=record.paths[0][0][0], y1=record.paths[0][0][1],
+                        x2=record.paths[0][-1][0], y2=record.paths[0][-1][1])
+        if record.tool == 'Arrow':
+            roi.subtype = ROI_SUBTYPE.ARROW
+            roi.arrow_head_size = 10
+    elif record.tool == 'Angle':
+        roi.roitype = ROI_TYPE.ANGLE
+    elif record.tool == 'Freehand':
+        roi.roitype = ROI_TYPE.FREEHAND
+    elif record.tool == 'FreeLine':
+        roi.roitype = ROI_TYPE.FREELINE
+    roi.name = record.name
+    roi.position = record.page_index + 1 if record.page_index is not None else 0
+    roi.stroke_color = bytes.fromhex('ff' + record.color.lstrip('#'))
+    roi.float_stroke_width = record.stroke_width
+    return roi.tobytes()
+
+
 def export_copy(path, records):
     """Exclusive creation means even an existing export cannot be overwritten."""
     path = Path(path)
@@ -37,12 +66,7 @@ def export_copy(path, records):
     for i, record in enumerate(records):
         if len(record.paths) != 1:
             raise ValueError('복합 경로 ROI 내보내기는 아직 지원하지 않습니다')
-        roi = ImagejRoi.frompoints(np.asarray(record.paths[0], dtype=np.float32))
-        roi.roitype = {'point': ROI_TYPE.POINT, 'line': ROI_TYPE.POLYLINE, 'polygon': ROI_TYPE.POLYGON}[record.kind]
-        roi.name = record.name
-        roi.position = record.page_index + 1 if record.page_index is not None else 0
-        roi.stroke_color = bytes.fromhex('ff' + record.color.lstrip('#'))
-        payloads.append((f'{i + 1:04d}.roi', roi.tobytes()))
+        payloads.append((f'{i + 1:04d}.roi', encode_roi(record)))
     # Validate all geometry before creating the destination; archive member names
     # are generated, independent of user ROI names or original archive paths.
     with path.open('xb') as output, ZipFile(output, 'w', compression=ZIP_DEFLATED) as archive:

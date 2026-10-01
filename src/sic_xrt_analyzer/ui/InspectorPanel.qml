@@ -34,6 +34,7 @@ Rectangle {
                     Text { text: "대응하는 이미지를 먼저 열고 .roi 또는 RoiSet.zip을 가져오세요. 원본 좌표를 그대로 표시합니다."; color: theme.muted; font.pixelSize: 11; wrapMode: Text.Wrap; Layout.fillWidth: true }
                     AppButton { objectName: "importRoisButton"; theme: root.theme; text: "ROI / ZIP 가져오기…"; iconName: "roi"; Layout.fillWidth: true; enabled: uiState.hasLoadedImage && !uiState.loading && !uiState.importedRois.busy; onClicked: root.importRequested() }
                     Text { visible: uiState.importedRois.busy; text: "ROI 불러오는 중…"; color: theme.accent; font.pixelSize: 11 }
+                    AppButton { objectName: "selectImportedBoundsButton"; theme: root.theme; text: "외접 사각형으로 선택"; Layout.fillWidth: true; enabled: !uiState.loading && uiState.importedRois.items.some(function(r) { return r.selected && r.active }); onClicked: root.boundsRequested() }
                     RoiEditor { theme: root.theme; uiState: root.uiState; Layout.fillWidth: true; onSaveRequested: root.saveRequested() }
                     RowLayout {
                         Layout.fillWidth: true
@@ -63,7 +64,6 @@ Rectangle {
                             }
                         }
                     }
-                    AppButton { objectName: "selectImportedBoundsButton"; theme: root.theme; text: "외접 사각형으로 선택"; Layout.fillWidth: true; enabled: !uiState.loading && uiState.importedRois.items.some(function(r) { return r.selected && r.active }); onClicked: root.boundsRequested() }
                     Text { visible: uiState.importedRois.items.length > 0; text: "위 선택은 점/다각형의 외접 사각형입니다. ROI 도형 마스크 분석은 아직 연결되지 않았습니다."; color: theme.muted; font.pixelSize: 11; wrapMode: Text.Wrap; Layout.fillWidth: true }
                     Text { visible: uiState.importedRois.errors.length > 0; text: "불러오기 오류 " + uiState.importedRois.errors.length + "개"; color: theme.warning; font.pixelSize: 12 }
                     Repeater {

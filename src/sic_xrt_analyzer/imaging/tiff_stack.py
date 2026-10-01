@@ -9,6 +9,7 @@ import numpy as np
 import tifffile
 from PySide6.QtGui import QImage
 
+from .display_pyramid import DisplayGroup, DisplayPyramid
 from .original_source import OriginalImageSource
 from .tiff_pages import page_layout
 from .tiff_preview import MAX_PREVIEW_EDGE, TiffPreview
@@ -82,6 +83,10 @@ def render_samples(samples, source, low, high, invert):
         display = np.ascontiguousarray(display[samples])
     if invert:
         display = np.ascontiguousarray(255 - display)
+    palette = getattr(source, 'display_palette', None)
+    if palette is not None and display.ndim == 2:
+        indices = np.rint(display.astype(np.float32) * (palette.shape[1] - 1) / 255).astype(np.intp)
+        display = np.ascontiguousarray((palette[:, indices].transpose(1, 2, 0) // 257).astype(np.uint8))
     fmt = (QImage.Format_Grayscale8 if display.ndim == 2 else
            QImage.Format_RGB888 if display.shape[-1] == 3 else QImage.Format_RGBA8888)
     if display.ndim == 3 and display.shape[-1] == 4:
@@ -222,6 +227,8 @@ class TiffStack:
         self.default_window = None
         self.range_origin = "ImageJ" if self.initial_window else "첫 페이지 자동 범위"
         self.closed = False
+        self.display_group = DisplayGroup()
+        self.retain_prepared = False
 
     def read_page(self, index):
         if self.closed:
@@ -284,6 +291,7 @@ class TiffStack:
         pixels, source = self.read_page(index)
         if canceled():
             return None
+        self._prepare_display(pixels, source, canceled)
         if self.default_window is None:
             if self.initial_window is not None:
                 self.default_window = self.initial_window
@@ -320,7 +328,32 @@ class TiffStack:
         if self.browse is None or index in self.browse.indices or canceled():
             return
         pixels, source = self.read_page(index)
+        self._prepare_display(pixels, source, canceled)
         self.browse.put(pixels, source, window, canceled=canceled)
+
+    def _prepare_display(self, pixels, source, canceled):
+        if self.browse is None or self.browse.step == 1 or canceled():
+            return
+        group = self.display_group
+        index = source.page_index
+        if index not in group.pages:
+            pyramid = DisplayPyramid(source, pixels)
+            with tifffile.TiffFile(source.path) as tif:
+                page, _, _ = page_layout(tif, index)
+                pyramid.invert = page.photometric == tifffile.PHOTOMETRIC.MINISWHITE
+            try:
+                if not pyramid.prepare(canceled):
+                    pyramid.close()
+                    return
+            except Exception:
+                pyramid.close()
+                raise
+            if group.cache_bytes + pyramid.cache_bytes > group.max_cache_bytes:
+                pyramid.close()
+                raise ValueError('전체 정밀 표시 캐시가 4GiB 한도를 초과합니다')
+            group.pages[index] = pyramid
+        object.__setattr__(source, 'display_pyramid', group.pages[index])
+        object.__setattr__(source, 'display_group', group)
 
     def browse_frame(self, index, template, window, *, validate=True):
         if validate:
@@ -328,6 +361,8 @@ class TiffStack:
         return None if self.browse is None else self.browse.frame(index, template, window)
 
     def close(self):
+        if not self.retain_prepared:
+            self.display_group.close()
         if self.browse is not None:
             self.browse.close()
         with self._lock:
