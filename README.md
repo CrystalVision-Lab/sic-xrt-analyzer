@@ -1,5 +1,8 @@
 # sic-xrt-analyzer
 
+전체 주석·대비 후보의 원본 점 라벨을 기록하는 독립 [검수 창](docs/dataset-review-v1.md)을 제공합니다.
+세부 종류·물리 기준의 정답 확정과 학습 실행은 별도이며, 이 화면에서 자동 승인하지 않습니다.
+
 SiC XRT 이미지를 탐색하는 PySide6/QML 데스크톱 앱입니다. 산업용 Dark Gray 화면, 사전 준비된 정밀 TIFF 스택·JPG 뷰어, ImageJ 도구·ROI 편집과 앱 내부 ImageJ 매크로·Java 플러그인 실행 창을 제공합니다. **모델 분석과 3D 재구성은 아직 연결되지 않았습니다.**
 
 ## 실행 (Windows PowerShell)
