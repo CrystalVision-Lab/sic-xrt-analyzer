@@ -199,10 +199,15 @@ class ReviewStore:
         image = QImage(rgb.data, width, height, rgb.strides[0], QImage.Format_RGB888).copy()
         if marked:
             painter = QPainter(image)
-            painter.setPen(QPen(QColor('#f43f5e'), 1))
             xx, yy = round(x-left), round(y-top)
-            painter.drawLine(xx-7, yy, xx+7, yy)
-            painter.drawLine(xx, yy-7, xx, yy+7)
+            # Outlined arms remain visible on bright/dark texture after scaling.
+            # Leave the center open so the annotated defect is still visible.
+            arms = [(xx-24, yy, xx-8, yy), (xx+8, yy, xx+24, yy),
+                    (xx, yy-24, xx, yy-8), (xx, yy+8, xx, yy+24)]
+            for color, thickness in [('#111827', 7), ('#ffeb3b', 3)]:
+                painter.setPen(QPen(QColor(color), thickness))
+                for arm in arms:
+                    painter.drawLine(*arm)
             painter.end()
         source.validate_identity()
         return image
