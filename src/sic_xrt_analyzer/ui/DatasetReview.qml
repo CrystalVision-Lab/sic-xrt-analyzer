@@ -91,7 +91,7 @@ ApplicationWindow {
                         ColumnLayout {
                             required property string modelData
                             Layout.fillWidth: true; Layout.fillHeight: true
-                            Label { text: modelData==="raw"?"원본 패치":"동일 패치 · 주석 좌표"; color:"#cbd5e1" }
+                            Label { text: modelData==="raw"?"원본 패치":"노란 십자가 중심이 검수할 위치입니다"; color:"#cbd5e1" }
                             Image {
                                 objectName: modelData==="raw"?"rawCrop":"markedCrop"
                                 Layout.fillWidth: true; Layout.fillHeight: true

@@ -79,7 +79,10 @@ def test_native_crop_and_marker_use_original_grid_and_changed_source_is_rejected
     assert image.width() == image.height() == 64
     assert image.pixelColor(20,30).red() == 128
     marker = store.crop('pt', marked=True)
-    assert marker.pixelColor(20,30).red() == 244
+    assert marker.pixelColor(20,30) == image.pixelColor(20,30)
+    assert marker.pixelColor(32,30).name() == '#ffeb3b'
+    assert marker.pixelColor(20,18).name() == '#ffeb3b'
+    assert marker.pixelColor(32,33).name() == '#111827'
     (raw/'source.tif').write_bytes(b'changed')
     with pytest.raises(ValueError, match='바뀌었습니다'):
         store.crop('pt')
