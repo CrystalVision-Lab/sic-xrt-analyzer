@@ -26,7 +26,7 @@ ApplicationWindow {
     property bool rawReady: false
     property bool markedReady: false
     function reload() {
-        page = reviewBridge.query(area.currentValue || "", phase.currentValue || "", origin.currentValue || "", state.currentValue || "", offset)
+        page = reviewBridge.query(area.currentValue || "", phase.currentValue || "", origin.currentValue || "", state.currentValue || "", offset, scope.currentIndex===0)
         choose(page.rows.length ? page.rows[0] : null)
     }
     function choose(item) {
@@ -48,13 +48,15 @@ ApplicationWindow {
         Label { text: "원본 좌표의 패치를 확인하고 결정하세요. 세부 종류 기준·스케일·층 간격은 미확정입니다. 점 검수는 전체 영상 주석 완료를 뜻하지 않습니다."; color: "#fbbf24"; wrapMode: Text.Wrap; Layout.fillWidth: true }
         RowLayout {
             spacing: 12
+            ComboBox { id:scope; objectName:"reviewScope"; model:["첫 검수 표본","전체 항목"]; enabled:root.page.priority_count>0; onActivated:{root.offset=0;root.reload()} }
             ComboBox { id: area; objectName: "areaFilter"; textRole: "text"; valueRole: "value"; model: [{text:"전체 웨이퍼",value:""},{text:"웨이퍼 1",value:"1"},{text:"웨이퍼 2",value:"2"},{text:"웨이퍼 3",value:"3"},{text:"웨이퍼 4",value:"4"},{text:"웨이퍼 5",value:"5"},{text:"웨이퍼 6",value:"6"},{text:"웨이퍼 7",value:"7"},{text:"웨이퍼 8",value:"8"},{text:"웨이퍼 9",value:"9"},{text:"3D 프레임",value:"3D"}]; onActivated: {root.offset=0; root.reload()} }
             ComboBox { id: phase; textRole:"text"; valueRole:"value"; model:[{text:"전·후 전체",value:""},{text:"열처리 전",value:"before"},{text:"열처리 후",value:"after"}]; onActivated:{root.offset=0;root.reload()} }
             ComboBox { id: origin; textRole:"text"; valueRole:"value"; model:[{text:"제공자 + 자동 후보",value:""},{text:"제공자 주석",value:"provider"},{text:"자동 대비 후보",value:"contrast"}]; onActivated:{root.offset=0;root.reload()} }
             ComboBox { id: state; textRole:"text"; valueRole:"value"; model:[{text:"미검수",value:"unreviewed"},{text:"보류",value:"hold"},{text:"확인",value:"confirm"},{text:"수정",value:"correct"},{text:"제외",value:"exclude"},{text:"전체 상태",value:""}]; onActivated:{root.offset=0;root.reload()} }
             Item { Layout.fillWidth: true }
-            Label { text: "결정 기록 " + root.page.reviewed + " / " + root.page.all; color: "#cbd5e1" }
+            Label { text: "결정 " + root.page.reviewed + " / " + root.page.all; color: "#cbd5e1" }
         }
+        Label { text: root.page.priority_count>0 && scope.currentIndex===0 ? "먼저 " + root.page.priority_count + "건만 확인합니다. 제공자 라벨은 유지됩니다. 표본 확인은 전체 정답 승인이 아닙니다. 세부 문자 근거가 없으면 TED·TSD·BPD 또는 보류로 기록하세요." : "전체 목록입니다. 자동 후보는 정답 라벨이 없습니다."; color:"#cbd5e1"; wrapMode:Text.Wrap; Layout.fillWidth:true }
         RowLayout {
             Layout.fillWidth: true; Layout.fillHeight: true; spacing: 20
             Rectangle {

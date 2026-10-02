@@ -62,7 +62,7 @@ def exclusive_writer(session):
 
 
 class ReviewStore:
-    def __init__(self, workspace, candidates, session):
+    def __init__(self, workspace, candidates, session, review_plan=None):
         self.workspace, self.candidates = validated_folder(workspace), validated_folder(candidates)
         contract = json.loads((self.workspace/'workspace.json').read_text(encoding='utf-8'))
         proposal = json.loads((self.candidates/'candidate_summary.json').read_text(encoding='utf-8'))
@@ -86,6 +86,18 @@ class ReviewStore:
                     raise ValueError('중복된 항목 ID입니다')
                 self.items[p[key]] = p | {'item_id': p[key], 'source_kind': kind, 'frame_index': p.get('frame_index'),
                                          'fine_label': p.get('fine_label') or '종류 미지정', 'phase': p.get('phase') or 'unknown'}
+        self.priority_ids = None
+        if review_plan is not None:
+            plan_root = validated_folder(review_plan)
+            plan = json.loads((plan_root/'review_plan.json').read_text(encoding='utf-8'))
+            ids = [p['item_id'] for p in plan['items']]
+            if (plan.get('schema'), plan.get('schema_version')) != ('review_priority_plan', 1) or \
+                    plan.get('workspace_manifest_sha256') != sha(self.workspace/'output_hashes.json') or \
+                    plan.get('candidate_manifest_sha256') != sha(self.candidates/'output_hashes.json') or \
+                    len(ids) != len(set(ids)) or len(ids) != plan.get('selected_count') or \
+                    plan.get('total_items') != len(self.items) or not set(ids).issubset(self.items):
+                raise ValueError('첫 검수 계획의 입력 또는 항목 목록이 잘못되었습니다')
+            self.priority_ids = ids
         self.session = Path(session).resolve()
         if any(self.session.is_relative_to(p) or p.is_relative_to(self.session)
                for p in (self.source_root, self.workspace, self.candidates, registry)):
@@ -114,9 +126,11 @@ class ReviewStore:
         self.checked = {}
         self.lock = threading.RLock()
 
-    def rows(self, area='', phase='', origin='', state='unreviewed', offset=0, limit=100):
+    def rows(self, area='', phase='', origin='', state='unreviewed', offset=0, limit=100, priority_only=True):
         result = []
-        for item in self.items.values():
+        active = self.priority_ids if priority_only and self.priority_ids is not None else list(self.items)
+        for ident in active:
+            item = self.items[ident]
             actual_area = item['area_id'] or '3D'
             decision = self.latest.get(item['item_id'], {}).get('decision', 'unreviewed')
             if area and actual_area != area or phase and item['phase'] != phase or origin and item['source_kind'] != origin:
@@ -125,7 +139,9 @@ class ReviewStore:
                 continue
             result.append({k: item[k] for k in ('item_id', 'source_kind', 'image_asset_id', 'x', 'y', 'phase', 'frame_index', 'fine_label')} |
                           {'area_id': actual_area, 'status': decision})
-        return {'total': len(result), 'rows': result[offset:offset+limit], 'reviewed': len(self.latest), 'all': len(self.items)}
+        return {'total': len(result), 'rows': result[offset:offset+limit],
+                'reviewed':sum(ident in self.latest for ident in active), 'all':len(active),
+                'priority_count':len(self.priority_ids or []), 'full_count':len(self.items)}
 
     def save(self, item_id, decision, label, actor, checked, notes=''):
         if item_id not in self.items or decision not in {'confirm', 'correct', 'exclude', 'hold'}:
@@ -220,9 +236,9 @@ class ReviewBridge(QObject):
         super().__init__()
         self.store = store
 
-    @Slot(str, str, str, str, int, result='QVariantMap')
-    def query(self, area, phase, origin, state, offset):
-        return self.store.rows(area, phase, origin, state, max(0, offset))
+    @Slot(str, str, str, str, int, bool, result='QVariantMap')
+    def query(self, area, phase, origin, state, offset, priority_only):
+        return self.store.rows(area, phase, origin, state, max(0, offset), priority_only=priority_only)
 
     @Slot(str, str, str, str, bool, str, result='QVariantMap')
     def save(self, item_id, decision, label, actor, checked, notes):
