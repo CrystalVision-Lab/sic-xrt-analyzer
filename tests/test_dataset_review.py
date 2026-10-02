@@ -113,6 +113,26 @@ def test_two_windows_cannot_append_conflicting_history(inputs):
     assert not (session/'.write.lock').exists()
 
 
+def test_priority_plan_limits_first_pass_without_approving_other_items(inputs):
+    _,a,b,session = inputs
+    plan = session.parent/'plan'
+    plan.mkdir()
+    data = {'schema':'review_priority_plan', 'schema_version':1,
+        'workspace_manifest_sha256':sha(a/'output_hashes.json'),
+        'candidate_manifest_sha256':sha(b/'output_hashes.json'),
+        'items':[{'item_id':'pt','reasons':['spatial_group_sample']}], 'selected_count':1, 'total_items':2}
+    write(plan/'review_plan.json',data)
+    manifest(plan)
+    store = ReviewStore(a,b,session,plan)
+    assert store.rows()['all'] == store.rows()['total'] == 1
+    assert store.rows(priority_only=False)['all'] == 2
+    assert store.rows()['reviewed'] == 0 and not store.events
+    write(plan/'review_plan.json', data | {'items':[{'item_id':'missing'}]})
+    manifest(plan)
+    with pytest.raises(ValueError, match='첫 검수 계획'):
+        ReviewStore(a,b,session,plan)
+
+
 def test_review_window_loads_native_patches_and_has_no_automatic_approval(inputs, qt_app):
     _,a,b,session = inputs
     store = ReviewStore(a,b,session)
