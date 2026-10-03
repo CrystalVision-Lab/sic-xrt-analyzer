@@ -136,7 +136,6 @@ public class Test_QML_Plugin implements PlugIn {
     engine.warnings.connect(lambda items:warnings.extend(x.toString() for x in items))
     engine.load(QUrl.fromLocalFile(str(Path(__file__).parents[1]/'src/sic_xrt_analyzer/ui/Main.qml')))
     window=engine.rootObjects()[0];state=window.findChild(QObject,'uiState')
-    state.destroyed.connect(lambda: print('UI state released; owner window valid:', isValid(window)))
     try:
         invoke(window,'selectImagePath',str(path));spin(qt_app,lambda:not state.property('loading'))
         bridge.workbench.configureRuntime(True,'')
@@ -147,15 +146,10 @@ public class Test_QML_Plugin implements PlugIn {
         assert bridge.workbench.windows,bridge.workbench.error
         dialog=window.findChild(QObject,'pluginWindowsDialog')
         assert dialog.property('visible')
-        def items(item):
-            yield item
-            for child in item.childItems():
-                yield from items(child)
-        # Keep wrappers from scene traversal alive through the Qt event loop.
-        scene=list(items(window.contentItem()))
-        host=next(i for i in scene if i.objectName()=='nativePluginHost')
+        host=dialog.property('activeHost')
+        assert host is not None
         spin(qt_app,lambda:host.foreign.geometry().width() > 300)
-        assert host.foreign.parent() == window and host.foreign.geometry().width() > 300
+        assert host.foreign.parent() == host.container and host.container.parent() == window
         assert host.foreign.type() == Qt.ForeignWindow
         native=qt_app.primaryScreen().grabWindow(int(host.nativeId))
         assert not native.isNull() and native.save(str(tmp_path/'embedded-plugin.png'))
@@ -378,10 +372,10 @@ public class Test_GUI_Plugin implements PlugIn {
                     event=events.get(timeout=10)
                 native=next(w for w in event['windows'] if w['title']=='Native plugin settings')
                 host.nativeId=str(native['id']);QTest.qWait(100)
-                assert host.foreign is not None and host.foreign.parent() == window
-                assert host.foreign.geometry() == QRect(30,40,360,150)
+                assert host.foreign is not None and host.foreign.parent() == host.container and host.container.parent() == window
+                assert host.container.geometry() == QRect(30,40,360,150)
                 host.parentItem().setX(20);QTest.qWait(100)
-                assert host.foreign.geometry().x() == 50
+                assert host.container.geometry().x() == 50
                 spin(qt_app,future.done)
                 result=future.result(timeout=1)
                 np.testing.assert_array_equal(tifffile.imread(result['path']),raw[0]+7)

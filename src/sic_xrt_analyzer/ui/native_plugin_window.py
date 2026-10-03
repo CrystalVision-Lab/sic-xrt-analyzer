@@ -1,5 +1,5 @@
 """Foreign AWT/Swing windows parented into this application's Qt Quick window."""
-from PySide6.QtCore import Property, QPointF, QRect, QTimer, Signal, Slot
+from PySide6.QtCore import Property, QPointF, QRect, Qt, QTimer, Signal, Slot
 from PySide6.QtGui import QGuiApplication, QWindow
 from PySide6.QtQml import QQmlEngine, qmlRegisterType
 from PySide6.QtQuick import QQuickItem
@@ -16,6 +16,7 @@ class NativePluginWindow(QQuickItem):
         super().__init__(parent)
         self._native_id = ''
         self.foreign = None
+        self.container = None
         self.timer = QTimer(self)
         self.timer.setInterval(80)
         self.timer.timeout.connect(self.sync_geometry)
@@ -42,19 +43,22 @@ class NativePluginWindow(QQuickItem):
             self.sync_geometry()
             self.changed.emit()
 
-    def sync_geometry(self, *_args):
+    @Slot()
+    def sync_geometry(self):
         if self.foreign is None or self.window() is None:
             return
         window = self.window()
         QQmlEngine.setObjectOwnership(window, QQmlEngine.CppOwnership)
-        # Persistent QML objects belong to the owner window. Returning the owner
-        # across a Python/QML call must not transfer its scene objects to JS GC.
-        for child in window.children():
-            QQmlEngine.setObjectOwnership(child, QQmlEngine.CppOwnership)
-        self.foreign.setParent(window)
+        if self.container is None:
+            self.container = QWindow(window)
+            self.container.setFlags(Qt.SubWindow)
+            QQmlEngine.setObjectOwnership(self.container, QQmlEngine.CppOwnership)
+            self.foreign.setParent(self.container)
         origin = self.mapToScene(QPointF())
-        self.foreign.setGeometry(QRect(round(origin.x()), round(origin.y()),
-                                       max(1, round(self.width())), max(1, round(self.height()))))
+        geometry = QRect(round(origin.x()), round(origin.y()), max(1, round(self.width())), max(1, round(self.height())))
+        self.container.setGeometry(geometry)
+        self.foreign.setGeometry(QRect(0, 0, geometry.width(), geometry.height()))
+        self.container.setVisible(self.isVisible())
         self.foreign.setVisible(self.isVisible())
 
     @Slot()
@@ -68,6 +72,9 @@ class NativePluginWindow(QQuickItem):
             self.foreign.setParent(None)
             self.foreign.deleteLater()
             self.foreign = None
+        if self.container is not None:
+            self.container.deleteLater()
+            self.container = None
 
 
 qmlRegisterType(NativePluginWindow, 'XrtViewer', 1, 0, 'NativePluginWindow')

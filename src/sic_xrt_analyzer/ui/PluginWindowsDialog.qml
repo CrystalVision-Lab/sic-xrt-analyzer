@@ -9,6 +9,7 @@ Dialog {
     property QtObject theme
     property var backend
     property var nativeWindows: backend.pluginWindows
+    readonly property var activeHost: nativeHosts.itemAt(tabs.currentIndex)
     title: "플러그인 설정 / 결과"
     modal: false
     width: Math.min(parent.width - 40, Math.max(500, activeWindow.width + 24))
@@ -29,7 +30,7 @@ Dialog {
         }
         StackLayout {
             Layout.fillWidth: true; Layout.fillHeight: true; currentIndex: tabs.currentIndex
-            Repeater { model: root.nativeWindows
+            Repeater { id: nativeHosts; model: root.nativeWindows
                 NativePluginWindow {
                     id: host; objectName: "nativePluginHost"; required property var modelData; nativeId: String(modelData.id)
                     Component.onDestruction: host.release()
