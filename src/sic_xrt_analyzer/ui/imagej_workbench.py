@@ -12,17 +12,24 @@ from sic_xrt_analyzer.imaging.imagej_runtime import runtime_directory
 from sic_xrt_analyzer.imaging.roi_edit import geometry
 
 from .latest_reader import LatestReader
+from .native_plugin_window import native_windows_supported
 
 
 class ImageJWorkbench(QObject):
     changed = Signal()
     resultReady = Signal(str)
     saveFinished = Signal('QVariantMap')
+    windowEvent = Signal(object)
+    windowsChanged = Signal()
 
     def __init__(self, bridge):
         super().__init__(bridge)
         self.bridge = bridge
         self.runtime = ImageJClient()
+        self.windows = []
+        self.runtime.window_event = self.windowEvent.emit
+        self.windowEvent.connect(self._windows)
+        self.modern_catalog = []
         self.reader = LatestReader(self)
         self.reader.ready.connect(self._ready)
         self.busy = False
@@ -44,7 +51,59 @@ class ImageJWorkbench(QObject):
         return {'busy': self.busy, 'error': self.error, 'log': self.log, 'headings': self.headings,
                 'rows': self.rows, 'commands': self.catalog, 'color': self.color, 'size': self.size,
                 'tolerance': self.tolerance, 'text': self.text, 'recording': self.recording,
-                'recorded': self.recorded, 'plot': self.plot, 'runtimePath': str(runtime_directory())}
+                'recorded': self.recorded, 'plot': self.plot, 'runtimePath': str(runtime_directory()),
+                'gui': self.runtime.gui, 'fijiPath': self.runtime.fiji_home, 'windows': self.windows,
+                'nativeWindowsAvailable': native_windows_supported(), 'modernCommands': self.modern_catalog}
+
+    @Slot(object)
+    def _windows(self, event):
+        process = self.runtime.process
+        if 'enginePid' in event and (process is None or process.poll() is not None or event['enginePid'] != process.pid):
+            return
+        windows = event.get('windows', [])
+        if windows == self.windows:
+            return
+        self.windows = windows
+        self.windowsChanged.emit()
+        self.changed.emit()
+
+    @Property('QVariantList', notify=windowsChanged)
+    def pluginWindows(self):
+        return self.windows
+
+    def require_stack(self):
+        frame = self.frame()
+        working_stack = self.bridge._stack_context and frame.source.path == self.bridge._working_path
+        if frame.source.metadata.format != 'TIFF' or (frame.source.metadata.page_count < 2 and not working_stack):
+            raise ValueError('이 기능은 여러 페이지가 있는 XRT TIFF 스택에서 사용하세요')
+        return frame
+
+    @Slot(bool, str)
+    def configureRuntime(self, gui, url):
+        try:
+            self.require_stack()
+            if gui and not native_windows_supported():
+                raise ValueError('플러그인 창 연결에는 Windows 또는 Linux X11/XWayland 데스크톱이 필요합니다')
+            path = self.bridge.localPath(url) if url.startswith('file:') else url
+            if path:
+                root = Path(path).resolve(strict=True)
+                if not (root/'jars').is_dir() or not list((root/'jars').glob('imagej-*.jar')):
+                    raise ValueError('jars/가 있는 Fiji 라이브러리 폴더를 선택하세요')
+                path = str(root)
+            self.runtime.configure(gui,path)
+            self.modern_catalog = []
+            self.error = ''
+        except (OSError,ValueError) as exc:
+            self.error = str(exc)
+        self.changed.emit()
+
+    @Slot()
+    def loadModernCommands(self):
+        try:
+            self.require_stack()
+            self.submit(lambda:{'modernCommands':self.runtime.modern_commands()})
+        except ValueError as exc:
+            self.error = str(exc); self.changed.emit()
 
     @Slot(str, float, float, str)
     def configure(self, color, size, tolerance, text):
@@ -84,10 +143,10 @@ class ImageJWorkbench(QObject):
     @Slot(str, str, str, bool)
     def execute(self, kind, content, options, whole_stack=False):
         try:
-            frame = self.frame()
+            frame = self.require_stack()
             record = self.selected(frame)
             kwargs = {kind: content, 'options': options, 'record': record, 'whole_stack': whole_stack}
-            if kind not in ('command', 'macro', 'plugin'):
+            if kind not in ('command', 'macro', 'plugin', 'modern'):
                 raise ValueError('알 수 없는 실행 형식')
             if self.recording and kind == 'command':
                 import json
@@ -99,8 +158,11 @@ class ImageJWorkbench(QObject):
 
     @Slot()
     def loadCommands(self):
-        if not self.busy:
+        try:
+            self.require_stack()
             self.submit(lambda: {'commands': self.runtime.commands()})
+        except ValueError as exc:
+            self.error = str(exc); self.changed.emit()
 
     @Slot(bool)
     def record(self, enabled):
@@ -126,6 +188,7 @@ class ImageJWorkbench(QObject):
         try:
             if self.busy:
                 raise ValueError('현재 ImageJ 작업이 끝난 뒤 경로를 등록하세요')
+            self.require_stack()
             path = Path(self.bridge.localPath(url)).resolve(strict=True)
             if path.suffix.lower() not in ('.jar', '.class'):
                 raise ValueError('Java 플러그인 .jar 또는 .class 파일을 선택하세요')
@@ -141,7 +204,8 @@ class ImageJWorkbench(QObject):
     @Slot(str, 'QVariantList')
     def gesture(self, tool, points):
         try:
-            frame = self.frame()
+            frame = self.require_stack() if tool in ('Wand','Brush','Fill','Picker') else self.frame()
+            self.error = ''
             if not points or len(points) > 10000:
                 raise ValueError('도구 좌표 수가 유효하지 않습니다')
             points = [[float(p[0]), float(p[1])] for p in points]
@@ -210,7 +274,10 @@ class ImageJWorkbench(QObject):
                     return
             if 'commands' in result:
                 self.catalog = result['commands']
+            elif 'modernCommands' in result:
+                self.modern_catalog = result['modernCommands']
             elif 'registered' in result:
+                self.modern_catalog = []
                 self.log += '\n플러그인 경로 등록: ' + result['registered']
             elif 'saved' in result:
                 self.log += '\n복사본 저장: ' + result['saved']
@@ -232,7 +299,7 @@ class ImageJWorkbench(QObject):
     @Slot(str)
     def statistics(self, kind):
         try:
-            frame = self.frame()
+            frame = self.require_stack()
             record = self.selected(frame)
             self.submit(lambda: self.runtime.statistics(frame, record, kind), frame.source.identity)
         except ValueError as exc:
@@ -276,13 +343,16 @@ class ImageJWorkbench(QObject):
             self.changed.emit()
 
     def shutdown(self):
-        if self.busy:
+        if self.busy or self.windows:
             self.runtime.abort()
         self.reader.shutdown()
         self.runtime.close()
 
     @Slot()
     def cancel(self):
-        if self.busy:
-            self.canceled = True
+        if self.busy or self.windows:
+            self.canceled = self.busy
             self.runtime.abort()
+            self.windows = []
+            self.windowsChanged.emit()
+            self.changed.emit()

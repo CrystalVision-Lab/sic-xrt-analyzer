@@ -32,16 +32,18 @@ ApplicationWindow {
     property bool statusBarVisible: true
     property var discardNext: null
     property bool allowQuit: false
-    function imagejCommand(command, options) { imagejDialog.showCommand(command, options) }
-    function imagejTools() { imagejDialog.tabsIndex = 3; imagejDialog.open() }
-    function imagejMacro() { imagejDialog.showMacro() }
-    function imagejPlugin() { imagejDialog.showPlugin() }
-    function imagejCatalog() { imagejDialog.tabsIndex = 1; imagejDialog.open(); fileBridge.imagej.loadCommands() }
-    function imagejResults() { imagejDialog.tabsIndex = 2; imagejDialog.open() }
+    function imagejCommand(command, options) { if (uiState.stackFeaturesVisible) imagejDialog.showCommand(command, options) }
+    function imagejTools() { if (uiState.stackFeaturesVisible) { imagejDialog.tabsIndex = 3; imagejDialog.open() } }
+    function imagejMacro() { if (uiState.stackFeaturesVisible) imagejDialog.showMacro() }
+    function imagejPlugin() { if (uiState.stackFeaturesVisible) imagejDialog.showPlugin() }
+    function stackMeasurement() { if (uiState.stackFeaturesVisible) measurementDialog.open() }
+    function imagejCatalog() { if (uiState.stackFeaturesVisible) { imagejDialog.tabsIndex = 1; imagejDialog.open(); fileBridge.imagej.loadCommands() } }
+    function imagejModern() { if (uiState.stackFeaturesVisible) { imagejDialog.tabsIndex = 4; imagejDialog.open() } }
+    function imagejResults() { if (uiState.stackFeaturesVisible) { imagejDialog.tabsIndex = 2; imagejDialog.open() } }
     function saveImageCopy() { imageSaveDialog.open() }
     function saveMeasurements() { measurementsSaveDialog.open() }
-    function imagejStatistics(kind) { imagejResults(); fileBridge.imagej.statistics(kind) }
-    function imagejStackCommand(command, options) { imagejDialog.showCommand(command, options); imagejDialog.wholeStack = true }
+    function imagejStatistics(kind) { if (uiState.stackFeaturesVisible) { imagejResults(); fileBridge.imagej.statistics(kind) } }
+    function imagejStackCommand(command, options) { if (uiState.stackFeaturesVisible) { imagejDialog.showCommand(command, options); imagejDialog.wholeStack = true } }
     function confirmRoiDiscard(callback) {
         if (!uiState.importedRois.dirty) { callback(); return }
         discardNext = callback; roiDiscardDialog.open()
@@ -81,7 +83,7 @@ ApplicationWindow {
     function clearImageState() {
         uiState.opening = false
         uiState.filePath = ""; uiState.fileName = ""; uiState.imageSource = ""
-        uiState.imageWidth = 0; uiState.imageHeight = 0; uiState.bitDepth = 0; uiState.pageCount = 0
+        uiState.imageWidth = 0; uiState.imageHeight = 0; uiState.bitDepth = 0; uiState.pageCount = 0; uiState.workingStackContext = false
         uiState.pageIndex = 0; uiState.dtype = ""; uiState.imageFormat = ""
         uiState.previewWidth = 0; uiState.previewHeight = 0
         uiState.sampledPreview = false; uiState.demoMode = false; uiState.hasRoi = false
@@ -120,6 +122,7 @@ ApplicationWindow {
             uiState.imageWidth = result.width; uiState.imageHeight = result.height
             uiState.previewWidth = result.previewWidth; uiState.previewHeight = result.previewHeight
             uiState.bitDepth = result.bitDepth; uiState.pageCount = result.pageCount; uiState.sampledPreview = result.sampled
+            uiState.workingStackContext = !!result.stackContext
             uiState.pageIndex = result.pageIndex; uiState.dtype = result.dtype
             uiState.imageFormat = result.format
             uiState.imageSource = result.source; uiState.workspaceIndex = 0; uiState.demoMode = false
@@ -205,7 +208,7 @@ ApplicationWindow {
     Action { id: reportIssueAction; text: "문제 보고"; onTriggered: { if (!fileBridge.openIssueTracker()) window.showInfo("문제 보고", "브라우저를 열지 못했습니다. GitHub 저장소의 Issues에서 보고해 주세요.") } }
     Action { id: aboutAction; objectName: "aboutAction"; text: "프로그램 정보"; onTriggered: window.showInfo("SiC XRT Analyzer", "XRT 이미지 검사·분석\n버전 " + fileBridge.appVersion + "\n" + fileBridge.systemInfo + "\n\nTIFF/JPG · ImageJ ROI 뷰어\n모델 분석 미연결\nCrystalVision-Lab") }
     menuBar: AppMenuBar { theme: theme; uiState: uiState; hostWindow: window; fileBridge: window.desktopBridge; actions: window.commands }
-    header: TopToolbar { objectName: "topToolbar"; theme: theme; uiState: uiState; actions: window.commands; hostWindow: window; height: theme.toolbarHeight }
+    header: TopToolbar { objectName: "topToolbar"; theme: theme; uiState: uiState; actions: window.commands; hostWindow: window; height: uiState.stackFeaturesVisible ? theme.toolbarHeight : 40 }
     RowLayout {
         anchors.fill: parent; spacing: 0
         NavigationPanel { theme: theme; uiState: uiState; collapsed: window.navigationCollapsed; recentFiles: fileBridge.recentFiles; Layout.preferredWidth: implicitWidth; Layout.fillHeight: true; onCollapseRequested: window.navigationCollapsed = !window.navigationCollapsed; onWorkspaceRequested: function(index) { window.selectWorkspace(index) }; onRecentRequested: function(path) { window.selectImagePath(path) } }
@@ -240,5 +243,8 @@ ApplicationWindow {
     }
     AppDialog { id: infoDialog; objectName: "infoDialog"; theme: theme; x: (window.width - width) / 2; y: (window.height - height) / 2 }
     SettingsDialog { id: settingsDialog; theme: theme; fileBridge: window.desktopBridge; x: (window.width - width) / 2; y: (window.height - height) / 2; onApplied: function(preferences) { window.applyPreferences(preferences) } }
-    ImageJDialog { id: imagejDialog; theme: theme; backend: fileBridge.imagej; x: (window.width - width) / 2; y: (window.height - height) / 2 }
+    ImageJDialog { id: imagejDialog; parent: Overlay.overlay; theme: theme; backend: fileBridge.imagej; x: (window.width - width) / 2; y: (window.height - height) / 2 }
+    StackMeasurementDialog { id: measurementDialog; parent: Overlay.overlay; theme: theme; backend: fileBridge.stackMeasurements; uiState: uiState; x: (window.width-width)/2; y: (window.height-height)/2 }
+    PluginWindowsDialog { parent: Overlay.overlay; theme: theme; backend: fileBridge.imagej; x: (window.width-width)/2; y: (window.height-height)/2 }
+    Connections { target: uiState; function onStackFeaturesVisibleChanged() { if (!uiState.stackFeaturesVisible) { imagejDialog.close(); measurementDialog.close() } } }
 }
