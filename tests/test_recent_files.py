@@ -2,6 +2,7 @@
 
 from PySide6.QtCore import QSettings
 
+
 def test_recent_files_are_unique_bounded_and_persistent(tmp_path, bridge_factory):
     settings_path = tmp_path / "preferences.ini"
     bridge = bridge_factory(settings=QSettings(str(settings_path), QSettings.IniFormat))
