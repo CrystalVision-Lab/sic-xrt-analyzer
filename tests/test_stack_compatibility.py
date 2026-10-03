@@ -136,6 +136,7 @@ public class Test_QML_Plugin implements PlugIn {
     engine.warnings.connect(lambda items:warnings.extend(x.toString() for x in items))
     engine.load(QUrl.fromLocalFile(str(Path(__file__).parents[1]/'src/sic_xrt_analyzer/ui/Main.qml')))
     window=engine.rootObjects()[0];state=window.findChild(QObject,'uiState')
+    state.destroyed.connect(lambda: print('UI state released; owner window valid:', isValid(window)))
     try:
         invoke(window,'selectImagePath',str(path));spin(qt_app,lambda:not state.property('loading'))
         bridge.workbench.configureRuntime(True,'')

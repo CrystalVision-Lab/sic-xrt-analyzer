@@ -242,7 +242,7 @@ ApplicationWindow {
         onRejected: window.discardNext = null
     }
     AppDialog { id: infoDialog; objectName: "infoDialog"; theme: theme; x: (window.width - width) / 2; y: (window.height - height) / 2 }
-    SettingsDialog { id: settingsDialog; theme: theme; fileBridge: window.desktopBridge; x: (window.width - width) / 2; y: (window.height - height) / 2; onApplied: function(preferences) { window.applyPreferences(preferences) } }
+    SettingsDialog { id: settingsDialog; theme: theme; fileBridge: window.desktopBridge; x: (window.width - width) / 2; y: (window.height - height) / 2; onPreferencesApplied: function(preferences) { window.applyPreferences(preferences) } }
     ImageJDialog { id: imagejDialog; parent: Overlay.overlay; theme: theme; backend: fileBridge.imagej; x: (window.width - width) / 2; y: (window.height - height) / 2 }
     StackMeasurementDialog { id: measurementDialog; parent: Overlay.overlay; theme: theme; backend: fileBridge.stackMeasurements; uiState: uiState; x: (window.width-width)/2; y: (window.height-height)/2 }
     PluginWindowsDialog { parent: Overlay.overlay; theme: theme; backend: fileBridge.imagej; x: (window.width-width)/2; y: (window.height-height)/2 }

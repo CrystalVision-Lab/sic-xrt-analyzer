@@ -47,6 +47,10 @@ class NativePluginWindow(QQuickItem):
             return
         window = self.window()
         QQmlEngine.setObjectOwnership(window, QQmlEngine.CppOwnership)
+        # Persistent QML objects belong to the owner window. Returning the owner
+        # across a Python/QML call must not transfer its scene objects to JS GC.
+        for child in window.children():
+            QQmlEngine.setObjectOwnership(child, QQmlEngine.CppOwnership)
         self.foreign.setParent(window)
         origin = self.mapToScene(QPointF())
         self.foreign.setGeometry(QRect(round(origin.x()), round(origin.y()),
