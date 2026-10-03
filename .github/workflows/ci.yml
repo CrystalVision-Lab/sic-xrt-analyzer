@@ -31,9 +31,10 @@ jobs:
       - run: ruff check .
       - run: python -c "import sic_xrt_analyzer"
       - run: python -m compileall -q src
-      - run: gdb --batch --return-child-result -ex run -ex "thread apply all bt" --args python -m pytest -v
+      - run: xvfb-run -a gdb --batch --return-child-result -ex run -ex "thread apply all bt" --args python -m pytest -v
         env:
-          QT_QPA_PLATFORM: offscreen
+          QT_QPA_PLATFORM: xcb
+          QSG_RENDER_LOOP: basic
           SIC_XRT_FIJI_HOME: artifacts/fiji-runtime
       - name: Verify real plugin windows on Linux X11
         if: success() || failure()
