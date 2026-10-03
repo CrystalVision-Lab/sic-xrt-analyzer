@@ -70,7 +70,7 @@ Fiji 런타임은 공식 portable no-Java ZIP(~907 MB)의 `jars/`, `plugins/` Ja
 
 - 기존 뷰어·분석 계약·ROI·읽기 전용 동작 회귀 검사와 새로운 스택 표시 조건·기준 눈금·길이/면적/각도/개수·비정사각형 픽셀·TSV 덮어쓰기 거부를 검사했습니다.
 - 실제 Fiji 라이브러리에서 1,163개의 SciJava 명령을 읽었습니다. 컴파일한 Command에 Dataset, 정수·boolean 인수와 LogService를 주입하고 40,000 이상의 uint16 값·단일/다중 페이지 결과·원본 보존·비공간 페이지 축을 검증했습니다. Fiji에 동봉된 MultiplyDataValuesBy 명령의 ImageDisplay·서비스 연결과 결과도 검증했습니다.
-- Windows에서 AWT Dialog, Swing JDialog, ImageJ GenericDialog를 실제 JVM에서 열고 Qt native 자식 창으로 연결했습니다. 설정값 7에 따른 원본 픽셀+7 결과와 부모·좌표 동기화를 검사했습니다. QML 앱의 플러그인 패널에서도 창 표시·처리·결과 반환·창 닫기를 검사합니다.
+- Windows에서 AWT Dialog, Swing JDialog, ImageJ GenericDialog를 실제 JVM에서 열고 Qt native 자식 창으로 연결했습니다. 설정값 7에 따른 원본 픽셀+7 결과와 부모·좌표 동기화를 검사했습니다. QML 앱의 플러그인 패널에서 창 표시·처리·결과 반환·창 닫기·재실행 중 파일 교체와 작업 프로세스 종료를 검사합니다. 네이티브 reparent 시 빌린 PySide 래퍼가 무효화될 수 있어 엔진에서 다시 조회하며, 메인 창과 상태 객체의 C++ 주소가 유지되는지도 확인합니다.
 - Linux CI에 Java 21, 검증한 Fiji 런타임, Xvfb/XCB GUI 검사를 추가했습니다. CI 결과는 PR의 실제 실행 결과를 기준으로 확인하세요.
 - 접근할 수 없는 Linux `/run/media/didgmltmd/6E25-3446/3D XRT`의 실제 4개 파일로 이 변경을 검증했다고 보고하지 않습니다. 위 검사와 캡처는 생성한 TIFF이며 원본 연구 데이터는 Git에 포함하지 않습니다.
 

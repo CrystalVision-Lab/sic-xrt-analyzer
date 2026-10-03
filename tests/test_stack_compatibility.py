@@ -13,7 +13,7 @@ from PySide6.QtQml import QQmlApplicationEngine
 from PySide6.QtQuick import QQuickWindow
 from PySide6.QtQuickControls2 import QQuickStyle
 from PySide6.QtTest import QTest
-from shiboken6 import isValid
+from shiboken6 import getCppPointer, isValid
 from test_analysis_pipeline import spin
 from test_prepared_roi_editor import invoke
 
@@ -136,6 +136,17 @@ public class Test_QML_Plugin implements PlugIn {
     engine.warnings.connect(lambda items:warnings.extend(x.toString() for x in items))
     engine.load(QUrl.fromLocalFile(str(Path(__file__).parents[1]/'src/sic_xrt_analyzer/ui/Main.qml')))
     window=engine.rootObjects()[0];state=window.findChild(QObject,'uiState')
+    owner_id, state_id = getCppPointer(window)[0], getCppPointer(state)[0]
+    dialog = window.findChild(QObject,'pluginWindowsDialog')
+    def current_state():
+        # Native reparenting can invalidate borrowed PySide wrappers even though
+        # Qt's owner scene still exists. Reacquire and assert its native identity.
+        nonlocal window, state, dialog
+        window = engine.rootObjects()[0]
+        state = window.findChild(QObject,'uiState')
+        dialog = window.findChild(QObject,'pluginWindowsDialog')
+        assert getCppPointer(window)[0] == owner_id and getCppPointer(state)[0] == state_id
+        return state
     try:
         invoke(window,'selectImagePath',str(path));spin(qt_app,lambda:not state.property('loading'))
         bridge.workbench.configureRuntime(True,'')
@@ -153,10 +164,23 @@ public class Test_QML_Plugin implements PlugIn {
         assert host.foreign.type() == Qt.ForeignWindow
         native=qt_app.primaryScreen().grabWindow(int(host.nativeId))
         assert not native.isNull() and native.save(str(tmp_path/'embedded-plugin.png'))
-        spin(qt_app,lambda:not bridge.workbench.busy and not state.property('loading') and not dialog.property('visible'),timeout=30)
+        spin(qt_app,lambda:not bridge.workbench.busy and not current_state().property('loading') and not dialog.property('visible'),timeout=30)
         assert not bridge.workbench.error
         np.testing.assert_array_equal(tifffile.imread(bridge.stack_viewer.frame.source.path),np.full((100,100),107,np.uint16))
-        assert state.property('stackFeaturesVisible') and not dialog.property('visible')
+        assert current_state().property('stackFeaturesVisible') and not dialog.property('visible')
+        # File replacement must also survive abrupt termination of a modal JVM
+        # window, not only its normal Apply/dispose path.
+        bridge.workbench.execute('plugin','Test_QML_Plugin','',False)
+        spin(qt_app,lambda:bool(bridge.workbench.windows),timeout=30)
+        replacement=tmp_path/'replacement.tif'
+        tifffile.imwrite(replacement,np.full((2,100,100),201,np.uint16),photometric='minisblack')
+        current_state()
+        invoke(window,'selectImagePath',str(replacement))
+        spin(qt_app,lambda:not current_state().property('loading') and not dialog.property('visible'),timeout=30)
+        process = bridge.workbench.runtime.process
+        assert not bridge.workbench.windows and (process is None or process.poll() is not None)
+        assert state.property('stackFeaturesVisible') and bridge.stack_viewer.frame.source.path == str(replacement)
+        assert bridge.stack_viewer.frame.source.read_region(0,0,1,1)[0,0] == 201
         assert not warnings,'\n'.join(warnings)
     finally:
         if isValid(window):
