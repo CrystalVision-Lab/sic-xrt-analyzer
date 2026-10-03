@@ -15,6 +15,7 @@ QtObject {
     property int bitDepth: 0
     property int pageCount: 0
     property int pageIndex: 0
+    property bool workingStackContext: false
     property string dtype: ""
     property string imageFormat: ""
     property int previewWidth: 0
@@ -58,6 +59,7 @@ QtObject {
     readonly property bool projectModified: false
     readonly property bool hasSelectedFile: filePath.length > 0
     readonly property bool hasLoadedImage: imageSource.length > 0 && hasSelectedFile
+    readonly property bool stackFeaturesVisible: workspaceIndex === 0 && hasLoadedImage && imageFormat === "TIFF" && (pageCount > 1 || workingStackContext)
     readonly property bool hasImage: demoMode || hasLoadedImage
     readonly property int contentWidth: demoMode ? 960 : imageWidth
     readonly property int contentHeight: demoMode ? 600 : imageHeight

@@ -1,6 +1,7 @@
-"""Private ImageJ engine process; no ImageJ/Fiji GUI or executable is launched."""
+"""Private embedded ImageJ engine; optional plugin windows, no external executable."""
 import json
 import sys
+from threading import Lock
 from types import SimpleNamespace
 
 import numpy as np
@@ -11,6 +12,14 @@ from .imagej_runtime import ImageJRuntime
 from .original_source import OriginalImageSource
 
 PREFIX = 'SIC_XRT_RESULT:'
+WINDOW_PREFIX = 'SIC_XRT_WINDOW:'
+OUTPUT_LOCK = Lock()
+
+
+def reply(prefix, value):
+    with OUTPUT_LOCK:
+        sys.stdout.write(prefix + json.dumps(value, ensure_ascii=True) + '\n')
+        sys.stdout.flush()
 
 
 class SharedPreparedPixels:
@@ -26,7 +35,7 @@ class SharedPreparedPixels:
 
 
 def serve():
-    runtime = ImageJRuntime()
+    runtime = ImageJRuntime(lambda value: reply(WINDOW_PREFIX, value))
     session = None
     try:
         for line in sys.stdin:
@@ -35,10 +44,12 @@ def serve():
                 request = json.loads(line)
                 method = request['method']
                 if method == 'close':
-                    print(PREFIX + json.dumps({'ok': True, 'value': None}), flush=True)
+                    reply(PREFIX, {'ok': True, 'value': None})
                     break
                 if method == 'commands':
                     value = runtime.commands()
+                elif method == 'modern_commands':
+                    value = runtime.modern_commands()
                 elif method == 'classpath':
                     runtime.start().addClassPath(request['path'])
                     value = None
@@ -53,7 +64,7 @@ def serve():
                     if spec.get('prepared') and isinstance(source, JpegImageSource):
                         cache = SharedPreparedPixels(spec['prepared'])
                         object.__setattr__(source, 'prepared', cache)
-                    frame = SimpleNamespace(source=source, low=spec['low'], high=spec['high'])
+                    frame = SimpleNamespace(source=source, low=spec['low'], high=spec['high'], calibration=spec.get('calibration',{}))
                     args = request.get('args', {})
                     if args.get('record'):
                         record = args['record']
@@ -68,10 +79,10 @@ def serve():
                         value = runtime.wand(frame, args['x'], args['y'], args['tolerance'])
                     else:
                         raise ValueError('Unknown engine method')
-                print(PREFIX + json.dumps({'ok': True, 'value': value}, ensure_ascii=True), flush=True)
+                reply(PREFIX, {'ok': True, 'value': value})
             except Exception as exc:  # noqa: BLE001 (private process protocol boundary)
                 runtime.invalidate()
-                print(PREFIX + json.dumps({'ok': False, 'error': str(exc)}, ensure_ascii=True), flush=True)
+                reply(PREFIX, {'ok': False, 'error': str(exc)})
             finally:
                 if cache:
                     cache.close()

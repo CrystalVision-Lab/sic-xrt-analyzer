@@ -5,9 +5,10 @@ MenuItem {
     id: root
     property string shortcutLabel: ""
     property string iconName: ""
+    visible: !subMenu || subMenu.available
     leftPadding: checkable ? 30 : 12
     rightPadding: 14
-    implicitHeight: 30
+    implicitHeight: visible ? 30 : 0
     contentItem: RowLayout {
         spacing: 18
         AppIcon { name: root.iconName; visible: root.iconName.length > 0; ink: root.enabled ? root.palette.windowText : "#77828a" }

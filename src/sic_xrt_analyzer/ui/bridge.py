@@ -28,13 +28,17 @@ from sic_xrt_analyzer.analysis.pipeline import AnalysisPipeline
 from sic_xrt_analyzer.imaging.image_stack import open_stack
 from sic_xrt_analyzer.imaging.original_source import OriginalImageSource
 from sic_xrt_analyzer.imaging.roi_edit import export_copy
-from sic_xrt_analyzer.ui import prepared_view  # noqa: F401  (register QML type)
+from sic_xrt_analyzer.ui import (
+    native_plugin_window,  # noqa: F401  (register QML type)
+    prepared_view,  # noqa: F401  (register QML type)
+)
 from sic_xrt_analyzer.ui.detail_reader import DetailReader
 from sic_xrt_analyzer.ui.imagej_workbench import ImageJWorkbench
 from sic_xrt_analyzer.ui.latest_reader import LatestReader
 from sic_xrt_analyzer.ui.pixel_reader import PixelReader
 from sic_xrt_analyzer.ui.roi_manager import RoiManager
 from sic_xrt_analyzer.ui.stack_controller import StackController
+from sic_xrt_analyzer.ui.stack_measurements import StackMeasurements
 
 DEFAULTS = {
     "smoothImages": True,
@@ -73,6 +77,8 @@ class FileBridge(QObject):
         self.provider = provider or TiffImageProvider()
         self.revision = 0
         self._working_path = ''
+        self._pending_working_path = ''
+        self._stack_context = False
         self.stack_viewer = StackController(self)
         self.stack_viewer.changed.connect(self.stackChanged)
         self.stack_viewer.frameReady.connect(self._on_frame)
@@ -89,6 +95,7 @@ class FileBridge(QObject):
         self.roi_exporter.ready.connect(self._on_roi_saved)
         self.pipeline = AnalysisPipeline(parent=self)
         self.workbench = ImageJWorkbench(self)
+        self.measurements = StackMeasurements(self)
         self.pipeline.changed.connect(self.analysisChanged)
         self._settings = settings or QSettings("CrystalVision-Lab", "sic-xrt-analyzer")
         stored = self._settings.value("preferences", {})
@@ -493,13 +500,15 @@ class FileBridge(QObject):
 
     @Slot(str)
     def requestImage(self, url):
+        if self.workbench.windows:
+            self.workbench.cancel()
         self.workbench.runtime.session += 1
         self._request_image(url)
 
     def _request_image(self, url):
         if self.workbench.busy:
             self.workbench.cancel()
-        self._working_path = ''
+        self._pending_working_path = ''
         self.pipeline.invalidate()
         self.pixel_reader.clear()
         self.detail_reader.clear()
@@ -511,15 +520,23 @@ class FileBridge(QObject):
     @Slot(str)
     def requestWorkingCopy(self, path):
         self._request_image(self.localUrl(path))
-        self._working_path = path
+        self._pending_working_path = path
 
     @Slot(object, bool)
     def _on_frame(self, frame, opening):
+        if opening:
+            self._working_path = self._pending_working_path
         working = frame.source.path == self._working_path
+        if opening and not working:
+            self._stack_context = frame.source.metadata.format == 'TIFF' and frame.source.metadata.page_count > 1
+        if opening and (not working or self.original_source is None or
+                        (frame.source.metadata.width,frame.source.metadata.height) != (self.original_source.metadata.width,self.original_source.metadata.height)):
+            self.measurements.reset()
         if working and self.original_source and (frame.source.metadata.width, frame.source.metadata.height) != (self.original_source.metadata.width, self.original_source.metadata.height):
             self.roi_manager.clear()
         result = self._publish(frame.source.path, frame.preview, frame.source, record_recent=opening and not working)
         result['workingCopy'] = working
+        result['stackContext'] = self._stack_context
         result["browsePreview"] = frame.pixels is None and frame.source.metadata.page_count > 1
         (self.imageOpened if opening else self.pageChanged).emit(result)
         self.roisChanged.emit()
@@ -557,6 +574,11 @@ class FileBridge(QObject):
 
     @Slot()
     def clearImage(self):
+        self.workbench.cancel()
+        self.workbench.runtime.session += 1
+        self._working_path = ''
+        self._pending_working_path = ''
+        self._stack_context = False
         self.stack_viewer.clear()
         self.pixel_reader.clear()
         self.roi_manager.clear()
@@ -568,7 +590,7 @@ class FileBridge(QObject):
     @Slot()
     def waitForLoads(self):
         # Keep worker signal objects alive until decoding ends during shutdown.
-        if self.workbench.busy:
+        if self.workbench.busy or self.workbench.windows:
             self.workbench.cancel()
         self.workbench.reader.shutdown()
         self.stack_viewer.shutdown()
@@ -582,6 +604,10 @@ class FileBridge(QObject):
     @Property(QObject, constant=True)
     def imagej(self):
         return self.workbench
+
+    @Property(QObject, constant=True)
+    def stackMeasurements(self):
+        return self.measurements
 
     @Slot(str)
     def copyText(self, value):
