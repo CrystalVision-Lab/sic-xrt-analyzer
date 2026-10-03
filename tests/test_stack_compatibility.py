@@ -8,7 +8,7 @@ from queue import Queue
 import numpy as np
 import pytest
 import tifffile
-from PySide6.QtCore import QObject, QPointF, QRect, QSettings, QUrl
+from PySide6.QtCore import QObject, QPointF, QRect, QSettings, Qt, QUrl
 from PySide6.QtQml import QQmlApplicationEngine
 from PySide6.QtQuick import QQuickWindow
 from PySide6.QtQuickControls2 import QQuickStyle
