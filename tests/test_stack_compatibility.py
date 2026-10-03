@@ -155,6 +155,7 @@ public class Test_QML_Plugin implements PlugIn {
         host=next(i for i in scene if i.objectName()=='nativePluginHost')
         spin(qt_app,lambda:host.foreign.geometry().width() > 300)
         assert host.foreign.parent() == window and host.foreign.geometry().width() > 300
+        assert host.foreign.type() == Qt.ForeignWindow
         native=qt_app.primaryScreen().grabWindow(int(host.nativeId))
         assert not native.isNull() and native.save(str(tmp_path/'embedded-plugin.png'))
         spin(qt_app,lambda:not bridge.workbench.busy and not state.property('loading') and not dialog.property('visible'),timeout=30)

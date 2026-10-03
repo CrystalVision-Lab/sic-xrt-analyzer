@@ -1,5 +1,5 @@
 """Foreign AWT/Swing windows parented into this application's Qt Quick window."""
-from PySide6.QtCore import Property, QPointF, QRect, Qt, QTimer, Signal, Slot
+from PySide6.QtCore import Property, QPointF, QRect, QTimer, Signal, Slot
 from PySide6.QtGui import QGuiApplication, QWindow
 from PySide6.QtQml import QQmlEngine, qmlRegisterType
 from PySide6.QtQuick import QQuickItem
@@ -36,7 +36,8 @@ class NativePluginWindow(QQuickItem):
                 self.foreign = QWindow.fromWinId(int(self._native_id))
                 if self.foreign is not None:
                     QQmlEngine.setObjectOwnership(self.foreign, QQmlEngine.CppOwnership)
-                    self.foreign.setFlags(Qt.SubWindow)
+                    # fromWinId already marks this as ForeignWindow. Preserve
+                    # that type: setParent embeds it without taking native ownership.
                     self.timer.start()
             self.sync_geometry()
             self.changed.emit()
