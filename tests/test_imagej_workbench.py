@@ -263,11 +263,13 @@ def test_qml_toolbar_rectangle_oval_and_polygon_mouse(qt_app, tmp_path):
             yield item
             for child in item.childItems():
                 yield from visual_items(child)
-        arrow = next(i for i in visual_items(window.contentItem()) if i.objectName() == 'toolArrow')
+        # Keep the complete scene's Python wrappers alive while pumping Qt events.
+        scene = list(visual_items(window.contentItem()))
+        arrow = next(i for i in scene if i.objectName() == 'toolArrow')
         assert arrow.isVisible() and arrow.mapToScene(__import__('PySide6.QtCore',fromlist=['QPointF']).QPointF()).x() + arrow.width() < 1100
         assert not warnings, '\n'.join(warnings)
     finally:
-        bridge.waitForLoads();window.setProperty('allowQuit',True);window.close();engine.deleteLater();qt_app.processEvents()
+        window.setProperty('allowQuit',True);window.close();bridge.waitForLoads();engine.deleteLater();qt_app.processEvents()
 
 
 def test_stack_page_display_is_prepared_at_native_resolution_before_scrub(qt_app, tmp_path):
