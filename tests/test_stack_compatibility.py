@@ -81,10 +81,13 @@ public class Test_Dataset_Command implements Command {
         assert 'services injected; 24x16' in result['log']
         result = client.run(stack.frame(1), modern='Test_Dataset_Command', options='{"delta": 17, "enabled": false}')
         np.testing.assert_array_equal(tifffile.imread(result['path']), raw[1])
-        result = client.run(stack.frame(0), modern='Test_Dataset_Command', options='{"delta": 3}',whole_stack=True)
+        # SciJava may remember a previous boolean through its input preprocessors;
+        # explicitly select the operation whose pixel result this assertion checks.
+        result = client.run(stack.frame(0), modern='Test_Dataset_Command', options='{"delta": 3, "enabled": true}',whole_stack=True)
         with tifffile.TiffFile(result['path']) as out:
             assert len(out.pages) == 2
-            assert all(np.all(page.asarray() == 40003) for page in out.pages)
+            values = [np.unique(page.asarray()).tolist() for page in out.pages]
+            assert values == [[40003], [40003]], values
         # A shipped Fiji command needs an ImageDisplay and injected services.
         client.session += 1
         result = client.run(stack.frame(0), modern='net.imagej.plugins.commands.assign.MultiplyDataValuesBy',
