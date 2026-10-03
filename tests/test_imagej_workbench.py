@@ -237,7 +237,7 @@ def test_qml_toolbar_rectangle_oval_and_polygon_mouse(qt_app, tmp_path):
     window=engine.rootObjects()[0]
     state=window.findChild(QObject,'uiState')
     path=tmp_path / 'mouse.tif'
-    tifffile.imwrite(path,np.zeros((200,200),np.uint16))
+    tifffile.imwrite(path,np.zeros((2,200,200),np.uint16),photometric='minisblack')
     try:
         invoke(window,'selectImagePath',str(path))
         spin(qt_app,lambda: not state.property('loading'))
