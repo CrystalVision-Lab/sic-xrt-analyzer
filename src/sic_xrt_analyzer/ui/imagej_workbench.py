@@ -123,8 +123,17 @@ class ImageJWorkbench(QObject):
         return frame
 
     def selected(self, frame):
+        manager = self.bridge.roi_manager
+        if manager.busy:
+            raise ValueError('ROI 불러오기가 끝난 뒤 실행하세요')
+        selected = next((r for r in manager.records if r.id == manager.selected), None)
+        if (selected is not None and selected.id not in manager.hidden
+                and selected.page_index in (None, frame.source.page_index) and len(selected.paths) != 1):
+            # Never silently replace an unsupported selected shape with no ROI
+            # (whole-image processing) or the analysis bounding rectangle.
+            raise ValueError('복합 경로 ROI 처리는 아직 지원하지 않습니다. 단일 경로 ROI를 선택하세요')
         try:
-            return self.bridge.roi_manager.selected_record(frame)
+            return manager.selected_record(frame)
         except ValueError:
             region = self.bridge.pipeline.current_roi
             roi = (region.x, region.y, region.width, region.height) if region else None

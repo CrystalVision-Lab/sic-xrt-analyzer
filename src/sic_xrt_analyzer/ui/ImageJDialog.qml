@@ -51,7 +51,7 @@ Dialog {
                     TextArea { id: macroText; objectName: "imagejMacro"; font.family: "Consolas"; text: 'run("Invert");\nrun("Gaussian Blur...", "sigma=1");\nrun("Measure");'; wrapMode: TextEdit.NoWrap; selectByMouse: true }
                 }
                 Text { visible: root.mode !== "macro"; Layout.fillWidth: true; Layout.fillHeight: true; wrapMode: Text.Wrap; color: theme.muted
-                    text: (root.mode === "modern" ? "현재 페이지를 Fiji 작업 복사본으로 처리합니다. 선택 ROI의 Fiji Overlay 변환은 아직 지원하지 않습니다.\n" : "현재 페이지와 선택 ROI를 작업 복사본으로 처리합니다.\n") + "설정창 사용을 켜면 AWT/Swing 플러그인 창을 프로그램 내부에 연결합니다.\nFiji/ImageJ2는 SciJava Command를 실행하며, 이미지 입력은 자동 연결하고 추가 인수는 JSON으로 전달합니다. 모든 외부 플러그인의 호환성을 보장하지는 않습니다."
+                    text: (root.mode === "modern" ? "선택 ROI를 Fiji Overlay로 전달합니다. Overlay/ImageDisplay를 사용하는 명령에서 선택 영역을 처리합니다. Dataset만 사용하는 명령은 ROI를 무시할 수 있습니다.\n전체 스택에서 allPlanes=true는 같은 XY 영역을 모든 페이지에 적용합니다. false는 현재 페이지만 처리합니다(이 옵션을 지원하는 명령 기준).\n" : "현재 페이지와 선택 ROI를 작업 복사본으로 처리합니다.\n") + "설정창 사용을 켜면 AWT/Swing 플러그인 창을 프로그램 내부에 연결합니다.\nFiji/ImageJ2는 SciJava Command를 실행하며, 이미지 입력은 자동 연결하고 추가 인수는 JSON으로 전달합니다. 모든 외부 플러그인의 호환성을 보장하지는 않습니다."
                 }
                 AppCheckBox { id: stackInput; theme: root.theme; text: "전체 TIFF 스택 전달 (페이지 순서, 공간 Z 미확정)"; enabled: fileBridge.stackState.pageCount > 1; onEnabledChanged: if (!enabled) checked = false }
                 RowLayout {
