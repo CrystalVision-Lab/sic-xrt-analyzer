@@ -142,3 +142,8 @@ Viewer의 8비트 QImage와 **OriginalImageSource**를 분리했습니다. 분�
 웨이퍼 맵, 정합, 3D 및 승인된 ONNX 추론은 이 저장소 경계에 속하지만 현재 연결되지 않았습니다. 학습·평가는 sic-xrt-ml, 데이터 변환·검증은 sic-xrt-data-tools에서 담당합니다. 외부 모델 계약 변경은 별도 Issue에서 버전·해시·입출력 규약을 정합니다. 이번 UI 변경은 외부 모델 계약을 변경하지 않습니다.
 
 작업 규칙: [AGENTS.md](AGENTS.md), [공통 handbook](https://github.com/CrystalVision-Lab/engineering-handbook).
+## Jupyter 고정 모델 분석·전후 추적
+
+연구용 고정 모델의 패치 분류, 후보 위치 표시·CSV 저장, 열처리 전후 자동 정렬과 잠정 연결은
+[Jupyter 연구 분석 안내](docs/research-workflow.md)와 `notebooks/06_research_analysis.ipynb`에서 사용할 수 있습니다.
+이 기능은 데스크톱 GUI의 분석 버튼과 별개입니다. 재학습 없이 실행하며 연결/종류 변화는 확정 정답으로 저장하지 않습니다.

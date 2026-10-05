@@ -11,6 +11,7 @@ requires-python = ">=3.11"
 dependencies = []
 
 [project.optional-dependencies]
+research = ["numpy>=1.26", "Pillow>=10", "tifffile>=2024.2", "opencv-python-headless>=4.8", "scipy>=1.11", "onnxruntime>=1.18", "ipywidgets>=8,<9"]
 imagej = ["JPype1>=1.6,<2"]
 dev = ["ruff>=0.6,<1", "pytest>=8,<9"]
 viewer = ["PySide6>=6.7,<7", "numpy>=1.26", "tifffile>=2024.2", "imagecodecs>=2024.1", "roifile>=2024.3.20,<2026"]
