@@ -254,6 +254,8 @@ Rectangle {
                 id: analysisOverlay; objectName: "analysisOverlay"; anchors.fill: parent; z: 3
                 property var points: uiState.research.filteredPoints
                 property var selected: uiState.research.selected
+                readonly property real candidateOpacity: 0.55
+                readonly property real selectedOpacity: 1
                 property real imageX: imageFrame.x
                 property real imageY: imageFrame.y
                 property real imageScale: root.displayScale
@@ -265,14 +267,15 @@ Rectangle {
                 onImageScaleChanged: requestPaint()
                 onVisibleChanged: requestPaint()
                 onPaint: {
-                    var c = getContext("2d"); c.reset(); c.lineWidth = 1.5
+                    var c = getContext("2d"); c.reset(); c.lineWidth = 1.5; c.globalAlpha = candidateOpacity
                     for (var i = 0; i < points.length; i++) {
                         var p = points[i], x = imageX + p.x * imageScale, y = imageY + p.y * imageScale
                         if (x < -6 || y < -6 || x > width + 6 || y > height + 6) continue
-                        c.strokeStyle = p.low_score ? "#ffffff" : p.type === "BPD" ? "#ffad42" : p.type === "TED" ? "#50e0ee" : "#ff78c4"
+                        c.strokeStyle = p.low_score ? "#ffffff" : uiState.resultPresentation.colorFor(p.type)
                         c.beginPath(); c.arc(x, y, 5, 0, Math.PI * 2); c.stroke()
                     }
                     if (selected.id) {
+                        c.globalAlpha = selectedOpacity
                         var sx=imageX+selected.x*imageScale, sy=imageY+selected.y*imageScale
                         c.strokeStyle="#fff04a"; c.lineWidth=2
                         c.beginPath(); c.arc(sx,sy,11,0,Math.PI*2); c.stroke()
