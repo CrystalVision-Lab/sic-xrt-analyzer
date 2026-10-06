@@ -78,11 +78,23 @@ ScrollView {
         RowLayout {
             Layout.fillWidth: true
             Repeater {
+                model: [{value:"ALL",label:"전체"},{value:"BPD",label:"BPD"},{value:"TED",label:"TED"},{value:"TSD",label:"TSD"},{value:"UNKNOWN",label:"종류 미확정"}]
+                AppButton { required property var modelData; theme: root.theme; Layout.fillWidth: true; text: modelData.label; checked: review.typeFilter === modelData.value; onClicked: fileBridge.feedback.setTypeFilter(modelData.value) }
+            }
+        }
+        RowLayout {
+            Layout.fillWidth: true
+            Repeater {
                 model: [{value:"ALL",label:"전체"},{value:"unreviewed",label:"미검수"},{value:"reviewed",label:"기록 있음"},{value:"deferred",label:"보류"}]
                 AppButton { required property var modelData; theme: root.theme; Layout.fillWidth: true; text: modelData.label; checked: review.filter === modelData.value; onClicked: fileBridge.feedback.setReviewFilter(modelData.value) }
             }
         }
         Text { text: "기록 " + (review.reviewedCount || 0) + " / " + (review.total || 0) + " · 표시 " + (review.rows || []).length; color: theme.muted; font.pixelSize: 11 }
+        RowLayout {
+            Layout.fillWidth: true
+            AppButton { objectName: "feedbackPrevious"; theme: root.theme; text: "← 이전"; Layout.fillWidth: true; enabled: !!review.rows.length; onClicked: fileBridge.feedback.stepRecord(-1) }
+            AppButton { objectName: "feedbackNext"; theme: root.theme; text: "다음 →"; Layout.fillWidth: true; enabled: !!review.rows.length; onClicked: fileBridge.feedback.stepRecord(1) }
+        }
         ListView {
             id: records; objectName: "feedbackRecords"; Layout.fillWidth: true; Layout.preferredHeight: 210; clip: true
             model: review.rows || []; spacing: 3; ScrollBar.vertical: ScrollBar {}

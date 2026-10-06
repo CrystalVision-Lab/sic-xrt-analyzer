@@ -274,12 +274,14 @@ Rectangle {
                 id: analysisOverlay; objectName: "analysisOverlay"; anchors.fill: parent; z: 3
                 property var points: uiState.research.filteredPoints
                 property var selected: uiState.research.selected
+                property bool reviewing: uiState.feedbackVisible
                 property real imageX: imageFrame.x
                 property real imageY: imageFrame.y
                 property real imageScale: root.displayScale
                 visible: uiState.hasResult && uiState.analysisLayerVisible && uiState.hasLoadedImage
                 onPointsChanged: requestPaint()
                 onSelectedChanged: requestPaint()
+                onReviewingChanged: requestPaint()
                 onImageXChanged: requestPaint()
                 onImageYChanged: requestPaint()
                 onImageScaleChanged: requestPaint()
@@ -292,7 +294,7 @@ Rectangle {
                         c.strokeStyle = p.low_score ? "#ffffff" : p.type === "BPD" ? "#ffad42" : p.type === "TED" ? "#50e0ee" : "#ff78c4"
                         c.beginPath(); c.arc(x, y, 5, 0, Math.PI * 2); c.stroke()
                     }
-                    if (selected.id) {
+                    if (selected.id && !reviewing) {
                         var sx=imageX+selected.x*imageScale, sy=imageY+selected.y*imageScale
                         c.strokeStyle="#fff04a"; c.lineWidth=2
                         c.beginPath(); c.arc(sx,sy,11,0,Math.PI*2); c.stroke()

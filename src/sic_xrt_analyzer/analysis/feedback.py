@@ -127,6 +127,10 @@ def validate_session(data):
     replay = new_session(source)
     replay['wafer_id'] = data['wafer_id']
     ids = set()
+    for original in data.get('candidate_snapshot', {}).values():
+        for k, bound in (('x', source['width']), ('y', source['height'])):
+            if type(original.get(k)) not in (int, float) or not math.isfinite(original[k]) or not 0 <= original[k] < bound:
+                raise ValueError('후보 목록의 좌표가 올바르지 않습니다.')
     for event in data['events']:
         if event['id'] in ids or event['actor'] != 'human':
             raise ValueError('중복되거나 지원하지 않는 검수 기록입니다.')
@@ -137,9 +141,16 @@ def validate_session(data):
             if type(original[k]) not in (int, float) or not math.isfinite(original[k]) or not 0 <= original[k] < bound:
                 raise ValueError('원본 후보 좌표가 올바르지 않습니다.')
         target = event['target']
+        if (type(target['location_confirmed']) is not bool
+                or target['objectness'] is not None and type(target['objectness']) is not bool
+                or event['action'] == 'add' and (event['revision'] != 1 or original.get('candidate_id') is not None or original.get('model_sha256') is not None)):
+            raise ValueError('검수 상태가 올바르지 않습니다.')
         expected = apply_event(replay, event['record_id'], original, event['action'], event['reviewer'], event['note'],
                                x=target['x'], y=target['y'], label=target['label'], duplicate_of=target['duplicate_of'])['events'][-1]
         if any(event[k] != expected[k] for k in ('revision', 'original', 'previous_target', 'target')):
             raise ValueError('검수 이력이 서로 맞지 않습니다.')
         replay['events'].append(event)
+    originals = {**data.get('candidate_snapshot', {}), **{k:e['original'] for k,e in latest_events(data).items()}}
+    if any(e['target']['duplicate_of'] and e['target']['duplicate_of'] not in originals for e in latest_events(data).values()):
+        raise ValueError('중복 대상의 기록이 없습니다.')
     return data

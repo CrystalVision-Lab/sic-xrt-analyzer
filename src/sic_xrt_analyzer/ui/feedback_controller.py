@@ -53,6 +53,7 @@ class FeedbackController(QObject):
         self.reviewer = str(settings.value('feedbackReviewer','양희승'))
         self.pending = {}
         self.filter = 'ALL'
+        self.type_filter = 'ALL'
         self.revision = 0
         bridge.pipeline.changed.connect(self._source_changed)
 
@@ -98,6 +99,9 @@ class FeedbackController(QObject):
             self.error = '검수 기록을 열지 못했습니다: '+error
         elif payload and payload[0] == self.identity:
             self.session_path, self.data = payload[1:]
+            selected = self.bridge.research.state['selected']
+            if selected:
+                self.select_candidate(selected)
         self.changed.emit()
 
     def _save(self, updated):
@@ -122,7 +126,9 @@ class FeedbackController(QObject):
             return {}
         rows = {}
         for p in self.bridge.research.rows:
-            ident = str(uuid5(NAMESPACE_URL,self.data['session_id']+':'+result.analysis_id+':'+p['id']))
+            # Exact encoded coordinates are stable across repeated analyses.
+            # Nearby points are NOT merged heuristically.
+            ident = str(uuid5(NAMESPACE_URL,self.data['session_id']+':xy:'+repr(float(p['x']))+':'+repr(float(p['y']))))
             rows[ident] = {'candidate_id':p['id'],'x':p['x'],'y':p['y'],'predicted_type':p['type'],
                 'analysis_id':result.analysis_id,'model_sha256':result.model_version,'model_id':result.model_id}
         return rows
@@ -256,6 +262,19 @@ class FeedbackController(QObject):
         self.filter=value
         self.changed.emit()
 
+    @Slot(str)
+    def setTypeFilter(self, value):
+        self.type_filter = value if value in ('ALL', 'BPD', 'TED', 'TSD', 'UNKNOWN') else 'ALL'
+        self.changed.emit()
+
+    @Slot(int)
+    def stepRecord(self, delta):
+        rows = self.state['rows']
+        if not rows:
+            return
+        index = next((i for i,r in enumerate(rows) if r['id'] == self.selected_id), -1 if delta > 0 else len(rows))
+        self.selectRecord(rows[max(0, min(len(rows)-1, index+delta))]['id'])
+
     @Slot(str, result=bool)
     def confirmLocation(self, note=''):
         selected = self.selected()
@@ -320,15 +339,20 @@ class FeedbackController(QObject):
         for ident,original in originals.items():
             event=events.get(ident)
             target=event['target'] if event else target_for(original)
+            kind = target['label'] or original['predicted_type'] or '미확정'
+            if self.type_filter == 'UNKNOWN' and target['label'] is not None:
+                continue
+            if self.type_filter not in ('ALL', 'UNKNOWN') and kind != self.type_filter:
+                continue
             if self.filter=='unreviewed' and event or self.filter=='reviewed' and not event:
                 continue
             if self.filter=='deferred' and (not event or target['objectness'] is not None or target['duplicate_of']):
                 continue
-            rows.append({'id':ident,'x':target['x'],'y':target['y'],'type':target['label'] or original['predicted_type'] or '미확정',
+            rows.append({'id':ident,'x':target['x'],'y':target['y'],'type':kind,
                          'status':status(event),'reviewed':bool(event),'labelConfirmed':bool(target['label'])})
         return {'ready':bool(self.data),'loading':self.loading,'error':self.error,'reviewer':self.reviewer,
                 'wafer':self.data['wafer_id'] if self.data else '', 'selected':self.selected(),'rows':rows,
-                'reviewedCount':len(events),'total':len(originals),'mode':self.mode,'filter':self.filter,
+                'reviewedCount':len(events),'total':len(originals),'mode':self.mode,'filter':self.filter,'typeFilter':self.type_filter,
                 'preview':self.preview,'previewCenter':getattr(self,'preview_center',[.5,.5]),
                 'exportPath':self.export_path,'sessionPath':str(self.session_path or ''),
                 'eventsCount':len(self.data['events']) if self.data else 0,

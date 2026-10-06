@@ -110,6 +110,11 @@ def test_controller_persistence_failure_import_and_source_change(qt_app, tmp_pat
     wrong.write_text(json.dumps(corrupted), encoding='utf-8')
     assert not f.importFeedback(str(wrong))
     assert f.data['source']['sha256'] == before['source']['sha256']
+    assert bridge.requestAnalysis('FULL_IMAGE', 0, 0, 0, 0, {})
+    spin(qt_app, lambda: bridge.analysis['hasResult'])
+    bridge.research.selectCandidate('candidate_000000')
+    assert f.state['selected']['id'] == ident
+    assert f.state['selected']['x'] == 83.5
 
 
 def test_actual_qml_click_moves_adds_and_does_not_reselect_old_candidate(qt_app, tmp_path):
