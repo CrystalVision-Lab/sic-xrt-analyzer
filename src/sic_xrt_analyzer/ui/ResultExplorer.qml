@@ -11,6 +11,7 @@ ColumnLayout {
     readonly property var selected: results.selected || ({})
     signal exportRequested()
     signal overviewRequested()
+    signal reviewRequested()
     spacing: 8
     function colorFor(kind) { return kind === "BPD" ? "#ffad42" : kind === "TED" ? "#50e0ee" : "#ff78c4" }
     function filter(kind, low, query) { fileBridge.research.setFilter(kind, low, query) }
@@ -116,6 +117,7 @@ ColumnLayout {
         AppButton { objectName: "nextCandidate"; theme: root.theme; text: "다음 →"; enabled: results.filteredTotal > 0 && results.selectedIndex < results.filteredTotal - 1; onClicked: fileBridge.research.stepCandidate(1) }
         AppButton { objectName: "resultOverview"; theme: root.theme; text: "전체 보기"; onClicked: root.overviewRequested() }
     }
+    AppButton { objectName: "reviewSelectedCandidate"; theme: root.theme; text: "선택 후보 검수하기"; Layout.fillWidth: true; enabled: !!selected.id && uiState.feedback.ready; onClicked: root.reviewRequested() }
     RowLayout {
         Text { text: "후보 목록"; color: theme.muted; font.pixelSize: 11; Layout.fillWidth: true }
         Text { text: "이번 결과에서 살펴봄 " + results.viewedCount; color: theme.muted; font.pixelSize: 10 }

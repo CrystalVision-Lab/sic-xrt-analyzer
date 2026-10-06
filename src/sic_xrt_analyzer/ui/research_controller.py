@@ -171,6 +171,7 @@ class ResearchController(QObject):
             self.bridge.pipeline.refresh_source()
             return
         self.selected_id = candidate_id
+        self.bridge.feedback_controller.select_candidate(row)
         self.visited.add(candidate_id)
         self.page = self.filtered.index(row) // 100
         self.thumbnail_source = self.thumbnail_error = ""

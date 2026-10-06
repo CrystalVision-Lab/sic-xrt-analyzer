@@ -10,6 +10,7 @@ Rectangle {
     property QtObject uiState
     property var actions
     property alias tabIndex: context.tabIndex
+    Binding { target: root.uiState; property: "feedbackVisible"; value: root.visible && root.tabIndex === 5 }
     readonly property string activeContext: context.activeContext
     readonly property string requestedContext: context.requestedContext
     readonly property string detailContext: context.detailContext
@@ -30,13 +31,14 @@ Rectangle {
             objectName: "inspectorTabs"
             spacing: 2; Layout.fillWidth: true
             Repeater {
-                model: ["이미지", "분석", "결과", "뷰어", "ROI"]
+                model: ["이미지", "분석", "결과", "뷰어", "ROI", "검수"]
                 AppButton { required property int index; required property string modelData; objectName: "inspectorTab" + index; theme: root.theme; text: modelData; checked: root.tabIndex === index; Layout.fillWidth: true; onClicked: root.tabIndex = index }
             }
         }
-        ResultContext { visible: root.tabIndex === 2; Layout.fillWidth: true; Layout.fillHeight: true; theme: root.theme; uiState: root.uiState; onExportRequested: root.resultExportRequested(); onOverviewRequested: root.overviewRequested() }
+        ResultContext { visible: root.tabIndex === 2; Layout.fillWidth: true; Layout.fillHeight: true; theme: root.theme; uiState: root.uiState; onExportRequested: root.resultExportRequested(); onOverviewRequested: root.overviewRequested(); onReviewRequested: { root.tabIndex = 5; fileBridge.feedback.selectRecord(uiState.feedback.selected.id) } }
+        FeedbackPanel { visible: root.tabIndex === 5; Layout.fillWidth: true; Layout.fillHeight: true; theme: root.theme; uiState: root.uiState }
         ScrollView {
-            visible: root.tabIndex !== 2
+            visible: root.tabIndex !== 2 && root.tabIndex !== 5
             Layout.fillWidth: true; Layout.fillHeight: true; clip: true
             contentWidth: availableWidth
             ColumnLayout {
