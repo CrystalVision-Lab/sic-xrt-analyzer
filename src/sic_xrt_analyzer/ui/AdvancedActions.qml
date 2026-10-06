@@ -15,8 +15,8 @@ QtObject {
     property Action modern: Action { objectName: "advancedModernAction"; text: "Fiji / ImageJ2 명령…"; enabled: root.enabled; onTriggered: root.hostWindow.imagejModern() }
     property Action catalog: Action { objectName: "advancedCatalogAction"; text: "모든 ImageJ 명령…"; enabled: root.enabled; onTriggered: root.hostWindow.imagejCatalog() }
     property Action results: Action { objectName: "advancedResultsAction"; text: "ImageJ 결과 / 로그…"; enabled: root.enabled; onTriggered: root.hostWindow.imagejResults() }
-    property Action roiManager: Action { objectName: "advancedRoiManagerAction"; text: "ROI 관리자"; enabled: true; onTriggered: root.hostWindow.openInspectorTab(4) }
-    property Action editRoi: Action { objectName: "advancedEditRoiAction"; text: "ROI 편집 / 관리"; enabled: true; onTriggered: { root.uiState.roiEditMode = true; root.hostWindow.openInspectorTab(4) } }
+    property Action roiManager: Action { objectName: "advancedRoiManagerAction"; text: "ROI 관리자"; enabled: true; onTriggered: root.hostWindow.requestContext("roi", "ROI_MANAGER_OPEN") }
+    property Action editRoi: Action { objectName: "advancedEditRoiAction"; text: "ROI 편집 / 관리"; enabled: true; onTriggered: { root.uiState.roiEditMode = true; root.hostWindow.requestContext("roi", "ROI_EDIT") } }
     property Action saveMeasurements: Action { objectName: "advancedSaveMeasurementsAction"; text: "측정 결과 TSV 저장…"; enabled: root.enabled && root.bridge.imagej.state.rows.length > 0 && !root.bridge.imagej.state.busy; onTriggered: root.hostWindow.saveMeasurements() }
     property Action first: Action { objectName: "advancedFirstAction"; text: "첫 페이지"; enabled: root.hasPages; onTriggered: root.bridge.requestPage(0) }
     property Action previous: Action { objectName: "advancedPreviousAction"; text: "이전 페이지"; enabled: root.hasPages; onTriggered: root.bridge.requestPage(Math.max(0, root.uiState.pageIndex - 1)) }

@@ -80,7 +80,7 @@ MenuBar {
             AppMenuItem { text: "RGB Color"; onTriggered: root.hostWindow.imagejCommand("RGB Color", "") }
         }
         AppMenu { title: "조정 (Adjust)"
-            AppMenuItem { text: "밝기 / 대비…"; onTriggered: root.hostWindow.openInspectorTab(3) }
+            AppMenuItem { text: "밝기 / 대비…"; action: root.actions.viewerSettings }
             AppMenuItem { text: "자동 표시 범위"; onTriggered: root.fileBridge.autoDisplayRange() }
             AppMenuItem { visible: root.uiState.stackFeaturesVisible; text: "임계값 / 이진화…"; onTriggered: root.hostWindow.imagejCommand("Convert to Mask", "method=Default background=Dark") }
             AppMenuItem { visible: root.uiState.stackFeaturesVisible; text: "크기 변경…"; onTriggered: root.hostWindow.imagejCommand("Size...", "width=1024 height=1024 interpolation=Bilinear") }
@@ -160,7 +160,7 @@ MenuBar {
         MenuSeparator {}
         AppMenuItem { objectName: "menuRunAnalysis"; action: root.actions.run; iconName: "run"; ToolTip.text: root.uiState.analysisReason; ToolTip.visible: hovered }
         AppMenuItem { objectName: "menuCancelAnalysis"; action: root.actions.cancelAnalysis }
-        AppMenuItem { text: "결과 보기"; enabled: root.uiState.hasResult; onTriggered: root.hostWindow.openInspectorTab(2) }
+        AppMenuItem { text: "결과 보기"; enabled: root.uiState.hasResult; onTriggered: root.hostWindow.openContext("result") }
     }
     AppMenu {
         id: toolsMenu; objectName: "toolsMenu"; title: "플러그인 (Plugins)"; available: root.uiState.stackFeaturesVisible

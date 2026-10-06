@@ -13,6 +13,10 @@ Rectangle {
     readonly property string activeContext: context.activeContext
     readonly property string requestedContext: context.requestedContext
     readonly property string detailContext: context.detailContext
+    readonly property string lastReason: context.lastReason
+    readonly property string resultPhase: context.resultPhase
+    signal activateRequested(string reason)
+    signal focusRequested()
     signal importRequested()
     signal boundsRequested()
     signal saveRequested()
@@ -21,30 +25,23 @@ Rectangle {
     signal coordinatesRequested()
     signal resultExportRequested()
     function showContext(key) { return context.showContext(key) }
+    function requestContext(key, reason) { return context.requestContext(key, reason) }
     color: theme.panel; border.color: theme.border
-    ContextState { id: context; objectName: "contextState"; uiState: root.uiState }
+    ContextState { id: context; objectName: "contextState"; uiState: root.uiState; onContextRequested: function(reason) { root.activateRequested(reason) } }
     ColumnLayout {
         anchors.fill: parent; anchors.margins: 12; spacing: 12
-        Text { text: "작업 정보"; color: theme.muted; font.pixelSize: 11; font.family: theme.fontFamily }
-        RowLayout {
-            objectName: "inspectorTabs"
-            spacing: 2; Layout.fillWidth: true
-            Repeater {
-                model: ["이미지", "분석", "결과", "뷰어", "ROI"]
-                AppButton { required property int index; required property string modelData; objectName: "inspectorTab" + index; theme: root.theme; text: modelData; checked: root.tabIndex === index; Layout.fillWidth: true; onClicked: root.tabIndex = index }
-            }
-        }
-        ResultContext { visible: root.tabIndex === 2; Layout.fillWidth: true; Layout.fillHeight: true; theme: root.theme; uiState: root.uiState; onExportRequested: root.resultExportRequested(); onOverviewRequested: root.overviewRequested() }
+        ContextHeader { theme: root.theme; controller: context; Layout.fillWidth: true; onFocusRequested: root.focusRequested() }
+        ResultContext { visible: root.requestedContext === "result"; Layout.fillWidth: true; Layout.fillHeight: true; theme: root.theme; uiState: root.uiState; phase: context.resultPhase; message: context.resultMessage; onExportRequested: root.resultExportRequested(); onOverviewRequested: root.overviewRequested() }
+        AnalysisContext { visible: root.requestedContext === "analysis"; Layout.fillWidth: true; Layout.fillHeight: true; theme: root.theme; uiState: root.uiState; actions: root.actions; onModelRequested: root.modelRequested(); onCoordinatesRequested: root.coordinatesRequested() }
         ScrollView {
-            visible: root.tabIndex !== 2
+            visible: root.requestedContext !== "result" && root.requestedContext !== "analysis"
             Layout.fillWidth: true; Layout.fillHeight: true; clip: true
             contentWidth: availableWidth
             ColumnLayout {
                 width: parent.width; spacing: 12
-                RoiContext { visible: root.tabIndex === 4; Layout.fillWidth: true; theme: root.theme; uiState: root.uiState; onImportRequested: root.importRequested(); onBoundsRequested: root.boundsRequested(); onSaveRequested: root.saveRequested() }
-                ViewerContext { visible: root.tabIndex === 3; Layout.fillWidth: true; theme: root.theme; uiState: root.uiState }
-                ImageContext { visible: root.tabIndex === 0; Layout.fillWidth: true; theme: root.theme; uiState: root.uiState }
-                AnalysisContext { visible: root.tabIndex === 1; Layout.fillWidth: true; theme: root.theme; uiState: root.uiState; actions: root.actions; onModelRequested: root.modelRequested(); onCoordinatesRequested: root.coordinatesRequested() }
+                RoiContext { visible: root.requestedContext === "roi"; Layout.fillWidth: true; theme: root.theme; uiState: root.uiState; onImportRequested: root.importRequested(); onBoundsRequested: root.boundsRequested(); onSaveRequested: root.saveRequested() }
+                ViewerContext { visible: root.requestedContext === "viewer"; Layout.fillWidth: true; theme: root.theme; uiState: root.uiState }
+                ImageContext { visible: root.requestedContext === "image"; Layout.fillWidth: true; theme: root.theme; uiState: root.uiState }
             }
         }
     }
