@@ -51,7 +51,7 @@ AppShell {
         statusBar: statusBarAction, fullScreen: fullScreenAction, resetLayout: resetLayoutAction,
         run: runAction, cancelAnalysis: cancelAnalysisAction, settings: settingsAction, modelInfo: modelInfoAction, guide: guideAction,
         shortcutGuide: shortcutGuideAction, reportIssue: reportIssueAction, about: aboutAction,
-        importRois: importRoisAction, viewerSettings: viewerSettingsAction, tools: toolCommands, advanced: advancedCommands
+        importRois: importRoisAction, viewerSettings: viewerSettingsAction, prepareAnalysis: prepareAnalysisAction, analysisInputInfo: analysisInputInfoAction, tools: toolCommands, advanced: advancedCommands
     })
     Theme { id: theme }
     UiState { id: uiState; objectName: "uiState"; displayPixelRatio: window.Screen.devicePixelRatio }
@@ -162,6 +162,7 @@ AppShell {
     }
     function clearRoi() { uiState.stopCandidateRoiTracking(); uiState.hasRoi = false; uiState.statusText = "ROI를 초기화했습니다" }
     function selectImportedBounds() {
+        if (uiState.analysisRunning) return
         var selected = uiState.importedRois.items.filter(function(r) { return r.selected && r.active })
         if (!selected.length) return
         uiState.stopCandidateRoiTracking()
@@ -190,8 +191,8 @@ AppShell {
     Action { id: closeImageAction; objectName: "closeImageAction"; text: "현재 이미지 닫기"; shortcut: StandardKey.Close; enabled: uiState.hasImage || uiState.loading; onTriggered: window.closeImage() }
     Action { id: quitAction; text: "종료"; shortcut: "Ctrl+Q"; onTriggered: window.close() }
     Action { id: panAction; objectName: "panAction"; text: "Pan"; shortcut: "H"; checkable: true; checked: uiState.activeTool === "Pan" && !uiState.roiEditMode; enabled: uiState.canNavigateImage; onTriggered: { uiState.roiEditMode = false; uiState.activeTool = "Pan" } }
-    Action { id: roiAction; objectName: "roiAction"; text: "ROI 선택"; shortcut: "R"; checkable: true; checked: uiState.activeTool === "ROI" && !uiState.roiEditMode; enabled: uiState.canNavigateImage; onTriggered: { uiState.roiEditMode = false; uiState.activeTool = "ROI" } }
-    Action { id: clearRoiAction; objectName: "clearRoiAction"; text: "ROI 초기화"; enabled: uiState.hasRoi && !uiState.loading; onTriggered: window.clearRoi() }
+    Action { id: roiAction; objectName: "roiAction"; text: "ROI 선택"; shortcut: "R"; checkable: true; checked: uiState.activeTool === "ROI" && !uiState.roiEditMode; enabled: uiState.canNavigateImage && !uiState.analysisRunning; onTriggered: { uiState.roiEditMode = false; uiState.activeTool = "ROI"; Qt.callLater(function() { viewer.focusView() }) } }
+    Action { id: clearRoiAction; objectName: "clearRoiAction"; text: "ROI 초기화"; enabled: uiState.hasRoi && !uiState.loading && !uiState.analysisRunning; onTriggered: window.clearRoi() }
     Action { id: copyRoiAction; objectName: "copyRoiAction"; text: "ROI 좌표 복사"; enabled: uiState.hasRoi && !uiState.loading; onTriggered: window.copyRoiInfo() }
     Action { id: zoomInAction; objectName: "zoomInAction"; text: "확대"; shortcut: "Ctrl++"; enabled: uiState.canNavigateImage && uiState.effectiveZoom < 16; onTriggered: viewer.zoomIn() }
     Action { id: zoomOutAction; text: "축소"; shortcut: "Ctrl+-"; enabled: uiState.canNavigateImage && uiState.effectiveZoom > 0.01; onTriggered: viewer.zoomOut() }
@@ -206,13 +207,15 @@ AppShell {
     Action { id: runAction; objectName: "runAction"; text: "분석 실행"; enabled: uiState.canAnalyze; onTriggered: { window.requestContext("analysis", "ANALYSIS_START"); uiState.candidateRoiId = ""; fileBridge.requestAnalysis(uiState.analysisScope, uiState.roiX, uiState.roiY, uiState.roiWidth, uiState.roiHeight, {point_mode: uiState.analysisPointMode}) } }
     Action { id: cancelAnalysisAction; objectName: "cancelAnalysisAction"; text: "분석 취소"; enabled: uiState.analysisRunning; onTriggered: fileBridge.cancelAnalysis() }
     Action { id: settingsAction; objectName: "settingsAction"; text: "설정…"; onTriggered: settingsDialog.openPreferences() }
-    Action { id: modelInfoAction; text: "모델 정보"; onTriggered: window.showInfo("모델 정보", uiState.analysisReason + "\n모델: " + (uiState.analysis.modelName || "—") + "\n버전: " + (uiState.analysis.modelVersion || "—") + "\n장치: " + (uiState.analysis.device || "—")) }
+    Action { id: prepareAnalysisAction; objectName: "prepareAnalysisAction"; text: "이 이미지 분석"; enabled: uiState.hasLoadedImage && !uiState.loading; onTriggered: { uiState.workspaceIndex = 0; window.openContext("analysis"); viewer.focusView() } }
+    Action { id: analysisInputInfoAction; objectName: "analysisInputInfoAction"; text: "분석 입력 상세"; enabled: uiState.hasLoadedImage; onTriggered: window.showInfo("분석 입력", uiState.analysisFlow.sourceLabel + "\n" + uiState.fileName + "\n" + uiState.filePath + "\n" + uiState.imageWidth + " × " + uiState.imageHeight + " px · " + uiState.dtype + "\n페이지 " + (uiState.pageIndex + 1) + " / " + uiState.pageCount + "\n표시 밝기·배율과 별개로 원본 픽셀을 사용합니다.") }
+    Action { id: modelInfoAction; text: "모델 정보"; onTriggered: window.showInfo("모델 정보", uiState.analysisFlow.modelStatus + "\n모델: " + (uiState.analysis.modelName || "—") + "\n버전: " + (uiState.analysis.modelVersion || "—") + "\n장치: " + (uiState.analysis.device || "—") + "\n모델 폴더: " + (uiState.research.bundle || "—") + (uiState.research.error ? "\n안내: " + uiState.research.error : "")) }
     Action { id: guideAction; text: "사용 안내"; onTriggered: window.showInfo("뷰어 사용 안내", "파일 메뉴에서 TIFF/JPG 또는 합성 데모를 여세요.\n오른쪽 작업 선택 메뉴의 뷰어·스택: 페이지 이동과 밝기·대비. ⋯ 메뉴에서도 표시 설정을 열 수 있습니다. 스택은 휠/방향키로 탐색하고 Ctrl+휠로 확대합니다.\nROI 관리: 대응하는 이미지의 .roi/RoiSet.zip 가져오기 및 표시.\nPan / ROI 도구, FIT 화면 맞춤, 100% 원본 픽셀 배율을 지원합니다. 확대 시 보이는 영역을 정밀 읽습니다.\nImageJ frames는 공간 Z축으로 해석하지 않습니다. 분석 Context에서 전체 이미지 또는 ROI를 선택하고 연구 모델로 분석할 수 있습니다.") }
     Action { id: shortcutGuideAction; text: "단축키"; onTriggered: window.showInfo("단축키", "파일\n열기  Ctrl+O     닫기  Ctrl+W     종료  Ctrl+Q\n\n보기\n화면 맞춤  Ctrl+0     실제 크기  Ctrl+1\n확대·축소  Ctrl++ / Ctrl+-     전체 화면  F11\n\n도구\nPan  H     ROI  R\n\n메뉴\nAlt+F / E / V / W / A / T / S / H") }
     Action { id: reportIssueAction; text: "문제 보고"; onTriggered: { if (!fileBridge.openIssueTracker()) window.showInfo("문제 보고", "브라우저를 열지 못했습니다. GitHub 저장소의 Issues에서 보고해 주세요.") } }
     Action { id: aboutAction; objectName: "aboutAction"; text: "프로그램 정보"; onTriggered: window.showInfo("SiC XRT Analyzer", "XRT 이미지 검사·분석\n버전 " + fileBridge.appVersion + "\n" + fileBridge.systemInfo + "\n\nTIFF/JPG · ImageJ ROI 뷰어\n모델 분석 미연결\nCrystalVision-Lab") }
     Connections { target: fileBridge.research; function onFocusRequested(x, y) { window.requestContext("result", "CANDIDATE_SELECTED"); uiState.workspaceIndex = 0; uiState.updateCandidateRoi(); Qt.callLater(function() { viewer.focusCandidate(x, y) }) } }
-    FolderDialog { id: researchModelDialog; title: "고정 모델 폴더 선택"; onAccepted: fileBridge.research.loadModel(selectedFolder.toString()) }
+    FolderDialog { id: researchModelDialog; objectName: "researchModelDialog"; title: "고정 모델 폴더 선택"; onAccepted: fileBridge.research.loadModel(selectedFolder.toString()) }
     FileDialog { id: coordinatesDialog; title: "현재 영상의 좌표 CSV"; nameFilters: ["좌표 CSV (*.csv)"]; onAccepted: fileBridge.research.setCoordinates(selectedFile.toString()) }
     FolderDialog { id: resultsDialog; title: "결과를 저장할 폴더"; onAccepted: fileBridge.research.exportResult(selectedFolder.toString()) }
     FileDialog { id: openDialog; objectName: "openImageDialog"; title: "XRT 이미지 열기"; nameFilters: ["XRT 이미지 (*.tif *.tiff *.jpg *.jpeg)", "TIFF 이미지 (*.tif *.tiff)", "JPEG 이미지 (*.jpg *.jpeg)", "모든 파일 (*)"]; onAccepted: window.selectImageFile(selectedFile.toString()) }

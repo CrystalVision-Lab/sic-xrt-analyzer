@@ -126,7 +126,7 @@ def test_real_qml_run_button_results_overlay_and_export(qt_app, tmp_path, suffix
             # Contrast changes are display-only and must not affect model pixels.
             bridge.setDisplayRange(0, 80)
             spin(qt_app, lambda: not bridge.stack_viewer.busy)
-        assert not window.findChild(QObject, "runAction").property("enabled")
+        assert window.findChild(QObject, "runAction").property("enabled")  # TD-04 FULL_IMAGE default.
         state.setProperty("analysisScope", "FULL_IMAGE")
         run = window.findChild(QObject, "runAction")
         assert run.property("enabled")
@@ -135,7 +135,7 @@ def test_real_qml_run_button_results_overlay_and_export(qt_app, tmp_path, suffix
         invoke(window, "openInspectorTab", 2)
         qt_app.processEvents()
         assert bridge.research.state["total"] == 1
-        assert window.findChild(QObject, "researchModelStatus").property("text") == "연구 모델 연결됨"
+        assert window.findChild(QObject, "researchModelStatus").property("text") == "모델 준비됨"
         overlay = window.findChild(QObject, "analysisOverlay")
         assert overlay.property("visible")
         assert window.findChild(QObject, "analysisExportButton").property("enabled")

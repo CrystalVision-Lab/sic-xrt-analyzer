@@ -1,5 +1,7 @@
 import QtQuick
 QtObject {
+    id: root
+    property QtObject analysisFlow: AnalysisFlowState { uiState: root }
     property string filePath: ""
     property string fileName: ""
     property int workspaceIndex: 0
@@ -44,7 +46,7 @@ QtObject {
     property var importedRois: fileBridge.roiState
     property bool roiEditMode: false
     property var detail: fileBridge.detailState
-    property string analysisScope: ""
+    property string analysisScope: "FULL_IMAGE"
     property string analysisPointMode: "contrast_proposals"
     property var research: fileBridge.research.state
     property bool autoCandidateRoi: true

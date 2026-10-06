@@ -63,7 +63,7 @@ QtObject {
           : "후보 " + uiState.research.total + "개 · " + (uiState.research.selected.id ? "선택한 후보를 검토하세요." : "검토할 후보를 선택하세요.")
     readonly property string subtitle: requestedContext === "image"
         ? uiState.hasImage ? uiState.fileName || "합성 데모 이미지" : "이미지를 열어 작업을 시작하세요."
-        : requestedContext === "analysis" ? "BPD · TED · TSD 후보 분석 · " + uiState.analysis.statusLabel
+        : requestedContext === "analysis" ? "현재 원본에서 BPD · TED · TSD 후보를 분석합니다."
         : requestedContext === "result" ? resultMessage
         : requestedContext === "viewer" ? uiState.hasImage ? "페이지 탐색과 원본 표시 범위" : "이미지를 열면 표시 설정을 사용할 수 있습니다."
         : "분석 영역과 ImageJ ROI를 구분하여 관리합니다."

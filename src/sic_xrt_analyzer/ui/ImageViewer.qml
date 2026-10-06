@@ -160,6 +160,7 @@ Rectangle {
                 onPressed: function(mouse) {
                     focusAnimation.stop()
                     forceActiveFocus()
+                    if (uiState.analysisRunning && uiState.activeTool === "ROI" && !uiState.roiEditMode) return
                     root.pressX = mouse.x; root.pressY = mouse.y; root.pressPanX = root.panX; root.pressPanY = root.panY
                     if (uiState.roiEditMode) {
                         var editPoint = root.imagePoint(mouse.x, mouse.y)
@@ -190,7 +191,7 @@ Rectangle {
                     var p = root.imagePoint(mouse.x, mouse.y)
                     uiState.cursorX = inside ? Math.min(uiState.contentWidth - 1, Math.floor(p.x * uiState.contentWidth)) : -1
                     uiState.cursorY = inside ? Math.min(uiState.contentHeight - 1, Math.floor(p.y * uiState.contentHeight)) : -1
-                    if (!pressed) return
+                    if (!pressed || (uiState.analysisRunning && uiState.activeTool === "ROI" && !uiState.roiEditMode)) return
                     if (root.drawingTool) {
                         var t = root.toolPoint(mouse)
                         if (["Rectangle", "Oval", "Line", "Arrow"].indexOf(uiState.activeTool) >= 0) root.toolPoints = [root.toolPoints[0], t]
