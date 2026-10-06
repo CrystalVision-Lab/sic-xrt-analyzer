@@ -19,6 +19,24 @@ def local_path(value):
     return Path(url.toLocalFile() if url.isLocalFile() else value)
 
 
+def bundled_model_path():
+    """Find local bundles without depending on a particular user's Qt settings."""
+    if getattr(sys, "frozen", False):
+        roots = [Path(sys.executable).resolve().parent]
+    else:
+        # Editable installs must also work when launched outside the repository.
+        project = Path(__file__).resolve().parents[3]
+        roots = ([project] if (project / "pyproject.toml").is_file() else [])
+        if Path.cwd() not in roots:
+            roots.append(Path.cwd())
+    for root in roots:
+        for relative in ("models/research", "artifacts/models/research"):
+            candidate = root / relative
+            if (candidate / "manifest.json").is_file():
+                return candidate
+    return None
+
+
 class ResearchController(QObject):
     changed = Signal()
 
@@ -38,11 +56,12 @@ class ResearchController(QObject):
     def load_saved(self):
         path = os.environ.get("SIC_XRT_MODEL_BUNDLE") or self.bridge._settings.value("researchModelBundle", "")
         if not path:
-            base = Path(sys.executable).parent if getattr(sys, "frozen", False) else Path.cwd()
-            candidate = base / "models" / "research"
-            path = str(candidate) if (candidate / "manifest.json").is_file() else ""
+            path = bundled_model_path()
         if path:
             self.loadModel(str(path))
+        else:
+            self.error = "모델 폴더를 찾지 못했습니다. 분석 탭에서 연구 모델 폴더를 선택하세요."
+            self.changed.emit()
 
     @Slot(str)
     def loadModel(self, folder):
