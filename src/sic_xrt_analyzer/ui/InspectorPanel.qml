@@ -12,6 +12,7 @@ Rectangle {
     signal importRequested()
     signal boundsRequested()
     signal saveRequested()
+    signal overviewRequested()
     color: theme.panel; border.color: theme.border
     FolderDialog { id: researchModelDialog; title: "고정 모델 폴더 선택"; onAccepted: fileBridge.research.loadModel(selectedFolder.toString()) }
     FileDialog { id: coordinatesDialog; title: "현재 영상의 좌표 CSV"; nameFilters: ["좌표 CSV (*.csv)"]; onAccepted: fileBridge.research.setCoordinates(selectedFile.toString()) }
@@ -28,6 +29,11 @@ Rectangle {
             }
         }
         ScrollView {
+            id: resultScroll; visible: root.tabIndex === 2; Layout.fillWidth: true; Layout.fillHeight: true; clip: true; contentWidth: availableWidth; contentHeight: Math.max(720, availableHeight)
+            ResultExplorer { theme: root.theme; uiState: root.uiState; width: resultScroll.availableWidth; height: Math.max(720, resultScroll.availableHeight); onExportRequested: resultsDialog.open(); onOverviewRequested: root.overviewRequested() }
+        }
+        ScrollView {
+            visible: root.tabIndex !== 2
             Layout.fillWidth: true; Layout.fillHeight: true; clip: true
             contentWidth: availableWidth
             ColumnLayout {
@@ -141,26 +147,6 @@ Rectangle {
                     InfoRow { theme: root.theme; label: "이미지"; value: uiState.hasLoadedImage ? "준비 완료" : uiState.demoMode ? "합성 데모" : "이미지 없음"; Layout.fillWidth: true }
                     InfoRow { theme: root.theme; label: "ROI"; value: uiState.hasRoi ? "선택됨" : "미선택"; Layout.fillWidth: true }
                     InfoRow { theme: root.theme; label: "분석"; value: uiState.analysis.statusLabel; valueColor: uiState.analysis.state === "FAILED" || !uiState.modelAvailable ? theme.warning : theme.text; Layout.fillWidth: true }
-                }
-                ColumnLayout {
-                    visible: root.tabIndex === 2; Layout.fillWidth: true; spacing: 12
-                    SectionHeader { theme: root.theme; text: "분석 결과"; Layout.fillWidth: true }
-                    Text { text: uiState.hasResult ? "분석 완료" : "분석 결과 없음"; color: theme.text; font.pixelSize: 14 }
-                    Text { text: "원: 예측 후보 위치 · 흰색: 낮은 점수\nBPD 주황 / TED 청록 / TSD 분홍"; color: theme.muted; wrapMode: Text.Wrap; font.pixelSize: 12; Layout.fillWidth: true }
-                    Repeater { model: ["BPD", "TED", "TSD"]; InfoRow { required property string modelData; theme: root.theme; label: modelData + " 후보"; value: String(uiState.research.counts[modelData] || 0); Layout.fillWidth: true } }
-                    InfoRow { theme: root.theme; label: "전체 / 낮은 점수"; value: uiState.research.total + " / " + uiState.research.lowScoreCount; Layout.fillWidth: true }
-                    InfoRow { theme: root.theme; label: "경계·범위 등 제외"; value: String(uiState.research.excluded); Layout.fillWidth: true }
-                    Text { visible: uiState.research.limited; text: "후보 3,000개 상한에 도달했습니다. 일부 후보만 분류했습니다."; color: theme.warning; wrapMode: Text.Wrap; Layout.fillWidth: true }
-                    Text { visible: uiState.hasResult && uiState.analysis.resultRoiMismatch; text: "현재 ROI와 다른 분석 결과"; color: theme.warning; wrapMode: Text.Wrap; font.pixelSize: 12; Layout.fillWidth: true }
-                    AppCheckBox { theme: root.theme; text: "분석 후보 위치 표시"; checked: uiState.analysisLayerVisible; onToggled: uiState.analysisLayerVisible = checked }
-                    AppButton { objectName: "analysisExportButton"; theme: root.theme; text: "CSV·JSON 결과 저장…"; enabled: uiState.hasResult; iconName: "export"; Layout.fillWidth: true; onClicked: resultsDialog.open() }
-                    Text { visible: !!uiState.research.exportPath; text: "저장 완료: " + uiState.research.exportPath; color: theme.muted; wrapMode: Text.Wrap; Layout.fillWidth: true }
-                    Text { visible: !!uiState.research.error; text: uiState.research.error; color: theme.warning; wrapMode: Text.Wrap; Layout.fillWidth: true }
-                    Text { visible: uiState.hasResult; text: "종류 · 점수 · 원본 좌표 (화면 최대 200개)"; color: theme.muted; font.pixelSize: 11; Layout.fillWidth: true }
-                    Repeater {
-                        model: uiState.research.displayRows
-                        Text { required property var modelData; text: modelData.type + "  " + (typeof modelData.score === "number" ? modelData.score.toFixed(3) : "—") + "  (" + modelData.x.toFixed(1) + ", " + modelData.y.toFixed(1) + ")"; color: modelData.low_score ? theme.warning : theme.text; font.pixelSize: 11; Layout.fillWidth: true }
-                    }
                 }
             }
         }

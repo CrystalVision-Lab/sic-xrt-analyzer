@@ -57,8 +57,11 @@ class TiffImageProvider(QQuickImageProvider):
         super().__init__(QQuickImageProvider.Image)
         self.image = QImage()
         self.detail_image = QImage()
+        self.research_image = QImage()
 
     def requestImage(self, image_id: str, size: QSize, requested_size: QSize) -> QImage:
+        if image_id.startswith('research'):
+            return self.research_image
         return self.detail_image if image_id.startswith('detail') else self.image
 
 
@@ -594,6 +597,7 @@ class FileBridge(QObject):
     @Slot()
     def waitForLoads(self):
         # Keep worker signal objects alive until decoding ends during shutdown.
+        self.research_controller.thumbnail_loader.shutdown()
         if self.workbench.busy or self.workbench.windows:
             self.workbench.cancel()
         self.workbench.reader.shutdown()
