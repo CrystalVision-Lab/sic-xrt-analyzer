@@ -86,13 +86,18 @@ class _Task(QRunnable):
             self.token.check()
             self.adapter.input_contract.validate(request)
             request.source.validate_identity()
-            if request.roi:
+            source_runner = getattr(self.adapter, "analyze_source", None)
+            if callable(source_runner):
+                output = source_runner(request, self.token)
+            elif request.roi:
                 r = request.roi
                 image = request.source.read_region(r.x, r.y, r.width, r.height)
+                self.token.check()
+                output = self.adapter.analyze(image, request, self.token)
             else:
                 image = request.source.read_full()
-            self.token.check()
-            output = self.adapter.analyze(image, request, self.token)
+                self.token.check()
+                output = self.adapter.analyze(image, request, self.token)
             self.token.check()
             request.source.validate_identity()
             detections = original_detections(output, request, self.adapter.output_contract)
