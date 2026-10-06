@@ -41,7 +41,7 @@ Rectangle {
                 width: parent.width; spacing: 12
                 RoiContext { visible: root.requestedContext === "roi"; Layout.fillWidth: true; theme: root.theme; uiState: root.uiState; onImportRequested: root.importRequested(); onBoundsRequested: root.boundsRequested(); onSaveRequested: root.saveRequested() }
                 ViewerContext { visible: root.requestedContext === "viewer"; Layout.fillWidth: true; theme: root.theme; uiState: root.uiState }
-                ImageContext { visible: root.requestedContext === "image"; Layout.fillWidth: true; theme: root.theme; uiState: root.uiState }
+                ImageContext { visible: root.requestedContext === "image"; Layout.fillWidth: true; theme: root.theme; uiState: root.uiState; actions: root.actions }
             }
         }
     }
