@@ -51,7 +51,7 @@ AppShell {
         statusBar: statusBarAction, fullScreen: fullScreenAction, resetLayout: resetLayoutAction,
         run: runAction, cancelAnalysis: cancelAnalysisAction, settings: settingsAction, modelInfo: modelInfoAction, guide: guideAction,
         shortcutGuide: shortcutGuideAction, reportIssue: reportIssueAction, about: aboutAction,
-        importRois: importRoisAction, tools: toolCommands, advanced: advancedCommands
+        importRois: importRoisAction, viewerSettings: viewerSettingsAction, tools: toolCommands, advanced: advancedCommands
     })
     Theme { id: theme }
     UiState { id: uiState; objectName: "uiState"; displayPixelRatio: window.Screen.devicePixelRatio }
@@ -71,7 +71,17 @@ AppShell {
         uiState.statusText = index === 0 ? "이미지 분석 화면" : ["", "Wafer Map", "이미지 정합", "3D 뷰어"][index] + " · 미연결"
     }
     function openContext(key) { inspectorCollapsed = false; return contextPanel.showContext(key) }
-    function openInspectorTab(index) { inspectorCollapsed = false; inspector.tabIndex = index }
+    function requestContext(key, reason) { return contextPanel.requestContext(key, reason) }
+    // Compatibility for plugins/tests; production entries use names.
+    function openInspectorTab(index) {
+        var key = ["image", "analysis", "result", "viewer", "roi"][index]
+        return key ? openContext(key) : false
+    }
+    Connections {
+        target: window.contextPanel
+        function onActivateRequested(reason) { window.inspectorCollapsed = false }
+        function onFocusRequested() { viewer.focusView() }
+    }
     function clearImageState() {
         uiState.opening = false
         uiState.filePath = ""; uiState.fileName = ""; uiState.imageSource = ""
@@ -83,11 +93,11 @@ AppShell {
         uiState.selectingRoi = false; uiState.fitMode = true
         viewer.resetPan(); fileBridge.clearImage()
     }
-    function closeImage() { confirmRoiDiscard(function() { clearImageState(); uiState.roiEditMode = false; uiState.zoom = 1; uiState.statusText = "현재 이미지를 닫았습니다" }) }
+    function closeImage() { confirmRoiDiscard(function() { clearImageState(); uiState.roiEditMode = false; uiState.zoom = 1; window.requestContext("image", "CLOSE_IMAGE"); viewer.focusView(); uiState.statusText = "현재 이미지를 닫았습니다" }) }
     function showDemo() {
         if (uiState.loading) return
         confirmRoiDiscard(function() {
-            clearImageState(); uiState.roiEditMode = false; uiState.workspaceIndex = 0; uiState.demoMode = true; viewer.defaultView()
+            clearImageState(); uiState.roiEditMode = false; uiState.workspaceIndex = 0; uiState.demoMode = true; window.requestContext("image", "DEMO_OPEN"); viewer.defaultView()
             uiState.statusText = "합성 데모 · 실제 XRT 데이터 및 분석 결과 아님"
         })
     }
@@ -121,13 +131,13 @@ AppShell {
             if (!result.workingCopy) uiState.activeTool = "Pan"
             if (!result.workingCopy || sizeChanged) uiState.hasRoi = false
             uiState.cursorX = -1; uiState.cursorY = -1
-            window.openInspectorTab(3)
+            if (!result.workingCopy) window.requestContext("image", "OPEN_IMAGE")
             if (!result.workingCopy || sizeChanged) viewer.defaultView()
             viewer.focusView()
             uiState.statusText = result.format + " · " + result.pageCount + " 페이지 / " + (result.pageCount > 1 ? "전체 준비 후 탐색" : "화면 맞춤")
         }
         function onRoiImportFinished(result) {
-            window.openInspectorTab(4)
+            window.requestContext("roi", "ROI_IMPORT")
             uiState.statusText = "ROI " + result.count + "개 · " + (result.errors.length ? "불러오기 오류 " + result.errors.length + "개" : "원본 좌표로 표시")
         }
         function onPageChanged(result) {
@@ -167,13 +177,14 @@ AppShell {
         uiState.statusText = "ROI 원본 픽셀 좌표를 복사했습니다"
     }
     function resetLayout() {
-        navigationCollapsed = false; inspectorCollapsed = false; statusBarVisible = true; inspector.tabIndex = 0
+        navigationCollapsed = false; inspectorCollapsed = false; statusBarVisible = true; window.requestContext("image", "RESET_LAYOUT")
         if (visibility === Window.FullScreen) showNormal()
         if (uiState.canNavigateImage) viewer.fitView()
     }
     function showInfo(heading, body) { infoDialog.title = heading; infoDialog.bodyText = body; infoDialog.open() }
     Action { id: openAction; objectName: "openAction"; text: "이미지 열기…"; shortcut: StandardKey.Open; onTriggered: window.openImageDialog() }
-    Action { id: importRoisAction; objectName: "importRoisAction"; text: "ImageJ ROI 가져오기…"; enabled: uiState.hasLoadedImage && !uiState.loading; onTriggered: { window.openInspectorTab(4); roiDialog.open() } }
+    Action { id: importRoisAction; objectName: "importRoisAction"; text: "ImageJ ROI 가져오기…"; enabled: uiState.hasLoadedImage && !uiState.loading; onTriggered: { window.requestContext("roi", "ROI_IMPORT"); roiDialog.open() } }
+    Action { id: viewerSettingsAction; objectName: "viewerSettingsAction"; text: "뷰어 · 스택 표시 설정…"; enabled: uiState.hasImage; onTriggered: { uiState.workspaceIndex = 0; window.requestContext("viewer", "VIEWER_SETTINGS") } }
     Action { id: saveAction; text: "이미지 복사본 저장…"; shortcut: StandardKey.Save; enabled: uiState.hasLoadedImage && !uiState.loading && !fileBridge.imagej.state.busy; onTriggered: window.saveImageCopy() }
     Action { id: demoAction; text: "합성 데모 이미지 보기"; enabled: !uiState.loading; onTriggered: window.showDemo() }
     Action { id: closeImageAction; objectName: "closeImageAction"; text: "현재 이미지 닫기"; shortcut: StandardKey.Close; enabled: uiState.hasImage || uiState.loading; onTriggered: window.closeImage() }
@@ -192,15 +203,15 @@ AppShell {
     Action { id: statusBarAction; objectName: "statusBarAction"; text: "상태 표시줄"; onTriggered: window.statusBarVisible = !window.statusBarVisible }
     Action { id: fullScreenAction; objectName: "fullScreenAction"; text: "전체 화면"; shortcut: "F11"; onTriggered: window.visibility === Window.FullScreen ? window.showNormal() : window.showFullScreen() }
     Action { id: resetLayoutAction; text: "화면 배치 초기화"; onTriggered: window.resetLayout() }
-    Action { id: runAction; objectName: "runAction"; text: "분석 실행"; enabled: uiState.canAnalyze; onTriggered: { uiState.candidateRoiId = ""; fileBridge.requestAnalysis(uiState.analysisScope, uiState.roiX, uiState.roiY, uiState.roiWidth, uiState.roiHeight, {point_mode: uiState.analysisPointMode}) } }
+    Action { id: runAction; objectName: "runAction"; text: "분석 실행"; enabled: uiState.canAnalyze; onTriggered: { window.requestContext("analysis", "ANALYSIS_START"); uiState.candidateRoiId = ""; fileBridge.requestAnalysis(uiState.analysisScope, uiState.roiX, uiState.roiY, uiState.roiWidth, uiState.roiHeight, {point_mode: uiState.analysisPointMode}) } }
     Action { id: cancelAnalysisAction; objectName: "cancelAnalysisAction"; text: "분석 취소"; enabled: uiState.analysisRunning; onTriggered: fileBridge.cancelAnalysis() }
     Action { id: settingsAction; objectName: "settingsAction"; text: "설정…"; onTriggered: settingsDialog.openPreferences() }
     Action { id: modelInfoAction; text: "모델 정보"; onTriggered: window.showInfo("모델 정보", uiState.analysisReason + "\n모델: " + (uiState.analysis.modelName || "—") + "\n버전: " + (uiState.analysis.modelVersion || "—") + "\n장치: " + (uiState.analysis.device || "—")) }
-    Action { id: guideAction; text: "사용 안내"; onTriggered: window.showInfo("뷰어 사용 안내", "파일 메뉴에서 TIFF/JPG 또는 합성 데모를 여세요.\n오른쪽 뷰어 탭: 페이지 이동과 밝기·대비. 스택은 휠/방향키로 탐색하고 Ctrl+휠로 확대합니다.\nROI 탭: 대응하는 이미지의 .roi/RoiSet.zip 가져오기 및 표시.\nPan / ROI 도구, FIT 화면 맞춤, 100% 원본 픽셀 배율을 지원합니다. 확대 시 보이는 영역을 정밀 읽습니다.\nImageJ frames는 공간 Z축으로 해석하지 않습니다. 분석 탭에서 전체 이미지 또는 ROI를 선택하고 연구 모델로 분석할 수 있습니다.") }
+    Action { id: guideAction; text: "사용 안내"; onTriggered: window.showInfo("뷰어 사용 안내", "파일 메뉴에서 TIFF/JPG 또는 합성 데모를 여세요.\n오른쪽 작업 선택 메뉴의 뷰어·스택: 페이지 이동과 밝기·대비. ⋯ 메뉴에서도 표시 설정을 열 수 있습니다. 스택은 휠/방향키로 탐색하고 Ctrl+휠로 확대합니다.\nROI 관리: 대응하는 이미지의 .roi/RoiSet.zip 가져오기 및 표시.\nPan / ROI 도구, FIT 화면 맞춤, 100% 원본 픽셀 배율을 지원합니다. 확대 시 보이는 영역을 정밀 읽습니다.\nImageJ frames는 공간 Z축으로 해석하지 않습니다. 분석 Context에서 전체 이미지 또는 ROI를 선택하고 연구 모델로 분석할 수 있습니다.") }
     Action { id: shortcutGuideAction; text: "단축키"; onTriggered: window.showInfo("단축키", "파일\n열기  Ctrl+O     닫기  Ctrl+W     종료  Ctrl+Q\n\n보기\n화면 맞춤  Ctrl+0     실제 크기  Ctrl+1\n확대·축소  Ctrl++ / Ctrl+-     전체 화면  F11\n\n도구\nPan  H     ROI  R\n\n메뉴\nAlt+F / E / V / W / A / T / S / H") }
     Action { id: reportIssueAction; text: "문제 보고"; onTriggered: { if (!fileBridge.openIssueTracker()) window.showInfo("문제 보고", "브라우저를 열지 못했습니다. GitHub 저장소의 Issues에서 보고해 주세요.") } }
     Action { id: aboutAction; objectName: "aboutAction"; text: "프로그램 정보"; onTriggered: window.showInfo("SiC XRT Analyzer", "XRT 이미지 검사·분석\n버전 " + fileBridge.appVersion + "\n" + fileBridge.systemInfo + "\n\nTIFF/JPG · ImageJ ROI 뷰어\n모델 분석 미연결\nCrystalVision-Lab") }
-    Connections { target: fileBridge.research; function onFocusRequested(x, y) { window.inspectorCollapsed = false; inspector.tabIndex = 2; uiState.workspaceIndex = 0; uiState.updateCandidateRoi(); Qt.callLater(function() { viewer.focusCandidate(x, y) }) } }
+    Connections { target: fileBridge.research; function onFocusRequested(x, y) { window.requestContext("result", "CANDIDATE_SELECTED"); uiState.workspaceIndex = 0; uiState.updateCandidateRoi(); Qt.callLater(function() { viewer.focusCandidate(x, y) }) } }
     FolderDialog { id: researchModelDialog; title: "고정 모델 폴더 선택"; onAccepted: fileBridge.research.loadModel(selectedFolder.toString()) }
     FileDialog { id: coordinatesDialog; title: "현재 영상의 좌표 CSV"; nameFilters: ["좌표 CSV (*.csv)"]; onAccepted: fileBridge.research.setCoordinates(selectedFile.toString()) }
     FolderDialog { id: resultsDialog; title: "결과를 저장할 폴더"; onAccepted: fileBridge.research.exportResult(selectedFolder.toString()) }
@@ -213,7 +224,7 @@ AppShell {
         id: roiDiscardDialog; objectName: "roiDiscardDialog"; modal: true; title: "저장하지 않은 ROI 변경"
         x: (window.width - width) / 2; y: (window.height - height) / 2
         standardButtons: Dialog.Discard | Dialog.Cancel
-        Label { text: "ROI ZIP 복사본을 저장하지 않은 변경이 있습니다.\n변경을 버리고 계속할까요? 취소 후 ROI 탭에서 저장할 수 있습니다." }
+        Label { text: "ROI ZIP 복사본을 저장하지 않은 변경이 있습니다.\n변경을 버리고 계속할까요? 취소 후 ROI 관리에서 저장할 수 있습니다." }
         onDiscarded: { var next = window.discardNext; window.discardNext = null; if (next) next() }
         onRejected: window.discardNext = null
     }

@@ -12,7 +12,11 @@ ColumnLayout {
     signal boundsRequested()
     signal saveRequested()
     spacing: 10
+    SectionHeader { theme: root.theme; text: "분석 영역 (R)"; Layout.fillWidth: true }
+    Text { objectName: "analysisRoiState"; text: uiState.hasRoi ? "사각형 · " + uiState.roiWidth + " × " + uiState.roiHeight + " px\nX " + uiState.roiX + " · Y " + uiState.roiY : "선택된 분석 영역이 없습니다."; color: theme.text; font.pixelSize: 12; wrapMode: Text.Wrap; Layout.fillWidth: true }
+    Text { text: "분석 범위는 분석 Context에서 별도로 선택합니다. ImageJ 도형과 같은 데이터가 아닙니다."; color: theme.muted; font.pixelSize: 11; wrapMode: Text.Wrap; Layout.fillWidth: true }
     SectionHeader { theme: root.theme; text: "ImageJ ROI"; Layout.fillWidth: true }
+    Text { objectName: "imagejRoiState"; text: uiState.importedRois.busy ? "ROI 가져오는 중…" : uiState.roiEditMode ? "편집 모드 · ImageJ ROI " + uiState.importedRois.items.length + "개" : uiState.importedRois.items.length ? "ImageJ ROI " + uiState.importedRois.items.length + "개 · 가져오거나 만든 도형" : "ImageJ ROI가 없습니다."; color: theme.muted; font.pixelSize: 12; wrapMode: Text.Wrap; Layout.fillWidth: true }
     Text { text: "대응하는 이미지를 먼저 열고 .roi 또는 RoiSet.zip을 가져오세요. 원본 좌표를 그대로 표시합니다."; color: theme.muted; font.pixelSize: 11; wrapMode: Text.Wrap; Layout.fillWidth: true }
     AppButton { objectName: "importRoisButton"; theme: root.theme; text: "ROI / ZIP 가져오기…"; iconName: "roi"; Layout.fillWidth: true; enabled: uiState.hasLoadedImage && !uiState.loading && !uiState.importedRois.busy; onClicked: root.importRequested() }
     Text { visible: uiState.importedRois.busy; text: "ROI 불러오는 중…"; color: theme.accent; font.pixelSize: 11 }
