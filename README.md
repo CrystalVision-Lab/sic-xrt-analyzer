@@ -162,3 +162,5 @@ Viewer의 8비트 QImage와 **OriginalImageSource**를 분리했습니다. 분�
 연구용 고정 모델의 패치 분류, 후보 위치 표시·CSV 저장, 열처리 전후 자동 정렬과 잠정 연결은
 [Jupyter 연구 분석 안내](docs/research-workflow.md)와 `notebooks/06_research_analysis.ipynb`에서 사용할 수 있습니다.
 이 기능은 데스크톱 GUI의 분석 버튼과 별개입니다. 재학습 없이 실행하며 연결/종류 변화는 확정 정답으로 저장하지 않습니다.
+
+분석 후보의 O/X·종류·좌표 수정과 누락 추가는 [검수 학습 자료 안내](docs/review-feedback.md)를 따릅니다.

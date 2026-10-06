@@ -47,6 +47,8 @@ QtObject {
     property string analysisScope: ""
     property string analysisPointMode: "contrast_proposals"
     property var research: fileBridge.research.state
+    property bool feedbackVisible: false
+    property var feedback: fileBridge.feedback.state
     property bool autoCandidateRoi: true
     property int candidateRoiSize: 128
     property string candidateRoiId: ""

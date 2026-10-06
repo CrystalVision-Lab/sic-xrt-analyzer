@@ -4,7 +4,7 @@ QtObject {
     // One tab selection is the source of truth. No new automatic context switching.
     property QtObject uiState
     property int tabIndex: 0
-    readonly property var keys: ["image", "analysis", "result", "viewer", "roi"]
+    readonly property var keys: ["image", "analysis", "result", "viewer", "roi", "feedback"]
     readonly property string requestedContext: keys[tabIndex] || "image"
     readonly property string activeContext: requestedContext === "image" && !uiState.hasImage ? "idle" : requestedContext
     readonly property string detailContext: requestedContext === "result" && !!uiState.research.selected.id ? "candidate" : activeContext

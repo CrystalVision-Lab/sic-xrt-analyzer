@@ -19,7 +19,9 @@ Rectangle {
     property real focusPanX: 0
     property real focusPanY: 0
     function focusCandidate(x, y) {
-        if (!uiState.hasLoadedImage || uiState.loading || !uiState.hasResult || !uiState.research.selected.id || uiState.research.selected.x !== x || uiState.research.selected.y !== y) return
+        var candidate = uiState.research.selected || ({})
+        var reviewed = uiState.feedback.selected || ({})
+        if (!uiState.hasLoadedImage || uiState.loading || !((candidate.id && candidate.x === x && candidate.y === y) || (reviewed.id && reviewed.x === x && reviewed.y === y))) return
         focusAnimation.stop()
         var current = displayScale
         uiState.zoom = current * uiState.displayPixelRatio
@@ -39,6 +41,7 @@ Rectangle {
         NumberAnimation { target: root; property: "panY"; to: root.focusPanY; duration: 450; easing.type: Easing.InOutCubic }
     }
     property bool draggingVertex: false
+    property bool reviewGesture: false
     property var toolPoints: []
     property bool drawingTool: false
     function finishTool() {
@@ -145,7 +148,7 @@ Rectangle {
                 anchors.fill: parent; enabled: uiState.canNavigateImage; hoverEnabled: true
                 focus: true
                 Keys.onPressed: function(event) {
-                    if (event.key === Qt.Key_Escape) { root.toolPoints = []; root.drawingTool = false; toolPreview.requestPaint(); event.accepted = true; return }
+                    if (event.key === Qt.Key_Escape) { fileBridge.feedback.setMode(""); root.toolPoints = []; root.drawingTool = false; toolPreview.requestPaint(); event.accepted = true; return }
                     if ((event.key === Qt.Key_Return || event.key === Qt.Key_Enter) && root.toolPoints.length) { root.finishTool(); event.accepted = true; return }
                     if (uiState.roiEditMode && event.key === Qt.Key_Delete) { fileBridge.deleteRoiVertex(); event.accepted = true; return }
                     if (uiState.roiEditMode && event.key === Qt.Key_Z && (event.modifiers & Qt.ControlModifier)) { fileBridge.roiHistory(!!(event.modifiers & Qt.ShiftModifier)); event.accepted = true; return }
@@ -156,11 +159,19 @@ Rectangle {
                         event.accepted = true
                     }
                 }
-                cursorShape: uiState.roiEditMode ? Qt.CrossCursor : uiState.activeTool === "Pan" ? (pressed ? Qt.ClosedHandCursor : Qt.OpenHandCursor) : Qt.CrossCursor
+                cursorShape: uiState.feedback.mode || uiState.roiEditMode ? Qt.CrossCursor : uiState.activeTool === "Pan" ? (pressed ? Qt.ClosedHandCursor : Qt.OpenHandCursor) : Qt.CrossCursor
                 onPressed: function(mouse) {
                     focusAnimation.stop()
                     forceActiveFocus()
                     root.pressX = mouse.x; root.pressY = mouse.y; root.pressPanX = root.panX; root.pressPanY = root.panY
+                    root.reviewGesture = !!uiState.feedback.mode
+                    if (uiState.feedback.mode) {
+                        if (mouse.x >= imageFrame.x && mouse.x < imageFrame.x + imageFrame.width && mouse.y >= imageFrame.y && mouse.y < imageFrame.y + imageFrame.height) {
+                            var reviewPoint = root.toolPoint(mouse)
+                            fileBridge.feedback.place(reviewPoint[0], reviewPoint[1])
+                        }
+                        return
+                    }
                     if (uiState.roiEditMode) {
                         var editPoint = root.imagePoint(mouse.x, mouse.y)
                         root.draggingVertex = fileBridge.beginRoiDrag(editPoint.x * uiState.contentWidth, editPoint.y * uiState.contentHeight, 8 / root.displayScale)
@@ -186,6 +197,7 @@ Rectangle {
                     }
                 }
                 onPositionChanged: function(mouse) {
+                    if (root.reviewGesture) return
                     var inside = mouse.x >= imageFrame.x && mouse.x < imageFrame.x + imageFrame.width && mouse.y >= imageFrame.y && mouse.y < imageFrame.y + imageFrame.height
                     var p = root.imagePoint(mouse.x, mouse.y)
                     uiState.cursorX = inside ? Math.min(uiState.contentWidth - 1, Math.floor(p.x * uiState.contentWidth)) : -1
@@ -221,6 +233,15 @@ Rectangle {
                     }
                 }
                 onReleased: function(mouse) {
+                    if (root.reviewGesture) { root.reviewGesture = false; return }
+                    if (uiState.feedbackVisible && uiState.activeTool === "Pan" && Math.hypot(mouse.x-root.pressX, mouse.y-root.pressY) < 4) {
+                        var reviewPoints = uiState.feedback.rows, nearest = null, radius = 12
+                        for (var ri=0; ri<reviewPoints.length; ri++) {
+                            var rp=reviewPoints[ri], rd=Math.hypot(mouse.x-imageFrame.x-rp.x*root.displayScale, mouse.y-imageFrame.y-rp.y*root.displayScale)
+                            if (rd < radius) { nearest=rp; radius=rd }
+                        }
+                        if (nearest) { fileBridge.feedback.selectRecord(nearest.id); return }
+                    }
                     if (uiState.activeTool === "Pan" && !uiState.roiEditMode && uiState.hasResult && uiState.analysisLayerVisible && Math.hypot(mouse.x-root.pressX, mouse.y-root.pressY) < 4) {
                         var points = uiState.research.filteredPoints, best = null, distance = 12
                         for (var i=0; i<points.length; i++) {
@@ -231,7 +252,7 @@ Rectangle {
                     }
                     if (root.drawingTool) root.finishTool(); uiState.selectingRoi = false; if (root.draggingVertex) fileBridge.finishRoiDrag(false); root.draggingVertex = false
                 }
-                onCanceled: { root.toolPoints = []; root.drawingTool = false; toolPreview.requestPaint(); uiState.selectingRoi = false; if (root.draggingVertex) fileBridge.finishRoiDrag(true); root.draggingVertex = false }
+                onCanceled: { root.reviewGesture = false; root.toolPoints = []; root.drawingTool = false; toolPreview.requestPaint(); uiState.selectingRoi = false; if (root.draggingVertex) fileBridge.finishRoiDrag(true); root.draggingVertex = false }
                 onWheel: function(wheel) {
                     var delta = wheel.angleDelta.y || wheel.pixelDelta.y
                     if (delta === 0) return
@@ -253,12 +274,14 @@ Rectangle {
                 id: analysisOverlay; objectName: "analysisOverlay"; anchors.fill: parent; z: 3
                 property var points: uiState.research.filteredPoints
                 property var selected: uiState.research.selected
+                property bool reviewing: uiState.feedbackVisible
                 property real imageX: imageFrame.x
                 property real imageY: imageFrame.y
                 property real imageScale: root.displayScale
                 visible: uiState.hasResult && uiState.analysisLayerVisible && uiState.hasLoadedImage
                 onPointsChanged: requestPaint()
                 onSelectedChanged: requestPaint()
+                onReviewingChanged: requestPaint()
                 onImageXChanged: requestPaint()
                 onImageYChanged: requestPaint()
                 onImageScaleChanged: requestPaint()
@@ -271,13 +294,48 @@ Rectangle {
                         c.strokeStyle = p.low_score ? "#ffffff" : p.type === "BPD" ? "#ffad42" : p.type === "TED" ? "#50e0ee" : "#ff78c4"
                         c.beginPath(); c.arc(x, y, 5, 0, Math.PI * 2); c.stroke()
                     }
-                    if (selected.id) {
+                    if (selected.id && !reviewing) {
                         var sx=imageX+selected.x*imageScale, sy=imageY+selected.y*imageScale
                         c.strokeStyle="#fff04a"; c.lineWidth=2
                         c.beginPath(); c.arc(sx,sy,11,0,Math.PI*2); c.stroke()
                         c.beginPath(); c.moveTo(sx-20,sy); c.lineTo(sx-13,sy); c.moveTo(sx+13,sy); c.lineTo(sx+20,sy); c.moveTo(sx,sy-20); c.lineTo(sx,sy-13); c.moveTo(sx,sy+13); c.lineTo(sx,sy+20); c.stroke()
                         c.fillStyle="#14191e"; c.fillRect(sx+15,sy-30,110,22)
                         c.fillStyle="#fff04a"; c.font="12px sans-serif"; c.fillText("#"+selected.number+"  "+selected.type,sx+20,sy-15)
+                    }
+                }
+            }
+            Canvas {
+                id: feedbackOverlay; objectName: "feedbackOverlay"; anchors.fill: parent; z: 4
+                property var review: uiState.feedback
+                property real imageX: imageFrame.x
+                property real imageY: imageFrame.y
+                property real imageScale: root.displayScale
+                visible: uiState.feedbackVisible && uiState.hasLoadedImage
+                onReviewChanged: requestPaint()
+                onImageXChanged: requestPaint()
+                onImageYChanged: requestPaint()
+                onImageScaleChanged: requestPaint()
+                onVisibleChanged: requestPaint()
+                onPaint: {
+                    var c=getContext("2d"); c.reset(); c.lineWidth=2
+                    var rows=review.overlay || []
+                    for (var i=0;i<rows.length;i++) {
+                        var p=rows[i], x=imageX+p.x*imageScale, y=imageY+p.y*imageScale
+                        if (x < -20 || y < -20 || x > width+20 || y > height+20) continue
+                        c.strokeStyle=p.objectness === false ? "#ff6578" : p.objectness === true ? "#80edac" : "#a3a9af"
+                        c.beginPath(); c.arc(x,y,8,0,Math.PI*2); c.stroke()
+                        if (p.objectness === false || p.duplicate) {
+                            c.beginPath(); c.moveTo(x-6,y-6); c.lineTo(x+6,y+6); c.moveTo(x-6,y+6); c.lineTo(x+6,y-6); c.stroke()
+                        }
+                    }
+                    var selected=review.selected || ({})
+                    if (selected.id) {
+                        var sx=imageX+selected.x*imageScale, sy=imageY+selected.y*imageScale
+                        var ox=imageX+selected.original.x*imageScale, oy=imageY+selected.original.y*imageScale
+                        c.strokeStyle="#ffffff"; c.lineWidth=1
+                        c.beginPath(); c.arc(ox,oy,5,0,Math.PI*2); c.moveTo(ox,oy); c.lineTo(sx,sy); c.stroke()
+                        c.strokeStyle="#fff04a"; c.lineWidth=2
+                        c.beginPath(); c.moveTo(sx-18,sy); c.lineTo(sx+18,sy); c.moveTo(sx,sy-18); c.lineTo(sx,sy+18); c.stroke()
                     }
                 }
             }

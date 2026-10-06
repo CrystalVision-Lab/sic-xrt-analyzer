@@ -57,7 +57,7 @@ RowLayout {
     RightContextPanel {
         id: contextPanel; theme: root.theme; uiState: root.uiState; actions: root.actions
         visible: !root.contextCollapsed
-        Layout.preferredWidth: tabIndex === 2 ? 380 : root.theme.panelWidth
+        Layout.preferredWidth: tabIndex === 5 ? 440 : tabIndex === 2 ? 380 : root.theme.panelWidth
         Layout.fillHeight: true
         onOverviewRequested: viewer.fitView()
         onImportRequested: root.importRequested()
