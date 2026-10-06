@@ -4,6 +4,8 @@ Issue #60. 기준: [TD-01 IA](XRT-UX-TD-01-IA.md), [TD-02 Toolbar](XRT-UX-TD-02-
 
 후속 [TD-04 분석 Flow](XRT-UX-TD-04-ANALYSIS-FLOW.md)는 이 전환 정책을 유지하고, Analysis의 모델·범위·입력을 기본 화면에 모으며 후보 방식/CSV만 고급 설정 Scroll로 옮겼다. 실행·상태 하단 유지와 ROI 관리 Context의 역할은 그대로다. 아래 테스트 수와 화면은 TD-03 당시 기록이다.
 
+후속 [TD-06 ROI](XRT-UX-TD-06-ROI.md)는 분석 영역과 ImageJ 기록의 실제 상태·다음 행동을 분리하고 ROI 본문을 고정 요약/Action과 독립 목록 Scroll로 바꿨다. 긴 편집/좌표와 명시적 외접 사각형 변환은 세부 설정으로 옮겼다. Import/Manager/Edit whitelist와 도구·그리기·페이지의 Context 유지 정책은 그대로다.
+
 ## 1. 기존 구조 조사
 
 후속 [TD-05 Result](XRT-UX-TD-05-RESULT.md)는 Result의 전체 Scroll을 고정 요약·탐색·선택 상세와 독립 목록 Scroll로 변경하고, raw/검색/ROI 설정을 상세 진입으로 정리했다. 전환 규칙과 단일 선택/필터 상태는 유지하며, 후보 0개 문구는 “후보가 발견되지 않았습니다.”로 정리했다.
