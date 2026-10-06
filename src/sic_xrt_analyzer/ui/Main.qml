@@ -158,10 +158,11 @@ ApplicationWindow {
         function onResultReady(path) { uiState.opening = true; fileBridge.requestWorkingCopy(path) }
         function onSaveFinished(result) { uiState.statusText = "복사본 저장 완료: " + result.path }
     }
-    function clearRoi() { uiState.hasRoi = false; uiState.statusText = "ROI를 초기화했습니다" }
+    function clearRoi() { uiState.stopCandidateRoiTracking(); uiState.hasRoi = false; uiState.statusText = "ROI를 초기화했습니다" }
     function selectImportedBounds() {
         var selected = uiState.importedRois.items.filter(function(r) { return r.selected && r.active })
         if (!selected.length) return
+        uiState.stopCandidateRoiTracking()
         var b = selected[0].bbox
         uiState.roiStartX = b[0] / uiState.contentWidth; uiState.roiStartY = b[1] / uiState.contentHeight
         uiState.roiEndX = (b[0] + b[2]) / uiState.contentWidth; uiState.roiEndY = (b[1] + b[3]) / uiState.contentHeight
@@ -199,7 +200,7 @@ ApplicationWindow {
     Action { id: statusBarAction; objectName: "statusBarAction"; text: "상태 표시줄"; onTriggered: window.statusBarVisible = !window.statusBarVisible }
     Action { id: fullScreenAction; objectName: "fullScreenAction"; text: "전체 화면"; shortcut: "F11"; onTriggered: window.visibility === Window.FullScreen ? window.showNormal() : window.showFullScreen() }
     Action { id: resetLayoutAction; text: "화면 배치 초기화"; onTriggered: window.resetLayout() }
-    Action { id: runAction; objectName: "runAction"; text: "분석 실행"; enabled: uiState.canAnalyze; onTriggered: fileBridge.requestAnalysis(uiState.analysisScope, uiState.roiX, uiState.roiY, uiState.roiWidth, uiState.roiHeight, {point_mode: uiState.analysisPointMode}) }
+    Action { id: runAction; objectName: "runAction"; text: "분석 실행"; enabled: uiState.canAnalyze; onTriggered: { uiState.candidateRoiId = ""; fileBridge.requestAnalysis(uiState.analysisScope, uiState.roiX, uiState.roiY, uiState.roiWidth, uiState.roiHeight, {point_mode: uiState.analysisPointMode}) } }
     Action { id: cancelAnalysisAction; objectName: "cancelAnalysisAction"; text: "분석 취소"; enabled: uiState.analysisRunning; onTriggered: fileBridge.cancelAnalysis() }
     Action { id: settingsAction; objectName: "settingsAction"; text: "설정…"; onTriggered: settingsDialog.openPreferences() }
     Action { id: modelInfoAction; text: "모델 정보"; onTriggered: window.showInfo("모델 정보", uiState.analysisReason + "\n모델: " + (uiState.analysis.modelName || "—") + "\n버전: " + (uiState.analysis.modelVersion || "—") + "\n장치: " + (uiState.analysis.device || "—")) }
@@ -227,7 +228,7 @@ ApplicationWindow {
         }
         InspectorPanel { id: inspector; theme: theme; uiState: uiState; visible: !window.inspectorCollapsed; Layout.preferredWidth: inspector.tabIndex === 2 ? 380 : theme.panelWidth; Layout.fillHeight: true; onOverviewRequested: viewer.fitView(); onImportRequested: importRoisAction.trigger(); onBoundsRequested: window.selectImportedBounds(); onSaveRequested: roiSaveDialog.open() }
     }
-    Connections { target: fileBridge.research; function onFocusRequested(x, y) { window.inspectorCollapsed = false; inspector.tabIndex = 2; uiState.workspaceIndex = 0; Qt.callLater(function() { viewer.focusCandidate(x, y) }) } }
+    Connections { target: fileBridge.research; function onFocusRequested(x, y) { window.inspectorCollapsed = false; inspector.tabIndex = 2; uiState.workspaceIndex = 0; uiState.updateCandidateRoi(); Qt.callLater(function() { viewer.focusCandidate(x, y) }) } }
     footer: StatusBar { theme: theme; uiState: uiState; height: visible ? theme.statusHeight : 0; visible: window.statusBarVisible }
     FileDialog { id: openDialog; objectName: "openImageDialog"; title: "XRT 이미지 열기"; nameFilters: ["XRT 이미지 (*.tif *.tiff *.jpg *.jpeg)", "TIFF 이미지 (*.tif *.tiff)", "JPEG 이미지 (*.jpg *.jpeg)", "모든 파일 (*)"]; onAccepted: window.selectImageFile(selectedFile.toString()) }
     FileDialog { id: roiDialog; objectName: "roiFileDialog"; title: "대응하는 이미지의 ImageJ ROI 가져오기"; fileMode: FileDialog.OpenFiles; nameFilters: ["ImageJ ROI (*.roi *.zip)", "ROI 파일 (*.roi)", "ROI ZIP (*.zip)"]; onAccepted: fileBridge.importRois(selectedFiles) }

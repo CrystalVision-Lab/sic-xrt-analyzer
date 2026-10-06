@@ -114,13 +114,55 @@ def test_qml_filter_click_animation_center_and_marker_hit(qt_app, tmp_path):
         assert frame.property('x') + selected['x']*scale == pytest.approx(viewport.property('width')/2, abs=1)
         assert frame.property('y') + selected['y']*scale == pytest.approx(viewport.property('height')/2, abs=1)
         assert bridge.research.state['selected']['type'] == 'BPD'
+        assert state.property('candidateRoiId') == selected['id']
+        assert (state.property('roiX'), state.property('roiY'), state.property('roiWidth'), state.property('roiHeight')) == (16, 16, 128, 128)
+        assert bridge.analysis['hasResult']  # ROI navigation must preserve the analysis.
         # Select a nearby different visible candidate through the actual image MouseArea.
         target = bridge.research.state['filteredPoints'][1]
         pos = viewport.mapToScene(QPointF(frame.property('x')+target['x']*scale, frame.property('y')+target['y']*scale))
         QTest.mouseClick(window, Qt.LeftButton, Qt.NoModifier, QPoint(round(pos.x()), round(pos.y())))
         spin(qt_app, lambda: bridge.research.state['selected'].get('id') == target['id'])
+        assert state.property('roiX') == 88 and state.property('roiY') == 16
         invoke(window.findChild(QObject, 'resultOverview'), 'clicked')
         assert state.property('fitMode') and not animation.property('running')
+        # Size changes clamp to the image while preserving the requested size.
+        state.setProperty('candidateRoiSize', 256)
+        bridge.research.selectCandidate('candidate_000000')
+        assert (state.property('roiX'), state.property('roiY')) == (0, 0)
+        bridge.research.setFilter('ALL', False, '')
+        bridge.research.selectCandidate('candidate_000224')
+        assert (state.property('roiX'), state.property('roiY'), state.property('roiWidth'), state.property('roiHeight')) == (256, 256, 256, 256)
+        # Filtering away the selected candidate removes only its automatic ROI.
+        bridge.research.setFilter('BPD', False, '')
+        assert not state.property('hasRoi') and not state.property('candidateRoiId')
+        bridge.research.selectCandidate('candidate_000000')
+        invoke(window, 'clearRoi')
+        assert not state.property('autoCandidateRoi')
+        bridge.research.selectCandidate('candidate_000003')
+        assert not state.property('hasRoi')
+        # Turning tracking off preserves a manual working rectangle across selection/filter changes.
+        state.setProperty('autoCandidateRoi', True)
+        invoke(state, 'stopCandidateRoiTracking')
+        manual_roi = (state.property('roiX'), state.property('roiY'))
+        bridge.research.selectCandidate('candidate_000006')
+        bridge.research.setFilter('TSD', False, '')
+        assert state.property('hasRoi') and (state.property('roiX'), state.property('roiY')) == manual_roi
+        # Explicit re-analysis captures and retains the ROI as the old results are invalidated.
+        bridge.research.selectCandidate('candidate_000002')
+        state.setProperty('candidateRoiSize', 512)
+        state.setProperty('autoCandidateRoi', True)
+        state.setProperty('analysisScope', 'ROI')
+        qt_app.processEvents()
+        assert bridge.pipeline.current_roi.width == 512
+        invoke(window.findChild(QObject, 'runAction'), 'trigger')
+        spin(qt_app, lambda: bridge.analysis['hasResult'])
+        assert bridge.pipeline.result.roi == bridge.pipeline.current_roi
+        assert state.property('hasRoi') and not state.property('candidateRoiId')
+        bridge.research.stepCandidate(1)
+        assert state.property('candidateRoiId')
+        bridge.pipeline.invalidate()
+        qt_app.processEvents()
+        assert not state.property('hasRoi')
         assert not warnings, '\n'.join(warnings)
     finally:
         bridge.waitForLoads()

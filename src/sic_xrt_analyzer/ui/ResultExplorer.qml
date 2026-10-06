@@ -43,6 +43,23 @@ ColumnLayout {
         TextField { objectName: "candidateSearch"; Layout.fillWidth: true; placeholderText: "번호 또는 후보 ID 검색"; placeholderTextColor: theme.muted; color: theme.text; font.pixelSize: 11; selectByMouse: true; text: results.query; onTextEdited: root.filter(results.filterKind, results.filterLow, text) }
         CheckBox { objectName: "lowScoreFilter"; text: "낮은 점수"; checked: results.filterLow; onToggled: root.filter(results.filterKind, checked, results.query) }
     }
+    RowLayout {
+        Layout.fillWidth: true
+        CheckBox { objectName: "autoCandidateRoi"; text: "자동 ROI"; checked: uiState.autoCandidateRoi; onToggled: uiState.autoCandidateRoi = checked }
+        ComboBox {
+            objectName: "candidateRoiSize"; Layout.fillWidth: true
+            model: ["128 × 128 px", "256 × 256 px", "512 × 512 px"]
+            currentIndex: [128, 256, 512].indexOf(uiState.candidateRoiSize)
+            onActivated: {
+                uiState.candidateRoiSize = [128, 256, 512][currentIndex]
+                if (uiState.autoCandidateRoi && selected.id) fileBridge.research.selectCandidate(selected.id)
+            }
+        }
+    }
+    Text {
+        Layout.fillWidth: true; wrapMode: Text.Wrap; color: theme.muted; font.pixelSize: 10
+        text: uiState.candidateRoiId ? "탐색 ROI: (" + uiState.roiX + ", " + uiState.roiY + ") · " + uiState.roiWidth + " × " + uiState.roiHeight + " px · 결함 윤곽 아님" : "후보 선택 시 사각 ROI 생성 · 수동 선택 시 자동 추적 해제"
+    }
     Rectangle {
         Layout.fillWidth: true; Layout.preferredHeight: selected.id ? 266 : 58
         color: theme.viewer; border.color: selected.id ? root.colorFor(selected.type) : theme.border; radius: 5
