@@ -225,8 +225,9 @@ ApplicationWindow {
                 }
             }
         }
-        InspectorPanel { id: inspector; theme: theme; uiState: uiState; visible: !window.inspectorCollapsed; Layout.preferredWidth: theme.panelWidth; Layout.fillHeight: true; onImportRequested: importRoisAction.trigger(); onBoundsRequested: window.selectImportedBounds(); onSaveRequested: roiSaveDialog.open() }
+        InspectorPanel { id: inspector; theme: theme; uiState: uiState; visible: !window.inspectorCollapsed; Layout.preferredWidth: inspector.tabIndex === 2 ? 380 : theme.panelWidth; Layout.fillHeight: true; onOverviewRequested: viewer.fitView(); onImportRequested: importRoisAction.trigger(); onBoundsRequested: window.selectImportedBounds(); onSaveRequested: roiSaveDialog.open() }
     }
+    Connections { target: fileBridge.research; function onFocusRequested(x, y) { window.inspectorCollapsed = false; inspector.tabIndex = 2; uiState.workspaceIndex = 0; Qt.callLater(function() { viewer.focusCandidate(x, y) }) } }
     footer: StatusBar { theme: theme; uiState: uiState; height: visible ? theme.statusHeight : 0; visible: window.statusBarVisible }
     FileDialog { id: openDialog; objectName: "openImageDialog"; title: "XRT 이미지 열기"; nameFilters: ["XRT 이미지 (*.tif *.tiff *.jpg *.jpeg)", "TIFF 이미지 (*.tif *.tiff)", "JPEG 이미지 (*.jpg *.jpeg)", "모든 파일 (*)"]; onAccepted: window.selectImageFile(selectedFile.toString()) }
     FileDialog { id: roiDialog; objectName: "roiFileDialog"; title: "대응하는 이미지의 ImageJ ROI 가져오기"; fileMode: FileDialog.OpenFiles; nameFilters: ["ImageJ ROI (*.roi *.zip)", "ROI 파일 (*.roi)", "ROI ZIP (*.zip)"]; onAccepted: fileBridge.importRois(selectedFiles) }
