@@ -46,7 +46,7 @@ MenuBar {
         AppMenuItem { text: "새 분석 프로젝트"; enabled: false }
         AppMenuItem { text: "프로젝트 열기…"; enabled: false }
         AppMenuItem { action: root.actions.save; shortcutLabel: "Ctrl+S" }
-        AppMenuItem { text: "측정 결과 TSV 저장…"; visible: root.uiState.stackFeaturesVisible; enabled: root.fileBridge.imagej.state.rows.length > 0 && !root.fileBridge.imagej.state.busy; onTriggered: root.hostWindow.saveMeasurements() }
+        AppMenuItem { text: "측정 결과 TSV 저장…"; visible: root.uiState.stackFeaturesVisible; action: root.actions.advanced.saveMeasurements }
         AppMenuItem { text: "다른 이름으로 저장…"; enabled: false }
         AppMenu { title: "내보내기…"; enabled: false
             AppMenuItem { text: "분석 결과 CSV…"; enabled: false }
@@ -66,7 +66,7 @@ MenuBar {
         AppMenuItem { visible: root.uiState.stackFeaturesVisible; text: "선택을 채우기"; onTriggered: root.hostWindow.imagejCommand("Fill", "") }
         AppMenuItem { visible: root.uiState.stackFeaturesVisible; text: "선택을 지우기"; onTriggered: root.hostWindow.imagejCommand("Clear", "") }
         AppMenuItem { visible: root.uiState.stackFeaturesVisible; text: "선택 외부 지우기"; onTriggered: root.hostWindow.imagejCommand("Clear Outside", "") }
-        AppMenuItem { visible: root.uiState.stackFeaturesVisible; text: "도구 옵션…"; onTriggered: root.hostWindow.imagejTools() }
+        AppMenuItem { visible: root.uiState.stackFeaturesVisible; text: "도구 옵션…"; action: root.actions.advanced.tools }
         AppMenuItem { action: root.actions.settings; iconName: "settings" }
         MenuSeparator {}
         AppMenuItem { action: root.actions.copyRoi }
@@ -142,7 +142,7 @@ MenuBar {
         AppMenuItem { text: "Invert"; onTriggered: root.hostWindow.imagejCommand("Invert", "") }
         AppMenuItem { text: "이미지 계산…"; onTriggered: root.hostWindow.imagejMacro() }
         AppMenuItem { text: "FFT"; onTriggered: root.hostWindow.imagejCommand("FFT", "") }
-        AppMenuItem { text: "모든 ImageJ 명령…"; onTriggered: root.hostWindow.imagejCatalog() }
+        AppMenuItem { text: "모든 ImageJ 명령…"; action: root.actions.advanced.catalog }
     }
     AppMenu {
         id: analysisMenu; objectName: "analysisMenu"; title: "분석 (Analyze)"
@@ -151,24 +151,24 @@ MenuBar {
         AppMenuItem { visible: root.uiState.stackFeaturesVisible; text: "히스토그램"; onTriggered: root.hostWindow.imagejStatistics("Histogram") }
         AppMenuItem { visible: root.uiState.stackFeaturesVisible; text: "선 프로파일"; onTriggered: root.hostWindow.imagejStatistics("Profile") }
         AppMenuItem { visible: root.uiState.stackFeaturesVisible; text: "입자 분석…"; onTriggered: root.hostWindow.imagejCommand("Analyze Particles...", "size=0-Infinity circularity=0.00-1.00 show=Nothing display clear") }
-        AppMenuItem { objectName: "stackMeasurementMenuItem"; visible: root.uiState.stackFeaturesVisible; text: "스케일 · 길이 / 면적 / 개수 측정…"; onTriggered: root.hostWindow.stackMeasurement() }
-        AppMenuItem { text: "ROI 관리자"; onTriggered: root.hostWindow.openInspectorTab(4) }
-        AppMenuItem { visible: root.uiState.stackFeaturesVisible; text: "결과표"; onTriggered: root.hostWindow.imagejResults() }
+        AppMenuItem { objectName: "stackMeasurementMenuItem"; visible: root.uiState.stackFeaturesVisible; text: "스케일 · 길이 / 면적 / 개수 측정…"; action: root.actions.advanced.measurement }
+        AppMenuItem { text: "ROI 관리자"; action: root.actions.advanced.roiManager }
+        AppMenuItem { visible: root.uiState.stackFeaturesVisible; text: "결과표"; action: root.actions.advanced.results }
         MenuSeparator {}
-        AppMenuItem { action: root.actions.roi; shortcutLabel: "R"; checkable: true; checked: root.uiState.activeTool === "ROI" }
+        AppMenuItem { objectName: "menuRoiTool"; action: root.actions.roi; shortcutLabel: "R" }
         AppMenuItem { action: root.actions.clearRoi }
         MenuSeparator {}
-        AppMenuItem { action: root.actions.run; iconName: "run"; ToolTip.text: root.uiState.analysisReason; ToolTip.visible: hovered }
-        AppMenuItem { action: root.actions.cancelAnalysis }
+        AppMenuItem { objectName: "menuRunAnalysis"; action: root.actions.run; iconName: "run"; ToolTip.text: root.uiState.analysisReason; ToolTip.visible: hovered }
+        AppMenuItem { objectName: "menuCancelAnalysis"; action: root.actions.cancelAnalysis }
         AppMenuItem { text: "결과 보기"; enabled: root.uiState.hasResult; onTriggered: root.hostWindow.openInspectorTab(2) }
     }
     AppMenu {
         id: toolsMenu; objectName: "toolsMenu"; title: "플러그인 (Plugins)"; available: root.uiState.stackFeaturesVisible
-        AppMenuItem { text: "매크로 편집 / 실행…"; onTriggered: root.hostWindow.imagejMacro() }
-        AppMenuItem { text: "Java 플러그인 등록 / 실행…"; onTriggered: root.hostWindow.imagejPlugin() }
-        AppMenuItem { text: "Fiji / ImageJ2 명령…"; onTriggered: root.hostWindow.imagejModern() }
-        AppMenuItem { text: "명령 검색…"; onTriggered: root.hostWindow.imagejCatalog() }
-        AppMenuItem { text: "도구 옵션…"; onTriggered: root.hostWindow.imagejTools() }
+        AppMenuItem { objectName: "menuMacroItem"; text: "매크로 편집 / 실행…"; action: root.actions.advanced.macro }
+        AppMenuItem { objectName: "menuPluginItem"; text: "Java 플러그인 등록 / 실행…"; action: root.actions.advanced.plugin }
+        AppMenuItem { objectName: "menuFijiItem"; text: "Fiji / ImageJ2 명령…"; action: root.actions.advanced.modern }
+        AppMenuItem { objectName: "menuImagejCommandsItem"; text: "명령 검색…"; action: root.actions.advanced.catalog }
+        AppMenuItem { text: "도구 옵션…"; action: root.actions.advanced.tools }
         AppMenuItem { action: root.actions.modelInfo }
     }
     AppMenu {
@@ -180,7 +180,7 @@ MenuBar {
             AppMenuItem { text: "이미지 정합"; onTriggered: root.hostWindow.selectWorkspace(2) }
             AppMenuItem { text: "3D 뷰어"; onTriggered: root.hostWindow.selectWorkspace(3) }
         }
-        AppMenuItem { visible: root.uiState.stackFeaturesVisible; text: "ImageJ 작업창"; onTriggered: root.hostWindow.imagejResults() }
+        AppMenuItem { visible: root.uiState.stackFeaturesVisible; text: "ImageJ 작업창"; action: root.actions.advanced.results }
         AppMenuItem { action: root.actions.resetLayout }
     }
     AppMenu {

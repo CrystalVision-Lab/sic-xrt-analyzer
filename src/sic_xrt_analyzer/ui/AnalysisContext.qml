@@ -21,7 +21,7 @@ ColumnLayout {
     SectionHeader { theme: root.theme; text: "모델"; Layout.fillWidth: true; Layout.topMargin: 12 }
     AppButton { objectName: "researchModelButton"; theme: root.theme; text: uiState.research.loading ? "모델 불러오는 중…" : "연구 모델 폴더 선택…"; enabled: !uiState.analysisRunning && !uiState.research.loading; Layout.fillWidth: true; onClicked: root.modelRequested() }
     ModelDetails { theme: root.theme; uiState: root.uiState; Layout.fillWidth: true }
-    StatusIndicator { theme: root.theme; text: uiState.modelAvailable ? "모델 연결됨" : "모델 미연결"; ink: uiState.modelAvailable ? theme.muted : theme.warning }
+    ModelStatusGroup { theme: root.theme; uiState: root.uiState; Layout.fillWidth: true }
     Text { text: uiState.analysisReason; color: theme.muted; font.pixelSize: 12; wrapMode: Text.Wrap; Layout.fillWidth: true }
     Text { visible: !!uiState.research.error; text: uiState.research.error; color: theme.warning; font.pixelSize: 12; wrapMode: Text.Wrap; Layout.fillWidth: true }
     Text { text: "연구용 후보 분류 · BPD 오탐 주의\n확정 라벨·실제 결함 전체 수가 아닙니다."; color: theme.warning; font.pixelSize: 11; wrapMode: Text.Wrap; Layout.fillWidth: true }
