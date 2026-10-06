@@ -6,6 +6,8 @@ Issue #60. 기준: [TD-01 IA](XRT-UX-TD-01-IA.md), [TD-02 Toolbar](XRT-UX-TD-02-
 
 ## 1. 기존 구조 조사
 
+후속 [TD-05 Result](XRT-UX-TD-05-RESULT.md)는 Result의 전체 Scroll을 고정 요약·탐색·선택 상세와 독립 목록 Scroll로 변경하고, raw/검색/ROI 설정을 상세 진입으로 정리했다. 전환 규칙과 단일 선택/필터 상태는 유지하며, 후보 0개 문구는 “후보가 발견되지 않았습니다.”로 정리했다.
+
 RightContextPanel은 같은 크기의 이미지/분석/결과/뷰어/ROI 5개 버튼을 표시하고 ContextState.tabIndex 하나로 본문을 선택했다. Main의 직접 숫자 탭 변경, 메뉴와 AdvancedActions의 openInspectorTab 호출이 섞여 있었다. 정보·설정·실행·결과·ROI 관리를 같은 탭 위계로 표현하고 완료 단계의 연결이 약했다.
 
 | 기존 이벤트 | TD-02 동작 |
