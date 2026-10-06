@@ -47,6 +47,36 @@ QtObject {
     property string analysisScope: ""
     property string analysisPointMode: "contrast_proposals"
     property var research: fileBridge.research.state
+    property bool autoCandidateRoi: true
+    property int candidateRoiSize: 128
+    property string candidateRoiId: ""
+    function stopCandidateRoiTracking() {
+        candidateRoiId = ""
+        autoCandidateRoi = false
+    }
+    function updateCandidateRoi() {
+        var candidate = research.selected || ({})
+        if (!autoCandidateRoi || !candidate.id || !hasLoadedImage || !hasResult || loading || analysisRunning || contentWidth <= 0 || contentHeight <= 0) return
+        var w = Math.min(candidateRoiSize, contentWidth), h = Math.min(candidateRoiSize, contentHeight)
+        var x = Math.max(0, Math.min(contentWidth - w, Math.round(candidate.x - w / 2)))
+        var y = Math.max(0, Math.min(contentHeight - h, Math.round(candidate.y - h / 2)))
+        candidateRoiId = candidate.id
+        roiStartX = x / contentWidth; roiStartY = y / contentHeight
+        roiEndX = (x + w) / contentWidth; roiEndY = (y + h) / contentHeight
+        hasRoi = true; selectingRoi = false; roiLayerVisible = true
+        statusText = "후보 #" + candidate.number + " 탐색 ROI · " + w + " × " + h + " px"
+    }
+    onAutoCandidateRoiChanged: {
+        if (autoCandidateRoi) updateCandidateRoi()
+        else candidateRoiId = ""
+    }
+    onCandidateRoiSizeChanged: updateCandidateRoi()
+    onResearchChanged: {
+        if (candidateRoiId && !(research.selected || ({})).id) {
+            candidateRoiId = ""
+            hasRoi = false
+        }
+    }
     property bool analysisLayerVisible: true
     readonly property bool modelAvailable: analysis.modelAvailable
     readonly property bool analysisRunning: analysis.state === "RUNNING"
