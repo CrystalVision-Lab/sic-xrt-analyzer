@@ -7,7 +7,7 @@ from enum import Enum
 from types import MappingProxyType
 from uuid import uuid4
 
-from sic_xrt_analyzer.imaging.original_source import OriginalImageSource, SourceIdentity
+from sic_xrt_analyzer.imaging.original_source import OriginalPixelSource, SourceIdentity
 
 CONTRACT_VERSION = "1.0"
 
@@ -58,7 +58,7 @@ class Region:
 
 @dataclass(frozen=True)
 class AnalysisRequest:
-    source: OriginalImageSource
+    source: OriginalPixelSource
     scope: AnalysisScope
     model_id: str
     model_version: str
@@ -70,7 +70,7 @@ class AnalysisRequest:
     page_index: int = field(init=False)
 
     def __post_init__(self):
-        if not isinstance(self.source, OriginalImageSource) or not isinstance(self.scope, AnalysisScope):
+        if not isinstance(self.source, OriginalPixelSource) or not isinstance(self.scope, AnalysisScope):
             raise TypeError("An original source and explicit AnalysisScope are required")
         if not isinstance(self.parameters, Mapping):
             raise TypeError("Request parameters require a mapping")

@@ -26,7 +26,7 @@ from sic_xrt_analyzer.analysis.contracts import (
 )
 from sic_xrt_analyzer.analysis.pipeline import AnalysisPipeline
 from sic_xrt_analyzer.imaging.image_stack import open_stack
-from sic_xrt_analyzer.imaging.original_source import OriginalImageSource
+from sic_xrt_analyzer.imaging.original_source import OriginalPixelSource
 from sic_xrt_analyzer.imaging.roi_edit import export_copy
 from sic_xrt_analyzer.ui import (
     native_plugin_window,  # noqa: F401  (register QML type)
@@ -389,7 +389,7 @@ class FileBridge(QObject):
             "device": (adapter.device or "") if adapter else "",
             "supportedScopes": [s.value for s in adapter.input_contract.supported_scopes] if adapter else [],
             "sourceReady": p.source is not None,
-            "inputSource": "Original TIFF" if p.source else "",
+            "inputSource": f"Original {p.source.metadata.format}" if p.source else "",
             "scope": p.result.scope.value if p.result else "",
             "analysisId": p.result.analysis_id if p.result else "",
             "hasResult": bool(p.result and p.result.status == AnalysisState.COMPLETED),
@@ -408,7 +408,7 @@ class FileBridge(QObject):
         if self.pipeline.adapter is None or not self.pipeline.adapter.available:
             return self.pipeline.reject(AnalysisError("MODEL_NOT_AVAILABLE", "승인된 모델이 연결되지 않았습니다"))
         if self.pipeline.source is None:
-            return self.pipeline.reject(AnalysisError("INVALID_INPUT", "원본 TIFF를 여세요"))
+            return self.pipeline.reject(AnalysisError("INVALID_INPUT", "원본 TIFF 또는 JPG를 여세요"))
         try:
             if getattr(self.pipeline.adapter, "research_only", False):
                 parameters = self.research_controller.parameters(parameters)
@@ -556,7 +556,7 @@ class FileBridge(QObject):
         if record_recent:
             self.roi_manager.clear()
         self.original_source = original
-        if not isinstance(original, OriginalImageSource):
+        if not isinstance(original, OriginalPixelSource):
             self.pipeline.set_source(None)
         elif self.pipeline.source is None or self.pipeline.source.identity != original.identity:
             self.pipeline.set_source(original)

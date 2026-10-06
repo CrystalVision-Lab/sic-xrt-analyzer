@@ -1,6 +1,7 @@
 """Header-only TIFF snapshots and bounded reads of unmodified original samples."""
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Protocol, runtime_checkable
 
 import numpy as np
 import tifffile
@@ -37,6 +38,20 @@ class OriginalMetadata:
     mtime_ns: int
     page_count: int
     format: str = "TIFF"
+
+
+@runtime_checkable
+class OriginalPixelSource(Protocol):
+    """Unmodified decoded samples in encoded pixel coordinates (TIFF or JPEG)."""
+    path: str
+    page_index: int
+    metadata: OriginalMetadata
+    identity: SourceIdentity
+
+    def validate_identity(self): ...
+    def validate_region(self, x, y, width, height): ...
+    def read_region(self, x, y, width, height) -> np.ndarray: ...
+    def read_full(self) -> np.ndarray: ...
 
 
 @dataclass(frozen=True, init=False)

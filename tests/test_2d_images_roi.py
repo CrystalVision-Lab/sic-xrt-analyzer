@@ -102,7 +102,7 @@ def test_large_jpeg_is_sampled_and_exact_pixel_restored_async(qt_app, tmp_path):
         frame = bridge.stack_viewer.frame
         assert frame is not None and frame.pixels is None and frame.preview.sampled
         assert max(frame.preview.image.width(), frame.preview.image.height()) <= 2048
-        assert bridge.pipeline.source is None and not bridge.stackState['browsePreview']
+        assert bridge.pipeline.source is frame.source and not bridge.stackState['browsePreview']
         assert bridge.pixelValue(2100, 2300) == ''
         spin(qt_app, lambda: bool(bridge.pixelValue(2100, 2300)))
         expected = frame.source.read_region(2100, 2300, 1, 1)[0, 0]
@@ -242,7 +242,7 @@ def test_qml_jpeg_imported_roi_overlay_pan_zoom_visibility_and_file_switch(qt_ap
     try:
         invoke(window, 'selectImagePath', str(path))
         spin(qt_app, lambda: not state.property('loading'))
-        assert state.property('imageFormat') == 'JPEG' and not bridge.analysis['sourceReady']
+        assert state.property('imageFormat') == 'JPEG' and bridge.analysis['sourceReady']
         assert bridge.importRois([bridge.localUrl(str(roi))])
         spin(qt_app, lambda: len(bridge.roiState['items']) == 1)
         QTest.qWait(50)
