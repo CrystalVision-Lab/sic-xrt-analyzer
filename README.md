@@ -1,6 +1,6 @@
 # sic-xrt-analyzer
 
-SiC XRT 이미지를 탐색하는 PySide6/QML 데스크톱 앱입니다. 산업용 Dark Gray 화면, 사전 준비된 정밀 TIFF 스택·JPG 뷰어, ImageJ 도구·ROI 편집과 앱 내부 ImageJ 매크로·Java 플러그인 실행 창을 제공합니다. **모델 분석과 3D 재구성은 아직 연결되지 않았습니다.**
+SiC XRT 이미지를 탐색하는 PySide6/QML 데스크톱 앱입니다. 산업용 Dark Gray 화면, 사전 준비된 정밀 TIFF 스택·JPG 뷰어, ImageJ 도구·ROI 편집과 앱 내부 ImageJ 매크로·Java 플러그인 실행 창을 제공합니다. **고정 연구 모델의 BPD·TED·TSD 후보 분류가 분석 버튼에 연결되어 있습니다.** [모델 연결·결과 저장 안내](docs/desktop-inference.md). 3D 재구성은 별도 개발 범위입니다.
 
 ## 실행 (Windows PowerShell)
 
@@ -9,7 +9,7 @@ Python 3.11 이상과 ImageJ 실행용 Java 17 이상이 필요합니다. Fiji/I
 ```powershell
 cd C:\Users\PC-1\capstone\sic-xrt-analyzer
 python -m venv .venv
-.\.venv\Scripts\python.exe -m pip install -e ".[dev,viewer,imagej]"
+.\.venv\Scripts\python.exe -m pip install -e ".[dev,viewer,imagej,research]"
 .\.venv\Scripts\python.exe tools/setup_imagej.py
 .\.venv\Scripts\python.exe -m sic_xrt_analyzer
 ```

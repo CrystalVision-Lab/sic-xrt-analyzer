@@ -29,7 +29,7 @@ Rectangle {
         AppButton { theme: root.theme; action: root.actions.zoomIn; text: ""; iconName: "plus"; tip: "확대 · Ctrl++" }
         AppButton { theme: root.theme; action: root.actions.fit; text: "화면 맞춤"; iconName: "fit"; tip: "화면 맞춤 · Ctrl+0" }
         Rectangle { width: 1; height: 22; color: theme.border; Layout.leftMargin: 6; Layout.rightMargin: 6 }
-        StatusIndicator { theme: root.theme; text: "모델 미연결"; ink: theme.warning }
+        StatusIndicator { objectName: "researchModelStatus"; theme: root.theme; text: uiState.research.loading ? "모델 준비 중" : uiState.modelAvailable ? "연구 모델 연결됨" : "모델 미연결"; ink: uiState.modelAvailable ? theme.accent : theme.warning }
         Item { Layout.fillWidth: true }
         AppButton { theme: root.theme; action: root.actions.run; text: "분석 실행"; iconName: "run"; primary: true; tip: uiState.analysisReason }
     }

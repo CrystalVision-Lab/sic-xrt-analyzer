@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import QtQuick.Dialogs
 
 Rectangle {
     id: root
@@ -12,6 +13,9 @@ Rectangle {
     signal boundsRequested()
     signal saveRequested()
     color: theme.panel; border.color: theme.border
+    FolderDialog { id: researchModelDialog; title: "고정 모델 폴더 선택"; onAccepted: fileBridge.research.loadModel(selectedFolder.toString()) }
+    FileDialog { id: coordinatesDialog; title: "현재 영상의 좌표 CSV"; nameFilters: ["좌표 CSV (*.csv)"]; onAccepted: fileBridge.research.setCoordinates(selectedFile.toString()) }
+    FolderDialog { id: resultsDialog; title: "결과를 저장할 폴더"; onAccepted: fileBridge.research.exportResult(selectedFolder.toString()) }
     ColumnLayout {
         anchors.fill: parent; anchors.margins: 12; spacing: 12
         Text { text: "정보 및 분석"; color: theme.muted; font.pixelSize: 11; font.family: theme.fontFamily }
@@ -108,11 +112,23 @@ Rectangle {
                         InfoRow { required property int index; required property string modelData; theme: root.theme; label: modelData; value: uiState.hasRoi ? [uiState.roiX, uiState.roiY, uiState.roiWidth, uiState.roiHeight][index] + " px" : "—"; Layout.fillWidth: true }
                     }
                     SectionHeader { theme: root.theme; text: "모델"; Layout.fillWidth: true; Layout.topMargin: 12 }
+                    AppButton { objectName: "researchModelButton"; theme: root.theme; text: uiState.research.loading ? "모델 불러오는 중…" : "연구 모델 폴더 선택…"; enabled: !uiState.analysisRunning && !uiState.research.loading; Layout.fillWidth: true; onClicked: researchModelDialog.open() }
                     InfoRow { theme: root.theme; label: "모델"; value: uiState.analysis.modelName || "—"; Layout.fillWidth: true }
                     InfoRow { theme: root.theme; label: "버전"; value: uiState.analysis.modelVersion || "—"; Layout.fillWidth: true }
                     InfoRow { theme: root.theme; label: "장치"; value: uiState.analysis.device || "—"; Layout.fillWidth: true }
                     StatusIndicator { theme: root.theme; text: uiState.modelAvailable ? "모델 연결됨" : "모델 미연결"; ink: uiState.modelAvailable ? theme.muted : theme.warning }
                     Text { text: uiState.analysisReason; color: theme.muted; font.pixelSize: 12; wrapMode: Text.Wrap; Layout.fillWidth: true }
+                    Text { visible: !!uiState.research.error; text: uiState.research.error; color: theme.warning; font.pixelSize: 12; wrapMode: Text.Wrap; Layout.fillWidth: true }
+                    Text { text: "연구용 후보 분류 · BPD 오탐 주의\n확정 라벨·실제 결함 전체 수가 아닙니다."; color: theme.warning; font.pixelSize: 11; wrapMode: Text.Wrap; Layout.fillWidth: true }
+                    AppComboBox {
+                        objectName: "analysisPointModeCombo"; theme: root.theme; Layout.fillWidth: true
+                        model: ["밝기 대비 후보 찾기", "제공 좌표 CSV 분류"]
+                        enabled: !uiState.analysisRunning
+                        currentIndex: uiState.analysisPointMode === "provided_coordinates" ? 1 : 0
+                        onActivated: uiState.analysisPointMode = currentIndex === 1 ? "provided_coordinates" : "contrast_proposals"
+                    }
+                    AppButton { objectName: "analysisCoordinatesButton"; theme: root.theme; text: "현재 영상 좌표 CSV…"; visible: uiState.analysisPointMode === "provided_coordinates"; enabled: uiState.hasLoadedImage && !uiState.analysisRunning; Layout.fillWidth: true; onClicked: coordinatesDialog.open() }
+                    Text { visible: uiState.analysisPointMode === "provided_coordinates"; text: "불러온 좌표 " + uiState.research.coordinatesCount + "개 · x,y 원본 좌표"; color: theme.muted; font.pixelSize: 11; Layout.fillWidth: true }
                     InfoRow { theme: root.theme; label: "입력 원본"; value: uiState.analysis.inputSource || "—"; Layout.fillWidth: true }
                     AppComboBox {
                         objectName: "analysisScopeCombo"; theme: root.theme; Layout.fillWidth: true
@@ -130,10 +146,21 @@ Rectangle {
                     visible: root.tabIndex === 2; Layout.fillWidth: true; spacing: 12
                     SectionHeader { theme: root.theme; text: "분석 결과"; Layout.fillWidth: true }
                     Text { text: uiState.hasResult ? "분석 완료" : "분석 결과 없음"; color: theme.text; font.pixelSize: 14 }
-                    Text { text: uiState.hasResult ? "결과 표시 기능은 다음 단계에서 연결됩니다." : "분석 모델 연결 후 결함 검출 결과가 이곳에 표시됩니다."; color: theme.muted; wrapMode: Text.Wrap; font.pixelSize: 12; Layout.fillWidth: true }
+                    Text { text: "원: 예측 후보 위치 · 흰색: 낮은 점수\nBPD 주황 / TED 청록 / TSD 분홍"; color: theme.muted; wrapMode: Text.Wrap; font.pixelSize: 12; Layout.fillWidth: true }
+                    Repeater { model: ["BPD", "TED", "TSD"]; InfoRow { required property string modelData; theme: root.theme; label: modelData + " 후보"; value: String(uiState.research.counts[modelData] || 0); Layout.fillWidth: true } }
+                    InfoRow { theme: root.theme; label: "전체 / 낮은 점수"; value: uiState.research.total + " / " + uiState.research.lowScoreCount; Layout.fillWidth: true }
+                    InfoRow { theme: root.theme; label: "경계·범위 등 제외"; value: String(uiState.research.excluded); Layout.fillWidth: true }
+                    Text { visible: uiState.research.limited; text: "후보 3,000개 상한에 도달했습니다. 일부 후보만 분류했습니다."; color: theme.warning; wrapMode: Text.Wrap; Layout.fillWidth: true }
                     Text { visible: uiState.hasResult && uiState.analysis.resultRoiMismatch; text: "현재 ROI와 다른 분석 결과"; color: theme.warning; wrapMode: Text.Wrap; font.pixelSize: 12; Layout.fillWidth: true }
-                    AppButton { theme: root.theme; text: "검출 결함 보기"; enabled: false; iconName: "roi"; Layout.fillWidth: true }
-                    AppButton { theme: root.theme; text: "결과 내보내기"; enabled: false; iconName: "export"; Layout.fillWidth: true }
+                    AppCheckBox { theme: root.theme; text: "분석 후보 위치 표시"; checked: uiState.analysisLayerVisible; onToggled: uiState.analysisLayerVisible = checked }
+                    AppButton { objectName: "analysisExportButton"; theme: root.theme; text: "CSV·JSON 결과 저장…"; enabled: uiState.hasResult; iconName: "export"; Layout.fillWidth: true; onClicked: resultsDialog.open() }
+                    Text { visible: !!uiState.research.exportPath; text: "저장 완료: " + uiState.research.exportPath; color: theme.muted; wrapMode: Text.Wrap; Layout.fillWidth: true }
+                    Text { visible: !!uiState.research.error; text: uiState.research.error; color: theme.warning; wrapMode: Text.Wrap; Layout.fillWidth: true }
+                    Text { visible: uiState.hasResult; text: "종류 · 점수 · 원본 좌표 (화면 최대 200개)"; color: theme.muted; font.pixelSize: 11; Layout.fillWidth: true }
+                    Repeater {
+                        model: uiState.research.displayRows
+                        Text { required property var modelData; text: modelData.type + "  " + (typeof modelData.score === "number" ? modelData.score.toFixed(3) : "—") + "  (" + modelData.x.toFixed(1) + ", " + modelData.y.toFixed(1) + ")"; color: modelData.low_score ? theme.warning : theme.text; font.pixelSize: 11; Layout.fillWidth: true }
+                    }
                 }
             }
         }
