@@ -47,7 +47,7 @@ ApplicationWindow {
     header: PrimaryToolbar {
         objectName: "topToolbar"
         theme: shell.shellTheme; uiState: shell.shellState; actions: shell.shellActions; hostWindow: shell
-        height: shell.shellState.stackFeaturesVisible ? shell.shellTheme.toolbarHeight : 40
+        height: 40
     }
     MainWorkspace {
         id: workspace; anchors.fill: parent
