@@ -3,6 +3,8 @@ QtObject {
     id: root
     property QtObject analysisFlow: AnalysisFlowState { uiState: root }
     property QtObject resultPresentation: ResultPresentation {}
+    property QtObject roiFlow: RoiFlowState { uiState: root }
+    property QtObject roiInteraction: null
     property string filePath: ""
     property string fileName: ""
     property int workspaceIndex: 0
