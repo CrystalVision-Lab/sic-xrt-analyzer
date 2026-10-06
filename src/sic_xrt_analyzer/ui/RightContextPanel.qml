@@ -33,13 +33,13 @@ Rectangle {
         ContextHeader { theme: root.theme; controller: context; Layout.fillWidth: true; onFocusRequested: root.focusRequested() }
         ResultContext { visible: root.requestedContext === "result"; Layout.fillWidth: true; Layout.fillHeight: true; theme: root.theme; uiState: root.uiState; phase: context.resultPhase; message: context.resultMessage; onExportRequested: root.resultExportRequested(); onOverviewRequested: root.overviewRequested() }
         AnalysisContext { visible: root.requestedContext === "analysis"; Layout.fillWidth: true; Layout.fillHeight: true; theme: root.theme; uiState: root.uiState; actions: root.actions; onModelRequested: root.modelRequested(); onCoordinatesRequested: root.coordinatesRequested() }
+        RoiContext { visible: root.requestedContext === "roi"; Layout.fillWidth: true; Layout.fillHeight: true; theme: root.theme; uiState: root.uiState; actions: root.actions; onImportRequested: root.importRequested(); onBoundsRequested: root.boundsRequested(); onSaveRequested: root.saveRequested() }
         ScrollView {
-            visible: root.requestedContext !== "result" && root.requestedContext !== "analysis"
+            visible: root.requestedContext !== "result" && root.requestedContext !== "analysis" && root.requestedContext !== "roi"
             Layout.fillWidth: true; Layout.fillHeight: true; clip: true
             contentWidth: availableWidth
             ColumnLayout {
                 width: parent.width; spacing: 12
-                RoiContext { visible: root.requestedContext === "roi"; Layout.fillWidth: true; theme: root.theme; uiState: root.uiState; onImportRequested: root.importRequested(); onBoundsRequested: root.boundsRequested(); onSaveRequested: root.saveRequested() }
                 ViewerContext { visible: root.requestedContext === "viewer"; Layout.fillWidth: true; theme: root.theme; uiState: root.uiState }
                 ImageContext { visible: root.requestedContext === "image"; Layout.fillWidth: true; theme: root.theme; uiState: root.uiState; actions: root.actions }
             }
