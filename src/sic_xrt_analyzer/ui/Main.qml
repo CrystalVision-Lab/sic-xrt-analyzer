@@ -3,33 +3,22 @@ import QtQuick.Controls
 import QtQuick.Dialogs
 import QtQuick.Layouts
 
-ApplicationWindow {
+AppShell {
     id: window
     objectName: "mainWindow"
     visible: true; width: 1440; height: 900; minimumWidth: 1100; minimumHeight: 700
     title: "SiC XRT Analyzer"
-    color: theme.window; font.family: theme.fontFamily; font.pixelSize: theme.bodySize
-    palette.window: theme.panel
-    palette.windowText: theme.text
-    palette.base: theme.surface
-    palette.alternateBase: theme.panel
-    palette.text: theme.text
-    palette.button: theme.surface
-    palette.buttonText: theme.text
-    palette.highlight: theme.accentPale
-    palette.highlightedText: theme.text
-    palette.mid: theme.border
-    palette.dark: theme.border
-    palette.light: theme.hover
-    palette.toolTipBase: theme.surface
-    palette.toolTipText: theme.text
-    palette.disabled.text: theme.disabled
-    palette.disabled.windowText: theme.disabled
-    palette.disabled.buttonText: theme.disabled
+    shellTheme: theme; shellState: uiState; shellActions: window.commands; shellBridge: window.desktopBridge
+    onWorkspaceRequested: function(index) { window.selectWorkspace(index) }
+    onRecentRequested: function(path) { window.selectImagePath(path) }
+    onFileDropped: function(url) { window.selectImageFile(url) }
+    onImportRequested: importRoisAction.trigger()
+    onBoundsRequested: window.selectImportedBounds()
+    onRoiSaveRequested: roiSaveDialog.open()
+    onModelRequested: researchModelDialog.open()
+    onCoordinatesRequested: coordinatesDialog.open()
+    onResultExportRequested: resultsDialog.open()
     property var desktopBridge: fileBridge
-    property bool navigationCollapsed: false
-    property bool inspectorCollapsed: false
-    property bool statusBarVisible: true
     property var discardNext: null
     property bool allowQuit: false
     function imagejCommand(command, options) { if (uiState.stackFeaturesVisible) imagejDialog.showCommand(command, options) }
@@ -79,6 +68,7 @@ ApplicationWindow {
         uiState.workspaceIndex = index
         uiState.statusText = index === 0 ? "이미지 분석 화면" : ["", "Wafer Map", "이미지 정합", "3D 뷰어"][index] + " · 미연결"
     }
+    function openContext(key) { inspectorCollapsed = false; return contextPanel.showContext(key) }
     function openInspectorTab(index) { inspectorCollapsed = false; inspector.tabIndex = index }
     function clearImageState() {
         uiState.opening = false
@@ -208,28 +198,10 @@ ApplicationWindow {
     Action { id: shortcutGuideAction; text: "단축키"; onTriggered: window.showInfo("단축키", "파일\n열기  Ctrl+O     닫기  Ctrl+W     종료  Ctrl+Q\n\n보기\n화면 맞춤  Ctrl+0     실제 크기  Ctrl+1\n확대·축소  Ctrl++ / Ctrl+-     전체 화면  F11\n\n도구\nPan  H     ROI  R\n\n메뉴\nAlt+F / E / V / W / A / T / S / H") }
     Action { id: reportIssueAction; text: "문제 보고"; onTriggered: { if (!fileBridge.openIssueTracker()) window.showInfo("문제 보고", "브라우저를 열지 못했습니다. GitHub 저장소의 Issues에서 보고해 주세요.") } }
     Action { id: aboutAction; objectName: "aboutAction"; text: "프로그램 정보"; onTriggered: window.showInfo("SiC XRT Analyzer", "XRT 이미지 검사·분석\n버전 " + fileBridge.appVersion + "\n" + fileBridge.systemInfo + "\n\nTIFF/JPG · ImageJ ROI 뷰어\n모델 분석 미연결\nCrystalVision-Lab") }
-    menuBar: AppMenuBar { theme: theme; uiState: uiState; hostWindow: window; fileBridge: window.desktopBridge; actions: window.commands }
-    header: TopToolbar { objectName: "topToolbar"; theme: theme; uiState: uiState; actions: window.commands; hostWindow: window; height: uiState.stackFeaturesVisible ? theme.toolbarHeight : 40 }
-    RowLayout {
-        anchors.fill: parent; spacing: 0
-        NavigationPanel { theme: theme; uiState: uiState; collapsed: window.navigationCollapsed; recentFiles: fileBridge.recentFiles; Layout.preferredWidth: implicitWidth; Layout.fillHeight: true; onCollapseRequested: window.navigationCollapsed = !window.navigationCollapsed; onWorkspaceRequested: function(index) { window.selectWorkspace(index) }; onRecentRequested: function(path) { window.selectImagePath(path) } }
-        StackLayout {
-            currentIndex: uiState.workspaceIndex; Layout.fillWidth: true; Layout.fillHeight: true
-            ImageViewer { id: viewer; theme: theme; uiState: uiState; actions: window.commands; onFileDropped: function(url) { window.selectImageFile(url) } }
-            Repeater {
-                model: ["Wafer Map", "이미지 정합", "3D 뷰어"]
-                Rectangle { required property string modelData; color: theme.viewer
-                    ColumnLayout { anchors.centerIn: parent; spacing: 10
-                        Text { text: modelData; color: theme.text; font.pixelSize: 17 }
-                        Text { text: "해당 작업 영역은 아직 연결되지 않았습니다"; color: theme.muted; font.pixelSize: 12 }
-                    }
-                }
-            }
-        }
-        InspectorPanel { id: inspector; theme: theme; uiState: uiState; visible: !window.inspectorCollapsed; Layout.preferredWidth: inspector.tabIndex === 2 ? 380 : theme.panelWidth; Layout.fillHeight: true; onOverviewRequested: viewer.fitView(); onImportRequested: importRoisAction.trigger(); onBoundsRequested: window.selectImportedBounds(); onSaveRequested: roiSaveDialog.open() }
-    }
     Connections { target: fileBridge.research; function onFocusRequested(x, y) { window.inspectorCollapsed = false; inspector.tabIndex = 2; uiState.workspaceIndex = 0; uiState.updateCandidateRoi(); Qt.callLater(function() { viewer.focusCandidate(x, y) }) } }
-    footer: StatusBar { theme: theme; uiState: uiState; height: visible ? theme.statusHeight : 0; visible: window.statusBarVisible }
+    FolderDialog { id: researchModelDialog; title: "고정 모델 폴더 선택"; onAccepted: fileBridge.research.loadModel(selectedFolder.toString()) }
+    FileDialog { id: coordinatesDialog; title: "현재 영상의 좌표 CSV"; nameFilters: ["좌표 CSV (*.csv)"]; onAccepted: fileBridge.research.setCoordinates(selectedFile.toString()) }
+    FolderDialog { id: resultsDialog; title: "결과를 저장할 폴더"; onAccepted: fileBridge.research.exportResult(selectedFolder.toString()) }
     FileDialog { id: openDialog; objectName: "openImageDialog"; title: "XRT 이미지 열기"; nameFilters: ["XRT 이미지 (*.tif *.tiff *.jpg *.jpeg)", "TIFF 이미지 (*.tif *.tiff)", "JPEG 이미지 (*.jpg *.jpeg)", "모든 파일 (*)"]; onAccepted: window.selectImageFile(selectedFile.toString()) }
     FileDialog { id: roiDialog; objectName: "roiFileDialog"; title: "대응하는 이미지의 ImageJ ROI 가져오기"; fileMode: FileDialog.OpenFiles; nameFilters: ["ImageJ ROI (*.roi *.zip)", "ROI 파일 (*.roi)", "ROI ZIP (*.zip)"]; onAccepted: fileBridge.importRois(selectedFiles) }
     FileDialog { id: roiSaveDialog; objectName: "roiSaveDialog"; title: "새 ROI ZIP 복사본 저장 (기존 파일 덮어쓰기 불가)"; fileMode: FileDialog.SaveFile; nameFilters: ["ROI ZIP (*.zip)"]; defaultSuffix: "zip"; onAccepted: fileBridge.saveRoiCopy(selectedFile.toString()) }

@@ -3,6 +3,7 @@ import QtQuick.Controls
 import QtQuick.Layouts
 Rectangle {
     id: root
+    objectName: "workspaceNavigation"
     property QtObject theme
     property QtObject uiState
     property var recentFiles: []
@@ -38,6 +39,10 @@ Rectangle {
                 ToolTip.visible: itemHover.containsMouse && (root.collapsed || index > 0)
                 ToolTip.text: index > 0 ? modelData.name + " · 향후 분석 기능입니다" : modelData.name
             }
+        }
+        CurrentFileNavigation {
+            visible: !root.collapsed; Layout.fillWidth: true; Layout.leftMargin: 12; Layout.rightMargin: 12
+            theme: root.theme; uiState: root.uiState; onActivated: root.workspaceRequested(0)
         }
         ColumnLayout {
             visible: !root.collapsed; Layout.fillWidth: true; Layout.leftMargin: 12; Layout.rightMargin: 12; spacing: 4
