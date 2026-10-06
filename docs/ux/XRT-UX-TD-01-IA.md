@@ -38,6 +38,8 @@
 
 아래 트리는 TD-01 완료 당시 구조다. TD-02의 현재 Toolbar는 File/Viewer/ROI/Measurement/More 한 줄로 구성하며 모델 상태는 AnalysisContext에 재사용한다. [TD-02 구조와 검증](XRT-UX-TD-02-TOOLBAR.md).
 
+TD-03은 기존 5개 고정 탭을 현재 Context 헤더/선택 메뉴로 바꾸고 이름·reason 기반 전환을 ContextState에 중앙화했다. 새 파일→IMAGE, 완료→RESULT, 실패/취소→ANALYSIS이며 Pan/Zoom/페이지 이동은 수동 선택을 유지한다. [현재 Context 구조·전환 정책](XRT-UX-TD-03-CONTEXT.md).
+
 ```text
 Main (명령·브리지 이벤트·대화상자 조정)
 └ AppShell (창과 6개 영역의 배치)
@@ -85,7 +87,7 @@ Main (명령·브리지 이벤트·대화상자 조정)
 
 ContextState의 `tabIndex`가 유일한 선택 상태다. `requestedContext`: image / analysis / result / viewer / roi. 이미지 탭에 열린 이미지가 없으면 `activeContext=idle`, 결과 탭에 후보가 선택되면 `detailContext=candidate`다.
 
-새 자동 전환 규칙을 추가하지 않았다. 기존 이미지 열기→뷰어 탭, ROI 가져오기→ROI 탭, 후보 focusRequested→결과 탭은 유지한다. ROI 도구 선택·분석 완료 자체만으로 탭을 바꾸지 않는다. TD-03에서 이 정책을 별도로 설계한다.
+TD-01/02에서는 새 자동 전환을 추가하지 않았다. **TD-03 현재 정책:** 새 원본 열기→IMAGE, 유효 분석 완료→RESULT(0개 포함), 실패/취소→ANALYSIS. ROI 가져오기/관리/편집→ROI와 명시 후보 focusRequested→RESULT는 유지한다. ROI 도구·Pan/Zoom/페이지/hover 자체는 전환하지 않는다. ContextState의 whitelist 및 분석 ID별 완료 중복 방지로 수동 선택을 유지한다.
 
 ### 정보 위계
 
@@ -119,7 +121,7 @@ ContextState의 `tabIndex`가 유일한 선택 상태다. `requestedContext`: im
 | 측정 TSV 저장 | 파일 [스택] | More [스택] | — | — | — | — | File Menu | More/작업창, 같은 측정 데이터 |
 | 기하 측정 / 보정 / 주석 | 분석 | 측정 드롭다운 [스택] | — | — | 측정 Overlay | — | Toolbar 측정 | Menu/MeasurementDialog; 아래 ImageJ 측정과 별도 명령 |
 | ImageJ 강도 측정 / Histogram / Profile | 분석 [스택] | More→모든 명령 | — | — | 선택 ROI 전달 | — | Analyze Menu | ImageJ 작업창, 기하 측정과 합치지 않음 |
-| Stack 페이지 | — | More→스택 [스택] | — | Viewer 슬라이더 | 휠 / 방향키 | 방향키 | ViewerContext | Viewer/More: 빠른 페이지 탐색 |
+| Stack 페이지 | 이미지→밝기/대비 | More→뷰어·스택 설정 / 스택 [스택] | — | Viewer Context 슬라이더 | 휠 / 방향키 | 방향키 | ViewerContext | Context Switcher/명시 설정/More: 이동 자체는 Context 유지 |
 | Stack 투영 / 복제 / 반전 | — | More→스택 [스택] | — | — | — | — | More→스택 | ImageJ 명령 실행 창, 공간 Z 확정 아님 |
 | 밝기·대비 | 이미지→조정 | — | — | Viewer 범위 | — | — | ViewerContext | Menu: 같은 표시 범위/자동 범위 |
 | LUT | — | More→색상 표시표 [스택] | — | — | 표시 | — | More→LUT | ImageJ 명령 실행 창, 기존 처리 호출 |
