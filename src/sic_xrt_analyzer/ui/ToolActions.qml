@@ -6,7 +6,7 @@ QtObject {
     property QtObject uiState
     property var baseActions
     property var hostWindow
-    readonly property bool stackEnabled: uiState.stackFeaturesVisible && uiState.canNavigateImage
+    readonly property bool stackEnabled: uiState.stackFeaturesVisible && uiState.canNavigateImage && uiState.loadFlow.recordReady
     // Selection is derived from the existing Viewer state, never duplicated.
     function selected(tool) { return uiState.activeTool === tool && !uiState.roiEditMode }
     function forTool(tool) {

@@ -40,7 +40,7 @@ Rectangle {
             contentWidth: availableWidth
             ColumnLayout {
                 width: parent.width; spacing: 12
-                ViewerContext { visible: root.requestedContext === "viewer"; Layout.fillWidth: true; theme: root.theme; uiState: root.uiState }
+                ViewerContext { visible: root.requestedContext === "viewer"; Layout.fillWidth: true; theme: root.theme; uiState: root.uiState; actions: root.actions }
                 ImageContext { visible: root.requestedContext === "image"; Layout.fillWidth: true; theme: root.theme; uiState: root.uiState; actions: root.actions }
             }
         }

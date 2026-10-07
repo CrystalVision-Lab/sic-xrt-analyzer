@@ -4,6 +4,7 @@ QtObject {
     property QtObject analysisFlow: AnalysisFlowState { uiState: root }
     property QtObject resultPresentation: ResultPresentation {}
     property QtObject roiFlow: RoiFlowState { uiState: root }
+    property QtObject loadFlow: TiffLoadState { uiState: root }
     property QtObject roiInteraction: null
     property string filePath: ""
     property string fileName: ""
@@ -27,7 +28,7 @@ QtObject {
     property int previewHeight: 0
     property bool sampledPreview: false
     property bool opening: false
-    readonly property bool loading: opening || !!stack.initialLoading
+    readonly property bool loading: opening || (!!stack.initialLoading && !stack.frameViewable)
     property string loadError: ""
     property bool hasRoi: false
     property bool selectingRoi: false
@@ -105,7 +106,7 @@ QtObject {
     readonly property bool canAnalyze: hasLoadedImage && analysis.sourceReady && modelAvailable && !analysisRunning && !loading && !pageLoading && analysis.supportedScopes.indexOf(analysisScope) >= 0 && (analysisScope === "FULL_IMAGE" || (analysisScope === "ROI" && hasRoi && roiWidth > 0 && roiHeight > 0))
     readonly property string analysisReason: analysis.errorMessage || (!modelAvailable ? "승인된 모델이 연결되지 않았습니다" : !analysis.sourceReady ? "원본 TIFF 또는 JPG를 여세요" : analysisRunning ? "분석 중입니다" : !analysisScope ? "분석 범위를 선택하세요" : analysis.supportedScopes.indexOf(analysisScope) < 0 ? "모델이 선택한 분석 범위를 지원하지 않습니다" : analysisScope === "ROI" && !hasRoi ? "ROI를 선택하세요" : "원본 이미지 분석")
     readonly property string workflowLabel: loading ? "로딩 중" : loadError ? "파일 오류" : hasImage ? (hasRoi ? "ROI 선택됨" : "이미지 준비 완료") : "이미지 없음"
-    readonly property string viewerStatus: loading ? "로딩 중" : loadError || stack.error ? "파일 오류" : pageLoading ? "페이지 로딩 중" : hasImage ? "준비 완료" : "이미지 없음"
+    readonly property string viewerStatus: loadFlow.statusLabel
     readonly property real effectiveZoom: fitMode ? fitZoom : zoom
     readonly property string zoomLabel: canNavigateImage ? (fitMode ? "FIT" : (Math.round(effectiveZoom * 1000) / 10) + "%") : "—"
     function pixelEdge(normalized, extent) {
