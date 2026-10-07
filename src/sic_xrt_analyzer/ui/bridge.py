@@ -35,6 +35,7 @@ from sic_xrt_analyzer.ui import (
 from sic_xrt_analyzer.ui.detail_reader import DetailReader
 from sic_xrt_analyzer.ui.imagej_workbench import ImageJWorkbench
 from sic_xrt_analyzer.ui.latest_reader import LatestReader
+from sic_xrt_analyzer.ui.native_file_dialog import NativeFileDialogs
 from sic_xrt_analyzer.ui.pixel_reader import PixelReader
 from sic_xrt_analyzer.ui.research_controller import ResearchController
 from sic_xrt_analyzer.ui.roi_manager import RoiManager
@@ -78,6 +79,7 @@ class FileBridge(QObject):
 
     def __init__(self, provider=None, parent=None, settings=None):
         super().__init__(parent)
+        self.native_dialogs = NativeFileDialogs(self)
         self.provider = provider or TiffImageProvider()
         self.revision = 0
         self._working_path = ''
@@ -131,6 +133,10 @@ class FileBridge(QObject):
     @Property("QStringList", notify=recentFilesChanged)
     def recentFiles(self):
         return self._recent_files
+
+    @Property(QObject, constant=True)
+    def nativeDialogs(self):
+        return self.native_dialogs
 
     @Property(str, constant=True)
     def appVersion(self):
@@ -598,6 +604,7 @@ class FileBridge(QObject):
 
     @Slot()
     def waitForLoads(self):
+        self.native_dialogs.shutdown()
         # Keep worker signal objects alive until decoding ends during shutdown.
         self.research_controller.thumbnail_loader.shutdown()
         if self.workbench.busy or self.workbench.windows:

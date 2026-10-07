@@ -53,5 +53,5 @@ SurfaceDialog {
         }
         Text { visible: measurements.error.length > 0; Layout.fillWidth: true; wrapMode: Text.Wrap; text: measurements.error; color: theme.error }
     }
-    FileDialog { id: saveFile; fileMode: FileDialog.SaveFile; nameFilters: ["측정 결과 (*.tsv)"]; onAccepted: backend.saveResults(selectedFile.toString()) }
+    SafeFileDialog { id: saveFile; fileMode: FileDialog.SaveFile; nameFilters: ["측정 결과 (*.tsv)"]; onAccepted: backend.saveResults(selectedFile.toString()) }
 }

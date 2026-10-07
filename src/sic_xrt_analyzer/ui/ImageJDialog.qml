@@ -120,7 +120,7 @@ SurfaceDialog {
         Text { Layout.fillWidth: true; visible: root.runtimeState.error.length > 0; text: root.runtimeState.error; wrapMode: Text.Wrap; color: theme.error }
         ProgressBar { Layout.fillWidth: true; visible: root.runtimeState.busy; indeterminate: true }
     }
-    FileDialog { id: macroFile; nameFilters: ["ImageJ macro (*.ijm *.txt)"]; onAccepted: { var code = backend.readMacro(selectedFile.toString()); if (code) { root.mode = "macro"; macroText.text = code } } }
-    FileDialog { id: pluginFile; nameFilters: ["Java plugin (*.jar *.class)"]; onAccepted: backend.installPlugin(selectedFile.toString()) }
-    FolderDialog { id: fijiFolder; title: "Fiji 라이브러리 폴더 (jars/ 및 plugins/)"; onAccepted: backend.configureRuntime(root.runtimeState.gui, selectedFolder.toString()) }
+    SafeFileDialog { id: macroFile; nameFilters: ["ImageJ macro (*.ijm *.txt)"]; onAccepted: { var code = backend.readMacro(selectedFile.toString()); if (code) { root.mode = "macro"; macroText.text = code } } }
+    SafeFileDialog { id: pluginFile; nameFilters: ["Java plugin (*.jar *.class)"]; onAccepted: backend.installPlugin(selectedFile.toString()) }
+    SafeFolderDialog { id: fijiFolder; title: "Fiji 라이브러리 폴더 (jars/ 및 plugins/)"; onAccepted: backend.configureRuntime(root.runtimeState.gui, selectedFolder.toString()) }
 }
