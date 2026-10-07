@@ -156,7 +156,8 @@ def test_focus_hover_pressed_checked_and_disabled_feedback(workbench):
 
 def test_long_filename_is_elided_without_changing_panel_width(workbench):
     w = workbench
-    path = w.path.parent/(('긴파일이름_'*20)+'.jpg')
+    # Long enough to elide, within Linux's 255-byte filename component limit.
+    path = w.path.parent/(('긴파일이름_'*14)+'.jpg')
     Image.fromarray(np.full((48,64,3),120,np.uint8)).save(path)
     w.open(path); w.window.resize(1100,700); QTest.qWait(50)
     title = in_window(w, 'viewerFileName')
