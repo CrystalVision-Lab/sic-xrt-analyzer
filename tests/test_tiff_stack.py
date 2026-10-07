@@ -401,7 +401,7 @@ def test_qml_stack_navigation_contrast_pixel_and_view(qt_app, stack_file, tmp_pa
         spin(qt_app, lambda: not bridge.stack_viewer.busy and bridge.stackState["rawReady"] and state.property("pageIndex") == index)
     try:
         invoke(window, "selectImagePath", str(path))
-        spin(qt_app, lambda: not state.property("loading"))
+        spin(qt_app, lambda: not state.property("loading") and bridge.stack_viewer.preload_state["ready"])
         assert state.property("dtype") == "uint16" and state.property("pageCount") == 7
         assert bridge.stackState["frames"] == 7 and bridge.stackState["low"] == 1000
         inspector = window.findChild(QObject, "inspectorPanel")

@@ -6,8 +6,8 @@ QtObject {
     property QtObject uiState
     property var hostWindow
     property var bridge
-    readonly property bool enabled: uiState.stackFeaturesVisible
-    readonly property bool hasPages: enabled && uiState.pageCount > 1
+    readonly property bool enabled: uiState.stackFeaturesVisible && uiState.loadFlow.recordReady
+    readonly property bool hasPages: enabled && uiState.pageCount > 1 && uiState.loadFlow.pageNavigationReady
     property Action measurement: Action { objectName: "advancedMeasurementAction"; text: "스케일 · 길이 / 면적 / 개수 측정…"; enabled: root.enabled; onTriggered: root.hostWindow.stackMeasurement() }
     property Action tools: Action { objectName: "advancedToolsAction"; text: "색상·브러시·완드·텍스트 옵션…"; enabled: root.enabled; onTriggered: root.hostWindow.imagejTools() }
     property Action macro: Action { objectName: "advancedMacroAction"; text: "매크로 편집 / 실행…"; enabled: root.enabled; onTriggered: root.hostWindow.imagejMacro() }

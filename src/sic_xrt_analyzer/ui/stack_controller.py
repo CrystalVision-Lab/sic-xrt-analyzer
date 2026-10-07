@@ -204,6 +204,14 @@ class StackController(QObject):
             self._submit(self.frame.source.path, self.requested_page, self.window, detail=True)
 
     @property
+    def opening_request(self):
+        """Current open intent; pending replacement takes precedence over its old worker."""
+        for request in (self._pending, self._task.request if self._task else None):
+            if request is not None and request.opening:
+                return request
+        return None
+
+    @property
     def preload_state(self):
         stack = self._reader.stack
         opening = (self._task is not None and self._task.request.opening) or (

@@ -107,7 +107,7 @@ AppShell {
     }
     function startImageLoad(url) {
         uiState.roiEditMode = false
-        uiState.opening = true; uiState.loadError = ""; uiState.statusText = "이미지 불러오는 중…"
+        uiState.opening = true; uiState.loadError = ""; uiState.statusText = "파일 여는 중…"
         fileBridge.requestImage(url)
     }
     Connections {
@@ -118,7 +118,7 @@ AppShell {
         }
         function onImageOpened(result) {
             uiState.opening = false
-            if (!result.ok) { uiState.loadError = result.error; uiState.statusText = "이미지 열기 실패: " + result.error; return }
+            if (!result.ok) { uiState.loadError = result.error; uiState.statusText = "이미지 열기 실패 · 상세 정보를 확인하세요."; return }
             var sizeChanged = uiState.imageWidth !== result.width || uiState.imageHeight !== result.height
             uiState.filePath = result.path; uiState.fileName = result.name
             uiState.imageWidth = result.width; uiState.imageHeight = result.height
@@ -134,7 +134,7 @@ AppShell {
             if (!result.workingCopy) window.requestContext("image", "OPEN_IMAGE")
             if (!result.workingCopy || sizeChanged) viewer.defaultView()
             viewer.focusView()
-            uiState.statusText = result.format + " · " + result.pageCount + " 페이지 / " + (result.pageCount > 1 ? "전체 준비 후 탐색" : "화면 맞춤")
+            uiState.statusText = result.format + " · 현재 페이지 준비 완료"
         }
         function onRoiImportFinished(result) {
             window.requestContext("roi", "ROI_IMPORT")
@@ -184,9 +184,9 @@ AppShell {
     }
     function showInfo(heading, body) { infoDialog.title = heading; infoDialog.bodyText = body; infoDialog.open() }
     Action { id: openAction; objectName: "openAction"; text: "이미지 열기…"; shortcut: StandardKey.Open; onTriggered: window.openImageDialog() }
-    Action { id: importRoisAction; objectName: "importRoisAction"; text: "ImageJ ROI 가져오기…"; enabled: uiState.hasLoadedImage && !uiState.loading; onTriggered: { window.requestContext("roi", "ROI_IMPORT"); roiDialog.open() } }
+    Action { id: importRoisAction; objectName: "importRoisAction"; text: "ImageJ ROI 가져오기…"; enabled: uiState.loadFlow.recordReady && !uiState.loading; onTriggered: { window.requestContext("roi", "ROI_IMPORT"); roiDialog.open() } }
     Action { id: viewerSettingsAction; objectName: "viewerSettingsAction"; text: "뷰어 · 스택 표시 설정…"; enabled: uiState.hasImage; onTriggered: { uiState.workspaceIndex = 0; window.requestContext("viewer", "VIEWER_SETTINGS") } }
-    Action { id: saveAction; text: "이미지 복사본 저장…"; shortcut: StandardKey.Save; enabled: uiState.hasLoadedImage && !uiState.loading && !fileBridge.imagej.state.busy; onTriggered: window.saveImageCopy() }
+    Action { id: saveAction; text: "이미지 복사본 저장…"; shortcut: StandardKey.Save; enabled: uiState.loadFlow.recordReady && !uiState.loading && !fileBridge.imagej.state.busy; onTriggered: window.saveImageCopy() }
     Action { id: demoAction; text: "합성 데모 이미지 보기"; enabled: !uiState.loading; onTriggered: window.showDemo() }
     Action { id: closeImageAction; objectName: "closeImageAction"; text: "현재 이미지 닫기"; shortcut: StandardKey.Close; enabled: uiState.hasImage || uiState.loading; onTriggered: window.closeImage() }
     Action { id: quitAction; text: "종료"; shortcut: "Ctrl+Q"; onTriggered: window.close() }

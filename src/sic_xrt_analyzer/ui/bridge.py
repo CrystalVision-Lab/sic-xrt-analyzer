@@ -153,6 +153,8 @@ class FileBridge(QObject):
         low, high = s.window or (0.0, 65535.0)
         return {
             "busy": s.busy, "error": s.error, "revision": self.revision,
+            "frameViewable": f is not None and s.opening_request is None,
+            "openingPath": s.opening_request.path if s.opening_request else "",
             "initialLoading": s.initial_loading,
             "preparing": s.preparing,
             "preload": s.preload_state, "preloadError": s.preload_error,
@@ -174,7 +176,7 @@ class FileBridge(QObject):
 
     @Slot(int, result=bool)
     def requestPage(self, page):
-        if self.stack_viewer.frame is None or not 0 <= page < self.stack_viewer.frame.source.metadata.page_count:
+        if self.stack_viewer.initial_loading or self.stack_viewer.frame is None or not 0 <= page < self.stack_viewer.frame.source.metadata.page_count:
             return False
         if page != self.stack_viewer.frame.source.page_index:
             self.pipeline.invalidate()

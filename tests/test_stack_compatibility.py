@@ -148,7 +148,7 @@ public class Test_QML_Plugin implements PlugIn {
         assert getCppPointer(window)[0] == owner_id and getCppPointer(state)[0] == state_id
         return state
     try:
-        invoke(window,'selectImagePath',str(path));spin(qt_app,lambda:not state.property('loading'))
+        invoke(window,'selectImagePath',str(path));spin(qt_app,lambda:not state.property('loading') and not bridge.stack_viewer.initial_loading)
         bridge.workbench.configureRuntime(True,'')
         assert not bridge.workbench.error
         bridge.workbench.runtime.classpaths.append(str(directory))
@@ -201,7 +201,7 @@ def test_qml_processing_result_keeps_window_and_stack_context(qt_app,tmp_path):
     engine.load(QUrl.fromLocalFile(str(Path(__file__).parents[1]/'src/sic_xrt_analyzer/ui/Main.qml')))
     window=engine.rootObjects()[0];state=window.findChild(QObject,'uiState')
     try:
-        invoke(window,'selectImagePath',str(path));spin(qt_app,lambda:not state.property('loading'))
+        invoke(window,'selectImagePath',str(path));spin(qt_app,lambda:not state.property('loading') and not bridge.stack_viewer.initial_loading)
         bridge.workbench.execute('command','Invert','',False)
         spin(qt_app,lambda:not bridge.workbench.busy and not state.property('loading'),timeout=30)
         assert state.property('stackFeaturesVisible') and not bridge.workbench.error
@@ -301,7 +301,7 @@ def test_stack_only_menu_and_measurement_dialog_reset(qt_app,tmp_path):
             raw=np.zeros((count,100,100),np.uint16)
             tifffile.imwrite(path,raw if count>1 else raw[0],photometric='minisblack')
             invoke(window,'selectImagePath',str(path))
-            spin(qt_app,lambda: not state.property('loading'))
+            spin(qt_app,lambda: not state.property('loading') and not bridge.stack_viewer.initial_loading)
             assert state.property('stackFeaturesVisible') == (count>1)
             menus=list(visual_items(window.contentItem()))
             process=next(i for i in menus if i.property('text') == '처리 (Process)')
