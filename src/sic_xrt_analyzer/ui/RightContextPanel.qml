@@ -26,10 +26,10 @@ Rectangle {
     signal resultExportRequested()
     function showContext(key) { return context.showContext(key) }
     function requestContext(key, reason) { return context.requestContext(key, reason) }
-    color: theme.panel; border.color: theme.border
+    color: theme.panel
     ContextState { id: context; objectName: "contextState"; uiState: root.uiState; onContextRequested: function(reason) { root.activateRequested(reason) } }
     ColumnLayout {
-        anchors.fill: parent; anchors.margins: 12; spacing: 12
+        anchors.fill: parent; anchors.margins: theme.spacingMd; spacing: theme.spacingMd
         ContextHeader { theme: root.theme; controller: context; Layout.fillWidth: true; onFocusRequested: root.focusRequested() }
         ResultContext { visible: root.requestedContext === "result"; Layout.fillWidth: true; Layout.fillHeight: true; theme: root.theme; uiState: root.uiState; phase: context.resultPhase; message: context.resultMessage; onExportRequested: root.resultExportRequested(); onOverviewRequested: root.overviewRequested() }
         AnalysisContext { visible: root.requestedContext === "analysis"; Layout.fillWidth: true; Layout.fillHeight: true; theme: root.theme; uiState: root.uiState; actions: root.actions; onModelRequested: root.modelRequested(); onCoordinatesRequested: root.coordinatesRequested() }
@@ -39,7 +39,7 @@ Rectangle {
             Layout.fillWidth: true; Layout.fillHeight: true; clip: true
             contentWidth: availableWidth
             ColumnLayout {
-                width: parent.width; spacing: 12
+                width: parent.width; spacing: theme.spacingMd
                 ViewerContext { visible: root.requestedContext === "viewer"; Layout.fillWidth: true; theme: root.theme; uiState: root.uiState; actions: root.actions }
                 ImageContext { visible: root.requestedContext === "image"; Layout.fillWidth: true; theme: root.theme; uiState: root.uiState; actions: root.actions }
             }

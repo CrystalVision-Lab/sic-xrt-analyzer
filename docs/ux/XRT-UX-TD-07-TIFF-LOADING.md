@@ -4,6 +4,8 @@ Issue #68. 기준: TD-01~06 / PR #67 / `refactor/66-roi-ux` / `a1d615356de8ce788
 
 ## 1. 변경 전 실제 구조 조사 (구현 전)
 
+후속 [TD-08 Visual Density](XRT-UX-TD-08-VISUAL-DENSITY.md)는 글자·입력·경계 표현만 통일하며 이 문서의 loading state·준비 조건·backend·cache를 유지한다.
+
 - `Main.startImageLoad`는 `opening=true` 후 `FileBridge.requestImage`를 호출한다. 기존 화면은 성공 전까지 유지하고 pipeline generation을 무효화한다.
 - `StackController`의 단일 QThreadPool worker가 signature 확인 → `open_stack` → OriginalImageSource metadata/page count → 첫 `frame(0)`을 수행한다. JPEG는 Qt QImageReader, TIFF는 기존 tifffile을 사용한다.
 - 일반 TIFF `TiffStack.frame`은 현재 원본 페이지를 읽고, 필요하면 해당 페이지의 기존 DisplayPyramid를 준비한 뒤 frameReady를 GUI thread에 전달한다. 전체 stack decode가 첫 frame의 전제 조건이 아니다.

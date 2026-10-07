@@ -3,7 +3,7 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import XrtViewer 1.0
 
-Dialog {
+SurfaceDialog {
     id: root
     objectName: "pluginWindowsDialog"
     property QtObject theme
@@ -20,7 +20,6 @@ Dialog {
         if (nativeWindows.length) open(); else close()
         if (tabs.currentIndex >= nativeWindows.length) tabs.currentIndex = Math.max(0,nativeWindows.length-1)
     }
-    background: Rectangle { color: theme.panel; border.color: theme.border }
     contentItem: ColumnLayout {
         TabBar {
             id: tabs; Layout.fillWidth: true

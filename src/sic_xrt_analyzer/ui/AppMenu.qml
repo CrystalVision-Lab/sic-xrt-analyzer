@@ -3,9 +3,10 @@ import QtQuick.Controls
 Menu {
     id: root
     property bool available: true
+    property QtObject visualTheme: Theme {}
     enabled: available
     width: 250
-    topPadding: 4; bottomPadding: 4
-    background: Rectangle { color: root.palette.window; border.color: root.palette.mid; radius: 3 }
+    topPadding: visualTheme.spacingXs; bottomPadding: visualTheme.spacingXs
+    background: Rectangle { color: root.palette.window; border.color: root.palette.mid; radius: root.visualTheme.radiusControl }
     delegate: AppMenuItem {}
 }

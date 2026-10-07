@@ -56,7 +56,7 @@ Item {
         anchors.margins: 14
         width: watermark.implicitWidth + 20
         height: 28
-        radius: 3
+        radius: theme.radiusSm
         color: "#cf243039"
         Text {
             id: watermark

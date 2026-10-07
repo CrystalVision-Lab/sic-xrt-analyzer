@@ -308,18 +308,18 @@ Rectangle {
                 }
             }
             ColumnLayout {
-                anchors.centerIn: parent; spacing: 10
+                anchors.centerIn: parent; spacing: theme.spacingMd
                 visible: !uiState.hasImage && uiState.loadFlow.phase === "EMPTY"
-                Text { text: "XRT 이미지 없음"; color: theme.text; font.family: theme.fontFamily; font.pixelSize: 17 }
-                Text { text: "TIFF / JPG · 16-bit TIFF 및 RGB 지원"; color: theme.muted; font.family: theme.fontFamily; font.pixelSize: 12 }
+                Text { text: "XRT 이미지 없음"; color: theme.text; font.family: theme.fontFamily; font.pixelSize: theme.emptyTitleSize }
+                Text { text: "TIFF / JPG · 16-bit TIFF 및 RGB 지원"; color: theme.muted; font.family: theme.fontFamily; font.pixelSize: theme.bodySize }
                 AppButton { theme: root.theme; action: root.actions.open; text: "XRT 이미지 열기"; iconName: "open"; Layout.alignment: Qt.AlignHCenter }
-                Text { text: "또는 TIFF/JPG 파일을 이 영역에 놓으세요"; color: theme.muted; font.pixelSize: 11; Layout.alignment: Qt.AlignHCenter }
+                Text { text: "또는 TIFF/JPG 파일을 이 영역에 놓으세요"; color: theme.muted; font.pixelSize: theme.smallSize; Layout.alignment: Qt.AlignHCenter }
             }
             Rectangle {
                 objectName: "initialLoadingOverlay"
                 z: 10
                 anchors.fill: parent; visible: uiState.loadFlow.blocking && (!uiState.loadFlow.isOpening || uiState.loadFlow.indicatorElapsed); color: "#db111518"
-                ColumnLayout { anchors.centerIn: parent; width: Math.min(380, parent.width - 40); spacing: 12
+                ColumnLayout { anchors.centerIn: parent; width: Math.min(380, parent.width - 40); spacing: theme.spacingMd
                     BusyIndicator { visible: uiState.loadFlow.isOpening; running: visible && parent.parent.visible; Layout.alignment: Qt.AlignHCenter }
                     Text {
                         objectName: "initialLoadingText"; Layout.fillWidth: true; wrapMode: Text.Wrap
@@ -337,15 +337,15 @@ Rectangle {
             DropArea { anchors.fill: parent; onDropped: function(drop) { if (drop.hasUrls && drop.urls.length > 0) root.fileDropped(drop.urls[0].toString()) } }
             Rectangle {
                 visible: uiState.pageLoading; anchors.right: parent.right; anchors.top: parent.top; anchors.margins: 12
-                width: Math.min(parent.width - 24, 320); height: 30; color: theme.panel; border.color: theme.border; radius: 3
-                Text { objectName: "pageRequestStatus"; anchors.centerIn: parent; text: uiState.loadFlow.pageRequestLabel; color: theme.text; font.pixelSize: 11; Accessible.name: text }
+                width: Math.min(parent.width - 24, 320); height: 30; color: theme.panel; border.color: theme.border; radius: theme.radiusSm
+                Text { objectName: "pageRequestStatus"; anchors.centerIn: parent; text: uiState.loadFlow.pageRequestLabel; color: theme.text; font.pixelSize: theme.smallSize; Accessible.name: text }
             }
             Rectangle {
                 visible: uiState.detail.busy || uiState.detail.error.length > 0
                 anchors.right: parent.right; anchors.top: parent.top; anchors.margins: 12
                 width: Math.min(parent.width - 24, 280); height: detailText.implicitHeight + 16
-                color: theme.panel; border.color: theme.border; radius: 3
-                Text { id: detailText; anchors.fill: parent; anchors.margins: 8; text: uiState.detail.error ? "정밀 영역 읽기 실패: " + uiState.detail.error : "정밀 영역 읽는 중…"; color: uiState.detail.error ? theme.warning : theme.muted; wrapMode: Text.Wrap; font.pixelSize: 11 }
+                color: theme.panel; border.color: theme.border; radius: theme.radiusSm
+                Text { id: detailText; anchors.fill: parent; anchors.margins: 8; text: uiState.detail.error ? "정밀 영역 읽기 실패: " + uiState.detail.error : "정밀 영역 읽는 중…"; color: uiState.detail.error ? theme.warning : theme.muted; wrapMode: Text.Wrap; font.pixelSize: theme.smallSize }
             }
         }
         Rectangle {
@@ -354,14 +354,14 @@ Rectangle {
             color: "#332427"
             RowLayout {
                 id: errorNotice; anchors.fill: parent; anchors.margins: 6
-                Text { text: uiState.loadFlow.message; color: theme.error; font.pixelSize: 11; wrapMode: Text.Wrap; Layout.fillWidth: true }
+                Text { text: uiState.loadFlow.message; color: theme.error; font.pixelSize: theme.smallSize; wrapMode: Text.Wrap; Layout.fillWidth: true }
                 AppButton { objectName: "retryPreparationNotice"; theme: root.theme; text: "다시 준비"; visible: !!uiState.stack.preloadError; onClicked: fileBridge.retryPreload() }
                 AppButton { theme: root.theme; action: root.actions.open; text: "다시 열기…"; visible: !uiState.stack.preloadError }
                 AppButton { objectName: "loadingErrorDetails"; theme: root.theme; text: "상세 정보…"; onClicked: loadErrorDialog.open() }
             }
         }
     }
-    Dialog {
+    SurfaceDialog {
         id: loadErrorDialog; objectName: "loadingErrorDialog"; parent: Overlay.overlay; title: "이미지 준비 오류 상세"
         modal: true; width: Math.min(600, parent.width - 40); height: Math.min(420, parent.height - 60)
         x: (parent.width - width)/2; y: (parent.height - height)/2; standardButtons: Dialog.Close

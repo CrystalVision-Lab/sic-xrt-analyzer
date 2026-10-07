@@ -6,5 +6,5 @@ RowLayout {
     property color ink: theme.muted
     spacing: 6
     Rectangle { width: 5; height: 5; radius: 2; color: parent.ink; Layout.alignment: Qt.AlignVCenter }
-    Text { text: parent.text; color: parent.ink; font.family: theme.fontFamily; font.pixelSize: theme.smallSize; font.weight: Font.DemiBold }
+    Text { text: parent.text; color: parent.ink; font.family: theme.fontFamily; font.pixelSize: theme.captionSize; font.weight: Font.Normal }
 }
