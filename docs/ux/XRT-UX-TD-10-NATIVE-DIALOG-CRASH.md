@@ -144,7 +144,27 @@ QML direct 3회는 100회/exit 0이다. Mixed Run 2도 100회/exit 0이나 Run 1
 native HWND 관찰 10초 deadline으로 exit 1이었다(완료 13/87 cycles).
 이 실패를 PASS에 포함하지 않는다. AV/COM은 아니며 원시 로그를 보존하고 추가 진단한다.
 
-최종 stress 및 전체 회귀 결과는 후속 검증 절에 갱신한다.
+동일 production 및 test/tool tree(`35d0d72`, 이후 문서만 변경)에서 Mixed를 새 process 3개로
+직렬 재검증했다. **100/100/100회, exit 0/0/0, AV/COM/QML warning 0**이다.
+관찰 deadline은 10초 그대로이다. `td10-serial-summary.json`에 결과를 기록했다.
+앞선 두 deadline 실패의 원인은 확정되지 않았으며 재실행 성공으로 삭제하지 않는다.
+실행이 겹친 앞선 검사와 원래 권한/임시 폴더 조건은 별도 기록한다.
+
+| 최종 비교 Case | Run 1 | Run 2 | Run 3 | Exit |
+| --- | --- | --- | --- | --- |
+| Open/object | 100 PASS | 100 PASS | 100 PASS | 0/0/0 |
+| Save/object | 100 PASS | 100 PASS | 100 PASS | 0/0/0 |
+| QML direct | 100 PASS | 100 PASS | 100 PASS | 0/0/0 |
+| Mixed 직렬 | 100 PASS | 100 PASS | 100 PASS | 0/0/0 |
+
+독립 process 12개에서 1500개의 실제 native HWND를 관찰했다(Mixed는 한 cycle당 두 창).
+owner는 Main HWND, dialog OS thread는 GUI thread와 일치했다. native 반환 → visible=false →
+rejected 순서 뒤 request가 해제되고 다음 open이 가능했다. 정리 순서는 native widget 해제 →
+QML picker/window destroyed → engine destroyed → process exit 0이다.
+
+추가 `sequence`는 Open → Save → ROI import(OpenFiles) → Result export(Folder)의 native
+취소를 10회(40개의 실제 HWND) 완료했다. exit 0, COM/QML warning 0이다.
+실제 선택/저장 확정은 callback 회귀로 분리했으며 native mouse select/confirm은 PENDING이다.
 
 ## 7. Resource stability
 
@@ -157,6 +177,23 @@ handle/RSS가 감소했다. zero delta를 요구하거나 shutdown 후 모든 Sh
 | 50 | 1948 | 75 | 82 | 367.60 |
 | 100 | 1901 | 56 | 82 | 366.89 |
 | 정리 후 | 1613 | 44 | 80 | 277.92 |
+
+나머지 대표 실행의 0/50/100 및 정리 후 측정값도 다음과 같다.
+
+| Case / cycle | Handles | USER | GDI | RSS MiB |
+| --- | ---: | ---: | ---: | ---: |
+| Save / 0 | 1525 | 55 | 15 | 325.23 |
+| Save / 50 | 1886 | 57 | 83 | 356.04 |
+| Save / 100 | 1891 | 59 | 86 | 305.48 |
+| Save / cleanup | 1602 | 45 | 84 | 215.82 |
+| QML / 0 | 1522 | 54 | 15 | 330.69 |
+| QML / 50 | 1881 | 55 | 82 | 361.66 |
+| QML / 100 | 1890 | 56 | 82 | 365.85 |
+| QML / cleanup | 1604 | 44 | 80 | 275.74 |
+| Mixed 직렬 / 0 | 1522 | 55 | 15 | 329.52 |
+| Mixed 직렬 / 50 | 1880 | 55 | 86 | 367.08 |
+| Mixed 직렬 / 100 | 1872 | 55 | 86 | 374.25 |
+| Mixed 직렬 / cleanup | 1590 | 42 | 82 | 282.60 |
 
 제한 sandbox에서는 Windows Shell error 창과 USER/GDI 누적이 발생했다. 일반 Windows 검사로
 환경을 분리했다. 제한 환경의 값으로 resource PASS를 주장하지 않는다. 최종 각 case의
@@ -211,7 +248,23 @@ late accept/owner 파괴/shutdown을 검증한다. 자동 OS stress는 별도 �
   반환 차이를 정규화해 수정했다. 나머지는 기존 ROI 화면 좌표 범위 검사이다.
 - 후속 전체 검사: **267 passed / 1 failed / 4 skipped**, 기존 async Wand의 5초 deadline.
   당시 실제 대형 데이터와 native stress가 동시에 실행 중이었다. 원인 확정은 아니며 재검증한다.
-- 최종 직렬 전체 pytest / Windows GUI plugin 4 / CI: 검증 후 아래에 기록한다.
+- 최종 로컬 직렬 전체: **268 passed / 4 skipped, 240.52초**, exit 0.
+  이어 Windows 실제 GUI plugin 창 **4 passed / 5 deselected, 54.63초**, exit 0.
+  `td10-suite-space-fixed.log`, `td10-native-plugins-space-fixed.log`에 원시 결과를 보존했다.
+  새 7개 regression을 포함해 TD-09의 261+native4보다 검사 수가 증가했다.
+- 일반 Windows 권한의 첫 직렬 pytest는 기존 sandbox 소유 artifacts 디렉터리의 접근 거부로
+  collection 86 errors였다. 이어 native plugin 4도 기존 `pytest-of-PC-1` 임시 폴더 ACL에서
+  setup 4 errors였다. 테스트 실행 실패로 보존하며 PASS로 계산하지 않는다.
+  전체 pytest는 원래 로컬 검사 권한에서 다시 실행한다. 테스트 수를 줄이지 않는다.
+- 원래 로컬 권한의 후속 직렬 전체는 **267 passed / 1 failed / 4 skipped, 252.58초**였다.
+  기존 `test_ui_original_metadata_and_pipeline_states`의 6000×8000 uint16 synthetic TIFF
+  생성에서 ENOSPC가 발생했다. 실패 로그를 보존했다. 실행 중인 pytest가 없음을 확인한 후
+  이번 TD-10에서 만든 10개 임시 pytest 디렉터리와 격리 Qt 6.8.3 실험 env만 정리했다.
+  free disk 0.815→3.26GiB. 원본/모델/기존 사용자 파일과 원시 진단 로그는 유지했다.
+- 첫 GitHub CI [run 37624645129](https://github.com/CrystalVision-Lab/sic-xrt-analyzer/actions/runs/37624645129)
+  (HEAD `84f4314`) **success**. 전체 **268 passed / 4 skipped, 226.89초**,
+  Linux X11 GUI plugin **4 passed / 5 deselected, 28.08초**.
+  Ruff/import/compileall/PR policy도 PASS. 이후 production/test/tool 변경 없음.
 - Linux X11 GUI plugin 4는 기존 CI에서 유지한다. macOS는 환경이 없어 미검증이다.
 
 ## 11. 실행 방법
@@ -256,3 +309,5 @@ $env:QSG_RENDER_LOOP = 'basic'
 진단 원시 JSONL/log/report는 ignored `artifacts/td10-*`에 남긴다. 개인정보/원본 데이터/모델을
 커밋하지 않는다. debugger raw evidence는 `artifacts/td10-debugger/exceptions.json`이다.
 GitHub CI URL과 최종 commit SHA는 PR 및 최종 보고에 기록한다.
+Draft PR: [#75](https://github.com/CrystalVision-Lab/sic-xrt-analyzer/pull/75).
+최종 문서 변경 후 CI 결과는 PR 본문에 기록한다. 검사 이후 production/test/tool tree는 동일하다.
