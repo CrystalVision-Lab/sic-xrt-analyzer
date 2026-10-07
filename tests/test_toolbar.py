@@ -65,7 +65,7 @@ def workbench(qt_app, tmp_path, bridge_factory):
 
         def open(self, path):
             invoke(window, 'selectImagePath', str(path))
-            spin(qt_app, lambda: self.state.property('hasLoadedImage') and not self.state.property('loading'))
+            spin(qt_app, lambda: self.state.property('hasLoadedImage') and not self.state.property('loading') and not bridge.stack_viewer.initial_loading)
 
         def same_action(self, left, right):
             engine.rootContext().setContextProperty('leftCommandItem', self.item(left))
