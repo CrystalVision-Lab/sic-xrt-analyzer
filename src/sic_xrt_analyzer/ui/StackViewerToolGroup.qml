@@ -7,7 +7,7 @@ RowLayout {
     property QtObject theme
     property QtObject uiState
     property var hostWindow
-    spacing: 3
+    spacing: theme.spacingXs
     objectName: "stackViewerToolGroup"
     Repeater {
         model: [
@@ -24,7 +24,7 @@ RowLayout {
             implicitWidth: 31; implicitHeight: 30
             action: root.hostWindow.commands.tools.forTool(modelData.tool)
             contentItem: ToolGlyph { tool: modelData.tool; ink: parent.enabled ? root.theme.text : root.theme.disabled }
-            background: Rectangle { color: parent.checked ? root.theme.accentPale : parent.hovered ? root.theme.hover : root.theme.toolbar; border.color: parent.checked ? root.theme.accent : root.theme.border; radius: 2 }
+            background: Rectangle { color: parent.checked ? root.theme.accentPale : parent.hovered ? root.theme.hover : root.theme.toolbar; border.color: parent.checked ? root.theme.accent : root.theme.border; radius: theme.radiusSm }
             ToolTip.visible: hovered; ToolTip.text: modelData.tip
         }
     }

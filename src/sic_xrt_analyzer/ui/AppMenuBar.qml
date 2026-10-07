@@ -9,12 +9,12 @@ MenuBar {
     property var fileBridge
     property var actions
     objectName: "appMenuBar"
-    background: Rectangle { color: theme.panel; border.color: theme.border }
+    background: Rectangle { color: theme.panel }
     delegate: MenuBarItem {
         id: barItem
         visible: !menu || menu.available
         implicitHeight: 30; implicitWidth: visible ? contentItem.implicitWidth + 24 : 0
-        contentItem: Text { text: barItem.text; color: theme.text; font.family: theme.fontFamily; font.pixelSize: 12; verticalAlignment: Text.AlignVCenter; horizontalAlignment: Text.AlignHCenter }
+        contentItem: Text { text: barItem.text; color: theme.text; font.family: theme.fontFamily; font.pixelSize: theme.bodySize; verticalAlignment: Text.AlignVCenter; horizontalAlignment: Text.AlignHCenter }
         background: Rectangle { color: barItem.highlighted ? theme.accentPale : theme.panel }
     }
     Shortcut { sequence: "Alt+F"; onActivated: fileMenu.open() }

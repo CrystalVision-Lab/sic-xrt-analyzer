@@ -7,13 +7,16 @@ Button {
     property bool primary: false
     property bool quiet: false
     property bool dark: false
+    property bool compact: false
+    property real labelSize: theme.bodySize
+    property int labelWeight: Font.Normal
     property string iconName: ""
     property string tip: ""
-    implicitHeight: theme.controlHeight
-    implicitWidth: Math.max(28, buttonContent.implicitWidth + 16)
+    implicitHeight: primary ? theme.primaryHeight : compact ? theme.compactHeight : theme.controlHeight
+    implicitWidth: Math.max(theme.compactHeight, buttonContent.implicitWidth + 2 * theme.spacingSm)
     padding: 0
-    leftPadding: 8
-    rightPadding: 8
+    leftPadding: theme.spacingSm
+    rightPadding: theme.spacingSm
     hoverEnabled: true
     focusPolicy: Qt.StrongFocus
     ToolTip.visible: hovered && tip.length > 0
@@ -25,21 +28,21 @@ Button {
             id: buttonContent
             anchors.centerIn: parent
             width: Math.min(implicitWidth, parent.width)
-            spacing: 6
+            spacing: theme.spacingXs
             AppIcon {
                 visible: control.iconName.length > 0
                 name: control.iconName
-                ink: !control.enabled ? theme.disabled : control.checked ? theme.accent : theme.text
-                Layout.minimumWidth: 16; Layout.maximumWidth: 16
-                Layout.minimumHeight: 16; Layout.maximumHeight: 16
+                ink: !control.enabled ? theme.disabled : control.primary ? theme.window : control.checked ? theme.accent : theme.text
+                Layout.minimumWidth: theme.iconSize; Layout.maximumWidth: theme.iconSize
+                Layout.minimumHeight: theme.iconSize; Layout.maximumHeight: theme.iconSize
                 Layout.alignment: Qt.AlignVCenter
             }
             Text {
                 visible: control.text.length > 0
                 text: control.text
-                color: !control.enabled ? theme.disabled : control.checked ? theme.accent : theme.text
-                font.family: theme.fontFamily; font.pixelSize: theme.bodySize
-                font.weight: control.checked ? Font.DemiBold : Font.Normal
+                color: !control.enabled ? theme.disabled : control.primary ? theme.window : control.checked ? theme.accent : theme.text
+                font.family: theme.fontFamily; font.pixelSize: control.labelSize
+                font.weight: control.checked ? Font.DemiBold : control.primary ? Font.Medium : control.labelWeight
                 horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter
                 elide: Text.ElideRight
                 Layout.fillWidth: true
@@ -48,9 +51,9 @@ Button {
         }
     }
     background: Rectangle {
-        radius: 3
-        color: !control.enabled ? theme.toolbar : control.down ? theme.hover : control.checked ? theme.accentPale : control.hovered ? theme.hover : control.quiet ? "transparent" : theme.surface
-        border.width: 1
-        border.color: control.activeFocus || (control.primary && control.enabled) || (control.checked && control.enabled) ? theme.accent : control.quiet && control.enabled ? "transparent" : theme.border
+        radius: theme.radiusControl
+        color: !control.enabled ? (control.quiet ? "transparent" : theme.toolbar) : control.primary ? (control.down ? Qt.darker(theme.accent, 1.2) : control.hovered ? Qt.lighter(theme.accent, 1.1) : theme.accent) : control.down ? theme.accentPale : control.checked ? theme.accentPale : control.hovered ? theme.hover : control.quiet ? "transparent" : theme.surface
+        border.width: control.activeFocus ? 2 : 0
+        border.color: control.primary && control.enabled ? theme.text : theme.accent
     }
 }

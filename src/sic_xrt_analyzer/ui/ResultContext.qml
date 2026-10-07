@@ -12,11 +12,11 @@ ColumnLayout {
     readonly property string informationPriority: "primary"
     signal exportRequested()
     signal overviewRequested()
-    spacing: 8
+    spacing: theme.spacingSm
     Text {
         objectName: "resultLifecycleMessage"
         visible: !root.uiState.hasResult || !root.uiState.research.total
-        text: root.message; color: root.theme.muted; font.pixelSize: 12
+        text: root.message; color: root.theme.muted; font.pixelSize: theme.bodySize
         wrapMode: Text.Wrap; Layout.fillWidth: true
     }
     ResultExplorer {

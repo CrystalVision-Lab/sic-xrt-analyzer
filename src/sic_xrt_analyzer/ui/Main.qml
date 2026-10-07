@@ -223,7 +223,7 @@ AppShell {
     FileDialog { id: roiSaveDialog; objectName: "roiSaveDialog"; title: "새 ROI ZIP 복사본 저장 (기존 파일 덮어쓰기 불가)"; fileMode: FileDialog.SaveFile; nameFilters: ["ROI ZIP (*.zip)"]; defaultSuffix: "zip"; onAccepted: fileBridge.saveRoiCopy(selectedFile.toString()) }
     FileDialog { id: imageSaveDialog; title: "이미지 전체 파일의 새 복사본 저장 (기존 파일 덮어쓰기 불가)"; fileMode: FileDialog.SaveFile; nameFilters: uiState.imageFormat === "JPEG" ? ["JPEG (*.jpg *.jpeg)"] : ["TIFF (*.tif *.tiff)"]; defaultSuffix: uiState.imageFormat === "JPEG" ? "jpg" : "tif"; onAccepted: fileBridge.imagej.saveImageCopy(selectedFile.toString()) }
     FileDialog { id: measurementsSaveDialog; title: "측정 결과 TSV 저장"; fileMode: FileDialog.SaveFile; nameFilters: ["TSV (*.tsv)"]; defaultSuffix: "tsv"; onAccepted: fileBridge.imagej.saveResults(selectedFile.toString()) }
-    Dialog {
+    SurfaceDialog {
         id: roiDiscardDialog; objectName: "roiDiscardDialog"; modal: true; title: "저장하지 않은 ROI 변경"
         x: (window.width - width) / 2; y: (window.height - height) / 2
         standardButtons: Dialog.Discard | Dialog.Cancel

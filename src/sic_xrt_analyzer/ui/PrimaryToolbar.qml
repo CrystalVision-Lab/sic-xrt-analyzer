@@ -13,7 +13,7 @@ Rectangle {
     RowLayout {
         objectName: "primaryToolbarRow"
         anchors.fill: parent; anchors.leftMargin: 10; anchors.rightMargin: 10
-        spacing: 5
+        spacing: theme.spacingXs
         FileToolGroup { theme: root.theme; actions: root.actions }
         Rectangle { width: 1; height: 22; color: theme.border; Layout.leftMargin: 6; Layout.rightMargin: 6 }
         ViewerToolGroup { theme: root.theme; uiState: root.uiState; actions: root.actions; hostWindow: root.hostWindow }
