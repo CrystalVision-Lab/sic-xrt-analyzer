@@ -2,7 +2,7 @@
 
 Issue [#72](https://github.com/CrystalVision-Lab/sic-xrt-analyzer/issues/72). 시작점은 TD-08 PR #71의 `refactor/70-visual-density`, exact HEAD `b53dd26bd00f095e269adf07227973439543b4b0`. 작업 브랜치는 `test/72-ux-integration-rc`다. 검증 도구·테스트·문서만 추가한다. Production 코드, 외부 계약, 원본, 모델은 변경하지 않으며 기존 사용자 `AGENTS.md` 수정은 제외한다.
 
-**Status: FAIL / RC Verdict: NOT RC READY.** Windows 파일 선택창 반복 열기·취소에서 프로세스 접근 위반 종료가 재현됐다. P1 blocker의 원인과 안전한 수정은 아직 확인되지 않았다.
+**Status: FAIL / RC Verdict: NOT RC READY.** Windows 파일 선택창 반복 열기·취소에서 프로세스 접근 위반 종료가 재현됐다. TD-09의 crash 등급 기준에 따라 P0 blocker이며 원인과 안전한 수정은 아직 확인되지 않았다.
 
 ## 1. 검증 환경
 
@@ -152,7 +152,7 @@ computer-use 초기화가 `failed to write kernel assets` (os error 3)로 실패
 | TD-06 QML id Open 20회 요청 | 10회 취소 후 11번째 Open 중 접근 위반 | 0xC0000005 |
 | 최소 Qt 창, 프로젝트·이미지 없음 | COM 및 first-chance 접근 위반 경고, 20회 완료 | 0 |
 
-실패 지점은 일정하지 않다. 마지막 행은 단회 비교다. Result 폴더 picker 반복/실선택과 native Save 확인은 미검증. 반복 충돌은 **P1 / unresolved / RC blocker**다.
+실패 지점은 일정하지 않다. 마지막 행은 단회 비교다. Result 폴더 picker 반복/실선택과 native Save 확인은 미검증. 반복 충돌은 **P0 / unresolved / RC blocker**다.
 
 ## 13. COM 진단
 
@@ -242,7 +242,7 @@ Issue #72에 기록한다. 새 기능이나 안전성이 검증되지 않은 수
 
 | Severity | 내용 | Reproducible | Fixed | RC Blocker |
 | --- | --- | --- | --- | --- |
-| P1 | Windows native picker 반복 Open/reject 접근 위반 종료 | 현재·TD-06·QML dispatch 재현 | No | Yes |
+| P0 | Windows native picker 반복 Open/reject 접근 위반 종료 | 현재·TD-06·QML dispatch 재현 | No | Yes |
 | P2 | uint16에서 RGB8 Run 활성화 후 INVALID_INPUT | 실제 No22 | No, 기존 계약 | 16-bit 분석 범위 미완료 |
 | P2 | native host 위치 assertion 동시 부하 실패 | 2개 실패, 직렬 4개 통과 | No, 원인 미확인 | 안정성 제약 |
 | P3 | ROI ZIP integer/float32 정밀도 | 실제 4종 | No, 기존 형식 | No |
@@ -251,7 +251,7 @@ Issue #72에 기록한다. 새 기능이나 안전성이 검증되지 않은 수
 
 ## 22. RC Verdict / 재현 방법
 
-**FAIL / NOT RC READY.** unresolved P1 접근 위반 충돌로 병합·배포를 권고하지 않는다. 실제 자료·모델 통과와 자동 검사 성공을 RC 승인으로 해석하지 않는다.
+**FAIL / NOT RC READY.** unresolved P0 접근 위반 충돌로 병합·배포를 권고하지 않는다. 실제 자료·모델 통과와 자동 검사 성공을 RC 승인으로 해석하지 않는다.
 
 검증 도구는 기존 앱 dependencies 외 **psutil** 설치가 필요하다. 앱 production dependency로 추가하지 않았다. 저장소 root에서 실행한다.
 
