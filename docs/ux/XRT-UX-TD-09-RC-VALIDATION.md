@@ -282,3 +282,9 @@ $env:QSG_RENDER_LOOP = "basic"
 정확도 보증이나 제조용 릴리스 승인을 뜻하지 않는다.
 
 Git: Issue #72, 작업 branch `test/72-ux-integration-rc`. exact 최종 HEAD·commits·push·draft PR·최종 검사/CI는 연결 PR에 기록한다. 기존 사용자 AGENTS.md 수정은 보존하며 커밋하지 않는다.
+
+## TD-10 후속 상태
+
+Windows native 파일 선택창의 modal 경로와 수명 관리를 수정했습니다.
+자동 반복 검증과 전체 회귀 결과는 [TD-10](XRT-UX-TD-10-NATIVE-DIALOG-CRASH.md)에 기록합니다.
+수동 native 마우스 검증이 PENDING이므로 TD-09의 FAIL / NOT RC READY 판정과 RC blocker를 유지합니다.
