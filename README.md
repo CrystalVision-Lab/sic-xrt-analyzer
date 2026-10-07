@@ -206,3 +206,9 @@ Viewer의 8비트 QImage와 **OriginalImageSource**를 분리했습니다. 분�
 연구용 고정 모델의 패치 분류, 후보 위치 표시·CSV 저장, 열처리 전후 자동 정렬과 잠정 연결은
 [Jupyter 연구 분석 안내](docs/research-workflow.md)와 `notebooks/06_research_analysis.ipynb`에서 사용할 수 있습니다.
 이 기능은 데스크톱 GUI의 분석 버튼과 별개입니다. 재학습 없이 실행하며 연결/종류 변화는 확정 정답으로 저장하지 않습니다.
+
+## Windows 파일 선택창 안정성 (TD-10)
+
+Windows는 Qt Widgets의 native modal picker 경로와 명시적인 수명 관리를 사용합니다.
+다른 OS는 기존 QtQuick 선택창을 유지합니다. 실제 마우스 검증은 아직 PENDING이며 RC 승인 단계가 아닙니다.
+진단·반복 검사·알려진 제약은 [TD-10 검증 기록](docs/ux/XRT-UX-TD-10-NATIVE-DIALOG-CRASH.md)을 참고하세요.
