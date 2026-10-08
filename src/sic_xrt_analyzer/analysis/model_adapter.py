@@ -1,5 +1,6 @@
 """Adapters own model loading, preprocessing, inference and inverse transform mapping."""
 from dataclasses import dataclass
+from enum import Enum
 from threading import Event
 from typing import Protocol
 
@@ -32,6 +33,11 @@ class CancellationToken:
             raise AnalysisException(AnalysisError("CANCELED", "분석이 취소되었습니다"))
 
 
+class InputCompatibilityReason(str, Enum):
+    UNSUPPORTED_DTYPE = "UNSUPPORTED_DTYPE"
+    UNSUPPORTED_CHANNEL_COUNT = "UNSUPPORTED_CHANNEL_COUNT"
+
+
 @dataclass(frozen=True)
 class ModelInputContract:
     supported_scopes: tuple[AnalysisScope, ...]
@@ -56,11 +62,25 @@ class ModelInputContract:
                (self.input_size_policy, self.normalization, self.color_space, self.bit_depth_policy)):
             raise ValueError("Adapter must document its preprocessing policies")
 
+    def incompatibility_reasons(self, metadata):
+        """The original backend rules, without reading pixels or running inference.
+
+        Color/normalization/size policies document adapter preprocessing; they are
+        not additional acceptance rules. Source metadata describes original decoded
+        samples, never the display grid or the model's float32 tensor.
+        """
+        reasons = []
+        if metadata.dtype not in self.accepted_dtypes:
+            reasons.append(InputCompatibilityReason.UNSUPPORTED_DTYPE)
+        if metadata.channels not in self.expected_channels:
+            reasons.append(InputCompatibilityReason.UNSUPPORTED_CHANNEL_COUNT)
+        return tuple(reasons)
+
     def validate(self, request: AnalysisRequest):
         if request.scope not in self.supported_scopes:
             raise AnalysisException(AnalysisError("UNSUPPORTED_SCOPE", "모델이 요청한 분석 범위를 지원하지 않습니다"))
         meta = request.source.metadata
-        if meta.channels not in self.expected_channels or meta.dtype not in self.accepted_dtypes:
+        if self.incompatibility_reasons(meta):
             raise AnalysisException(AnalysisError("INVALID_INPUT", "모델이 원본 이미지 형식을 지원하지 않습니다"))
 
 
