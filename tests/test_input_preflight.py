@@ -11,6 +11,9 @@ from test_analysis_pipeline import TestAdapter, spin
 from test_context_panel import choose
 from test_desktop_research import create_source
 from test_result_explorer import ManyCandidates
+from test_toolbar import (
+    workbench as workbench,  # noqa: PLC0414 - pytest fixture reexport
+)
 from test_ui_analysis_contract import invoke
 
 from sic_xrt_analyzer.analysis.contracts import (
@@ -21,8 +24,6 @@ from sic_xrt_analyzer.analysis.contracts import (
 from sic_xrt_analyzer.analysis.input_preflight import input_preflight
 from sic_xrt_analyzer.imaging.image_stack import JpegImageSource
 from sic_xrt_analyzer.imaging.original_source import OriginalImageSource
-
-pytest_plugins = ('test_toolbar',)
 
 
 def tiff_source(folder, dtype='uint8', channels=3):
@@ -245,3 +246,5 @@ def test_compatible_file_recovery_still_requires_valid_roi_in_roi_scope(workbenc
     assert not w.state.property('generalReady') and not w.state.property('canAnalyze')
     w.state.setProperty('analysisScope', 'FULL_IMAGE')
     assert w.state.property('canAnalyze')
+
+
