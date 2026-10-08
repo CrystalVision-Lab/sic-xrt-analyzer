@@ -232,3 +232,16 @@ def test_model_contract_missing_ui_error_has_no_false_scope_warning(workbench):
     reasons = w.item('analysisReadinessReasons').property('text')
     assert '입력 계약을 확인할 수 없습니다' in reasons and '분석 범위를 지원하지' not in reasons
     assert not w.item('runAction').property('enabled')
+
+
+def test_compatible_file_recovery_still_requires_valid_roi_in_roi_scope(workbench):
+    w = workbench
+    w.state.setProperty('analysisScope', 'ROI')
+    w.state.setProperty('hasRoi', True)
+    w.state.setProperty('roiEndX', .5); w.state.setProperty('roiEndY', .5)
+    w.open(create_source(w.path.parent).path)
+    assert w.state.property('inputCompatibilityState') == 'COMPATIBLE'
+    assert w.state.property('analysisScope') == 'ROI' and not w.state.property('hasRoi')
+    assert not w.state.property('generalReady') and not w.state.property('canAnalyze')
+    w.state.setProperty('analysisScope', 'FULL_IMAGE')
+    assert w.state.property('canAnalyze')
