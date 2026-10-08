@@ -17,8 +17,15 @@ ColumnLayout {
     AnalysisRegion { objectName: "analysisRegion"; theme: root.theme; uiState: root.uiState; actions: root.actions; Layout.fillWidth: true }
     RowLayout {
         Layout.fillWidth: true
-        Text { text: "입력 · " + uiState.analysisFlow.sourceLabel; color: theme.muted; font.pixelSize: theme.bodySize; elide: Text.ElideRight; Layout.fillWidth: true }
+        Text { objectName: "analysisInputSummary"; text: "입력 · " + uiState.inputPreflight.currentInputSummary; Accessible.name: uiState.inputPreflight.accessibleSummary; color: theme.muted; font.pixelSize: theme.bodySize; elide: Text.ElideRight; Layout.fillWidth: true }
         AppButton { objectName: "analysisInputInfo"; theme: root.theme; text: "상세"; quiet: true; action: root.actions.analysisInputInfo; Accessible.name: "분석 입력 상세 정보" }
+    }
+    Text {
+        objectName: "analysisModelInputRequirement"
+        visible: uiState.inputCompatibilityState === "INCOMPATIBLE"
+        text: "모델 요구 · " + uiState.inputPreflight.modelExpectedSummary
+        color: theme.warning; font.pixelSize: theme.smallSize; wrapMode: Text.Wrap; Layout.fillWidth: true
+        Accessible.name: uiState.inputPreflight.accessibleSummary
     }
     Text { visible: uiState.analysisPointMode === "provided_coordinates"; text: "제공 좌표 CSV · " + uiState.research.coordinatesCount + "개 (고급 설정)"; color: theme.muted; font.pixelSize: theme.smallSize; Layout.fillWidth: true }
     AppButton {

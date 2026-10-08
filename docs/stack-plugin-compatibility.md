@@ -64,7 +64,7 @@ Linux는 `.venv/bin/python`을 사용합니다. 앱의 **Fiji 라이브러리…
 
 [실제 4개 스택 검증 결과와 재현 방법](stack-validation.md)을 참고하세요.
 
-Fiji 런타임은 공식 portable no-Java ZIP(~907 MB)의 `jars/`, `plugins/` Java 라이브러리만 설치합니다. 실행 파일과 실제 데이터는 설치하지 않습니다. 2026-10-06 공식 체크섬 파일에서 확인한 2026-10-04 배포 SHA256 `4790b29860deafec11fa7921efa8ea0964b40852a6ab713cedc92f94733ce4c9`로 고정하고 경로 이탈·압축 해제 용량을 검사합니다. `--archive`로 이미 받은 ZIP을 사용할 수 있습니다. 공식 latest URL이 바뀌어 해시가 달라지면 설치를 거부하므로 새 파일은 검토 후 핀을 갱신해야 합니다. 기존의 다른 라이브러리 폴더를 덮어쓰지 않습니다.
+Fiji 런타임은 공식 portable no-Java ZIP(~907 MB)의 `jars/`, `plugins/` Java 라이브러리만 설치합니다. 실행 파일과 실제 데이터는 설치하지 않습니다. 2026-10-06 공식 체크섬 파일에서 확인한 2026-10-04 배포 SHA256 `4790b29860deafec11fa7921efa8ea0964b40852a6ab713cedc92f94733ce4c9`로 고정하고 경로 이탈·압축 해제 용량을 검사합니다. `--archive`로 이미 받은 ZIP을 사용할 수 있습니다. 2026-10-08 CI에서 latest ZIP 변경에 따른 SHA 불일치를 확인하여, 동일 체크섬의 [공식 날짜별 archive](https://downloads.imagej.net/fiji/archive/latest/20261004-2017/)로 다운로드 경로만 고정했습니다. 배포 버전과 체크섬은 유지하고, 파일 해시 불일치 시 설치를 계속 거부합니다. 기존의 다른 라이브러리 폴더를 덮어쓰지 않습니다.
 
 ## 메모리·안전·제약
 
@@ -93,4 +93,4 @@ $env:QT_QPA_PLATFORM="windows"
 
 참조: [ImageJ headless 동작](https://imagej.net/learn/headless), [ImageJ legacy 연결](https://imagej.net/libs/imagej-legacy), [Fiji 공식 배포와 Java 요구사항](https://imagej.net/software/fiji/downloads).
 
-기존 2026-09-29 배포(체크섬 3ad5e202d6f1a5965265547e401c80e329f1af5529c4a69ec2096f8787877508)로 설치한 런타임도 보존합니다. 새 다운로드는 새 체크섬만 허용하며, 기존 검증 마커가 있으면 다시 내려받거나 덮어쓰지 않습니다. 공식 체크섬: https://downloads.imagej.net/fiji/latest/fiji-latest-portable-nojava.zip.sha256
+기존 2026-09-29 배포(체크섬 3ad5e202d6f1a5965265547e401c80e329f1af5529c4a69ec2096f8787877508)로 설치한 런타임도 보존합니다. 새 다운로드는 새 체크섬만 허용하며, 기존 검증 마커가 있으면 다시 내려받거나 덮어쓰지 않습니다. 공식 고정 배포 체크섬: https://downloads.imagej.net/fiji/archive/latest/20261004-2017/fiji-latest-portable-nojava.zip.sha256

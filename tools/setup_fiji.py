@@ -7,7 +7,9 @@ import urllib.request
 import zipfile
 from pathlib import Path, PurePosixPath
 
-URL = 'https://downloads.imagej.net/fiji/latest/fiji-latest-portable-nojava.zip'
+# Date-specific official archive; the reviewed runtime/checksum stays unchanged.
+URL = ('https://downloads.imagej.net/fiji/archive/latest/20261004-2017/'
+       'fiji-latest-portable-nojava.zip')
 # Official portable no-Java checksum, reviewed 2026-10-06 (2026-10-04 build).
 SHA256 = '4790b29860deafec11fa7921efa8ea0964b40852a6ab713cedc92f94733ce4c9'
 # Keep previously verified installations; new downloads still require SHA256.
