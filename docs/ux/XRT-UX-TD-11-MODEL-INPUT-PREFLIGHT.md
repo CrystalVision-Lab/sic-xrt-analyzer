@@ -172,6 +172,14 @@ CI 최신 결과는 Draft PR #77에서 확인한다. Issue #76 작업 branch는
 `fix/76-model-input-preflight`이며 선행 stack base를 유지한다.
 local failure 로그는 `artifacts/td11/full-suite.log`, `full-recheck.log`에 보존했다.
 
+최초 CI run 37719599077은 테스트 이전 Fiji latest ZIP SHA mismatch에서 중단됐다.
+공식 archive `20261004-2017`의 checksum과 HEAD(906945575 bytes)를 확인하고
+`tools/setup_fiji.py`의 URL만 날짜별 archive로 고정했다. 기존 SHA256·허용된 이전 설치
+marker·검증·추출 제한을 유지했다. runtime 버전/모델/preprocessing 변경 없음.
+공식 [배포 목록](https://downloads.imagej.net/fiji/archive/latest/20261004-2017/)과
+[체크섬](https://downloads.imagej.net/fiji/archive/latest/20261004-2017/fiji-latest-portable-nojava.zip.sha256)을 참조한다.
+CI 재실행의 전체 pytest/X11 plugin 결과는 PR에서 확인한다.
+
 ## 7. 남은 RC blocker와 후속
 
 TD-10 actual native mouse/focus 검증 PENDING, precise C++ root cause/최초 도입 commit UNKNOWN.
