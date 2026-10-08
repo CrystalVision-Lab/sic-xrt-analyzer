@@ -1,6 +1,6 @@
 # XRT-UX-TD-11 — Model Input Contract Preflight
 
-Issue #76 · TD-10 PR #75 위의 stacked PR.
+Issue [#76](https://github.com/CrystalVision-Lab/sic-xrt-analyzer/issues/76) · Draft [PR #77](https://github.com/CrystalVision-Lab/sic-xrt-analyzer/pull/77), TD-10 PR #75 위의 stacked PR.
 시작: `fix/74-windows-native-dialog-crash`, `89d253b51972357bfed3f9eaff2f227897b1d12b`.
 TD-10: **PARTIAL / P0 MITIGATED / RC BLOCKER REMAINS**. TD-11 결과는 전체 RC READY 판정이 아니다.
 
@@ -163,10 +163,13 @@ ignored directory에 있다. 이전 중단 로그도 보존했다.
   기존 테스트, timeout, 클릭, assertion은 변경하지 않았다.
 - 새 test module의 fixture 등록은 toolbar module의 수집 순서에 의존하지 않게 명시적으로
   reexport했다. 기존 테스트 파일 수정 없음. 첫 두 모듈 선택 실행의 fixture 오류 로그도 보존.
-- Ruff / compileall PASS. 모델·원본·sources 및 inference payload/preprocessing 변경 없음.
+- TD-10 Windows managed native HWND mixed100: Open100 + Save100, exit0, QML warning0,
+  COM HRESULT0, 정상 종료(67.22초). 실제 사람의 mouse/focus 확인을 대체하지 않는다.
+- Ruff / compileall / UTF-8 환경 PR policy PASS. 모델·원본·sources 및 inference payload/preprocessing 변경 없음.
 
 **TD-11 기능 검증 PASS / Windows 전체 회귀 PARTIAL / NOT RC READY.**
-CI 및 TD-10 native HWND 반복 결과는 PR에서 최신 결과를 확인한다.
+CI 최신 결과는 Draft PR #77에서 확인한다. Issue #76 작업 branch는
+`fix/76-model-input-preflight`이며 선행 stack base를 유지한다.
 local failure 로그는 `artifacts/td11/full-suite.log`, `full-recheck.log`에 보존했다.
 
 ## 7. 남은 RC blocker와 후속

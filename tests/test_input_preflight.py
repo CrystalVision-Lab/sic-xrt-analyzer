@@ -246,5 +246,3 @@ def test_compatible_file_recovery_still_requires_valid_roi_in_roi_scope(workbenc
     assert not w.state.property('generalReady') and not w.state.property('canAnalyze')
     w.state.setProperty('analysisScope', 'FULL_IMAGE')
     assert w.state.property('canAnalyze')
-
-
