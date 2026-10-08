@@ -22,8 +22,8 @@ ToolbarButton {
             ToolbarMenuItem { action: root.actions.actualSize; shortcutLabel: "Ctrl+1" }
         }
         ToolbarMenuItem { action: root.actions.advanced.editRoi }
-        ToolbarMenuItem { action: root.actions.advanced.saveMeasurements; visible: root.uiState.stackFeaturesVisible }
-        MenuSeparator { visible: root.uiState.stackFeaturesVisible; height: visible ? implicitHeight : 0 }
+        ToolbarMenuItem { action: root.actions.advanced.saveMeasurements; rowAvailable: root.uiState.stackFeaturesVisible }
+        MenuSeparator { visible: root.uiState.stackFeaturesVisible; height: root.uiState.stackFeaturesVisible ? implicitHeight : 0 }
         AppMenu {
             objectName: "toolbarStackMenu"; title: "스택"; available: root.uiState.stackFeaturesVisible
             ToolbarMenuItem { objectName: "toolbarFirstPage"; action: root.actions.advanced.first }
@@ -48,12 +48,12 @@ ToolbarButton {
                 ToolbarMenuItem { required property var modelData; objectName: "tool" + modelData.tool; action: modelData.action }
             }
         }
-        ToolbarMenuItem { action: root.actions.advanced.tools; visible: root.uiState.stackFeaturesVisible }
-        ToolbarMenuItem { objectName: "toolbarImagejCommands"; action: root.actions.advanced.catalog; visible: root.uiState.stackFeaturesVisible }
-        ToolbarMenuItem { objectName: "toolbarMacro"; action: root.actions.advanced.macro; visible: root.uiState.stackFeaturesVisible }
-        ToolbarMenuItem { objectName: "toolbarPlugin"; action: root.actions.advanced.plugin; visible: root.uiState.stackFeaturesVisible }
-        ToolbarMenuItem { objectName: "toolbarFiji"; action: root.actions.advanced.modern; visible: root.uiState.stackFeaturesVisible }
-        ToolbarMenuItem { action: root.actions.advanced.results; visible: root.uiState.stackFeaturesVisible }
-        ToolbarMenuItem { objectName: "toolbarRecordCommands"; action: root.actions.advanced.record; visible: root.uiState.stackFeaturesVisible }
+        ToolbarMenuItem { action: root.actions.advanced.tools; rowAvailable: root.uiState.stackFeaturesVisible }
+        ToolbarMenuItem { objectName: "toolbarImagejCommands"; action: root.actions.advanced.catalog; rowAvailable: root.uiState.stackFeaturesVisible }
+        ToolbarMenuItem { objectName: "toolbarMacro"; action: root.actions.advanced.macro; rowAvailable: root.uiState.stackFeaturesVisible }
+        ToolbarMenuItem { objectName: "toolbarPlugin"; action: root.actions.advanced.plugin; rowAvailable: root.uiState.stackFeaturesVisible }
+        ToolbarMenuItem { objectName: "toolbarFiji"; action: root.actions.advanced.modern; rowAvailable: root.uiState.stackFeaturesVisible }
+        ToolbarMenuItem { action: root.actions.advanced.results; rowAvailable: root.uiState.stackFeaturesVisible }
+        ToolbarMenuItem { objectName: "toolbarRecordCommands"; action: root.actions.advanced.record; rowAvailable: root.uiState.stackFeaturesVisible }
     }
 }
