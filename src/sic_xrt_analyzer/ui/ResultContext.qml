@@ -12,6 +12,7 @@ ColumnLayout {
     readonly property string informationPriority: "primary"
     signal exportRequested()
     signal overviewRequested()
+    signal reviewRequested()
     spacing: theme.spacingSm
     Text {
         objectName: "resultLifecycleMessage"
@@ -22,7 +23,7 @@ ColumnLayout {
     ResultExplorer {
         visible: root.uiState.hasResult; theme: root.theme; uiState: root.uiState
         Layout.fillWidth: true; Layout.fillHeight: true
-        onExportRequested: root.exportRequested(); onOverviewRequested: root.overviewRequested()
+        onExportRequested: root.exportRequested(); onOverviewRequested: root.overviewRequested(); onReviewRequested: root.reviewRequested()
     }
     Item { visible: !root.uiState.hasResult; Layout.fillHeight: true }
 }

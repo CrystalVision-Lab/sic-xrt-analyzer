@@ -53,6 +53,9 @@ QtObject {
     property string analysisScope: "FULL_IMAGE"
     property string analysisPointMode: "contrast_proposals"
     property var research: fileBridge.research.state
+    property bool feedbackVisible: false
+    onFeedbackVisibleChanged: { if (!feedbackVisible) fileBridge.feedback.setMode("") }
+    property var feedback: fileBridge.feedback.state
     property bool autoCandidateRoi: true
     property int candidateRoiSize: 128
     property string candidateRoiId: ""
