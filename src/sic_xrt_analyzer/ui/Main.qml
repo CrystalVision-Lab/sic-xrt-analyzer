@@ -36,7 +36,7 @@ ApplicationWindow {
         zoomIn: zoomInAction, zoomOut: zoomOutAction, fit: fitAction, actualSize: actualSizeAction,
         roiLayer: roiLayerAction, navigationPanel: navigationPanelAction, inspectorPanel: inspectorPanelAction,
         statusBar: statusBarAction, fullScreen: fullScreenAction, resetLayout: resetLayoutAction,
-        run: runAction, settings: settingsAction, modelInfo: modelInfoAction, guide: guideAction,
+        run: runAction, cancelAnalysis: cancelAnalysisAction, settings: settingsAction, modelInfo: modelInfoAction, guide: guideAction,
         shortcutGuide: shortcutGuideAction, reportIssue: reportIssueAction, about: aboutAction
     })
     Theme { id: theme }
@@ -58,6 +58,7 @@ ApplicationWindow {
     function clearImageState() {
         uiState.filePath = ""; uiState.fileName = ""; uiState.imageSource = ""
         uiState.imageWidth = 0; uiState.imageHeight = 0; uiState.bitDepth = 0; uiState.pageCount = 0
+        uiState.previewWidth = 0; uiState.previewHeight = 0
         uiState.sampledPreview = false; uiState.demoMode = false; uiState.hasRoi = false
         uiState.cursorX = -1; uiState.cursorY = -1; uiState.loadError = ""; uiState.activeTool = "Pan"
         uiState.selectingRoi = false; uiState.fitMode = true
@@ -82,6 +83,7 @@ ApplicationWindow {
             if (!result.ok) { uiState.loadError = result.error; uiState.statusText = "TIFF 열기 실패: " + result.error; return }
             uiState.filePath = result.path; uiState.fileName = result.name
             uiState.imageWidth = result.width; uiState.imageHeight = result.height
+            uiState.previewWidth = result.previewWidth; uiState.previewHeight = result.previewHeight
             uiState.bitDepth = result.bitDepth; uiState.pageCount = result.pageCount; uiState.sampledPreview = result.sampled
             uiState.imageSource = result.source; uiState.workspaceIndex = 0; uiState.demoMode = false
             uiState.activeTool = "Pan"; uiState.hasRoi = false; uiState.cursorX = -1; uiState.cursorY = -1
@@ -120,9 +122,10 @@ ApplicationWindow {
     Action { id: statusBarAction; objectName: "statusBarAction"; text: "상태 표시줄"; onTriggered: window.statusBarVisible = !window.statusBarVisible }
     Action { id: fullScreenAction; objectName: "fullScreenAction"; text: "전체 화면"; shortcut: "F11"; onTriggered: window.visibility === Window.FullScreen ? window.showNormal() : window.showFullScreen() }
     Action { id: resetLayoutAction; text: "화면 배치 초기화"; onTriggered: window.resetLayout() }
-    Action { id: runAction; objectName: "runAction"; text: "분석 실행"; enabled: uiState.canAnalyze }
+    Action { id: runAction; objectName: "runAction"; text: "분석 실행"; enabled: uiState.canAnalyze; onTriggered: fileBridge.requestAnalysis(uiState.analysisScope, uiState.roiX, uiState.roiY, uiState.roiWidth, uiState.roiHeight, {}) }
+    Action { id: cancelAnalysisAction; objectName: "cancelAnalysisAction"; text: "분석 취소"; enabled: uiState.analysisRunning; onTriggered: fileBridge.cancelAnalysis() }
     Action { id: settingsAction; objectName: "settingsAction"; text: "설정…"; onTriggered: settingsDialog.openPreferences() }
-    Action { id: modelInfoAction; text: "모델 정보"; onTriggered: window.showInfo("모델 정보", uiState.analysisReason + "\n모델 / 버전 / 장치: —") }
+    Action { id: modelInfoAction; text: "모델 정보"; onTriggered: window.showInfo("모델 정보", uiState.analysisReason + "\n모델: " + (uiState.analysis.modelName || "—") + "\n버전: " + (uiState.analysis.modelVersion || "—") + "\n장치: " + (uiState.analysis.device || "—")) }
     Action { id: guideAction; text: "사용 안내"; onTriggered: window.showInfo("뷰어 사용 안내", "파일 메뉴에서 TIFF 또는 합성 데모를 여세요.\n도구 모음에서 Pan / ROI를 선택하세요. 휠로 확대·축소합니다.\nFIT은 화면 맞춤, 100%는 원본 픽셀과 화면 픽셀의 1:1 배율입니다.\nTIFF는 첫 페이지만 표시합니다. 모델 분석은 미연결 상태입니다.") }
     Action { id: shortcutGuideAction; text: "단축키"; onTriggered: window.showInfo("단축키", "파일\n열기  Ctrl+O     닫기  Ctrl+W     종료  Ctrl+Q\n\n보기\n화면 맞춤  Ctrl+0     실제 크기  Ctrl+1\n확대·축소  Ctrl++ / Ctrl+-     전체 화면  F11\n\n도구\nPan  H     ROI  R\n\n메뉴\nAlt+F / E / V / W / A / T / S / H") }
     Action { id: reportIssueAction; text: "문제 보고"; onTriggered: { if (!fileBridge.openIssueTracker()) window.showInfo("문제 보고", "브라우저를 열지 못했습니다. GitHub 저장소의 Issues에서 보고해 주세요.") } }

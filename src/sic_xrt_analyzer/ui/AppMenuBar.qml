@@ -95,7 +95,7 @@ MenuBar {
         AppMenuItem { action: root.actions.clearRoi }
         MenuSeparator {}
         AppMenuItem { action: root.actions.run; iconName: "run"; ToolTip.text: root.uiState.analysisReason; ToolTip.visible: hovered }
-        AppMenuItem { text: "분석 취소"; enabled: false }
+        AppMenuItem { action: root.actions.cancelAnalysis }
         AppMenuItem { text: "결과 보기"; enabled: root.uiState.hasResult; onTriggered: root.hostWindow.openInspectorTab(2) }
     }
     AppMenu {

@@ -8,6 +8,7 @@ import tifffile
 from PySide6.QtGui import QImage
 
 MAX_PREVIEW_EDGE = 4096
+MAX_PREVIEW_DECODE_BYTES = 64 * 1024**2
 
 
 @dataclass(frozen=True)
@@ -50,7 +51,23 @@ def load_tiff_preview(path: str | Path) -> TiffPreview:
         page = tiff.pages[0]
         photometric = page.photometric
         bit_depth = page.bitspersample
-        pixels = page.asarray()
+        original_shape = page.shape
+        if len(original_shape) not in (2, 3):
+            raise ValueError("2차원 회색조 또는 RGB/RGBA TIFF만 지원합니다")
+        if len(original_shape) == 3 and page.planarconfig != tifffile.PLANARCONFIG.CONTIG:
+            raise ValueError("인터리브 RGB/RGBA TIFF만 지원합니다")
+        height, width = original_shape[:2]
+        step = max(1, (max(width, height) + MAX_PREVIEW_EDGE - 1) // MAX_PREVIEW_EDGE)
+        if page.is_memmappable:
+            mapped = tifffile.memmap(path, page=0, mode="r")
+            try:
+                pixels = np.array(mapped[::step, ::step], copy=True)
+            finally:
+                mapped._mmap.close()
+        else:
+            if page.nbytes > MAX_PREVIEW_DECODE_BYTES:
+                raise ValueError("압축 또는 비매핑 TIFF가 안전한 디코딩 한도(64 MiB)를 초과합니다. 영역 디코더가 필요합니다")
+            pixels = page.asarray(maxworkers=1)[::step, ::step]
         page_count = len(tiff.pages)
 
     if pixels.dtype.kind not in "buif":
@@ -62,21 +79,18 @@ def load_tiff_preview(path: str | Path) -> TiffPreview:
         ):
             raise ValueError("지원하지 않는 회색조 색상 형식입니다")
         image_format = QImage.Format_Grayscale8
-        height, width = pixels.shape
     elif pixels.ndim == 3 and pixels.shape[2] in (3, 4):
         if photometric != tifffile.PHOTOMETRIC.RGB:
             raise ValueError("지원하지 않는 컬러 색상 형식입니다")
         image_format = (
             QImage.Format_RGB888 if pixels.shape[2] == 3 else QImage.Format_RGBA8888
         )
-        height, width = pixels.shape[:2]
     else:
         raise ValueError("2차원 회색조 또는 RGB/RGBA TIFF만 지원합니다")
     if not width or not height:
         raise ValueError("이미지 크기가 올바르지 않습니다")
 
-    step = max(1, (max(width, height) + MAX_PREVIEW_EDGE - 1) // MAX_PREVIEW_EDGE)
-    display = _to_byte_range(pixels[::step, ::step])
+    display = _to_byte_range(pixels)
     if photometric == tifffile.PHOTOMETRIC.MINISWHITE:
         display = np.ascontiguousarray(255 - display)
     preview_height, preview_width = display.shape[:2]
@@ -89,7 +103,7 @@ def load_tiff_preview(path: str | Path) -> TiffPreview:
         image=image,
         width=width,
         height=height,
-        bit_depth=int(bit_depth),
+        bit_depth=int(max(bit_depth) if isinstance(bit_depth, tuple) else bit_depth),
         page_count=page_count,
         sampled=step > 1,
     )

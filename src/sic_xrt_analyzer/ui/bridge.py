@@ -19,6 +19,15 @@ from PySide6.QtCore import (
 from PySide6.QtGui import QDesktopServices, QGuiApplication, QImage
 from PySide6.QtQuick import QQuickImageProvider
 
+from sic_xrt_analyzer.analysis.contracts import (
+    AnalysisError,
+    AnalysisRequest,
+    AnalysisScope,
+    AnalysisState,
+    Region,
+)
+from sic_xrt_analyzer.analysis.pipeline import AnalysisPipeline
+from sic_xrt_analyzer.imaging.original_source import OriginalImageSource
 from sic_xrt_analyzer.imaging.tiff_preview import load_tiff_preview
 
 DEFAULTS = {
@@ -44,9 +53,12 @@ class _LoadTask(QRunnable):
 
     def run(self):
         try:
-            payload = (self.path, load_tiff_preview(self.path), "")
+            original = OriginalImageSource(self.path)
+            preview = load_tiff_preview(self.path)
+            original.validate_identity()
+            payload = (self.path, preview, original, "")
         except Exception as exc:  # noqa: BLE001
-            payload = (self.path, None, str(exc))
+            payload = (self.path, None, None, str(exc))
         self.signals.finished.emit(payload)
 
 
@@ -62,6 +74,7 @@ class TiffImageProvider(QQuickImageProvider):
 class FileBridge(QObject):
     recentFilesChanged = Signal()
     imageOpened = Signal("QVariantMap")
+    analysisChanged = Signal()
 
     def __init__(self, provider=None, parent=None, settings=None):
         super().__init__(parent)
@@ -70,6 +83,9 @@ class FileBridge(QObject):
         self._pool = QThreadPool(self)
         self._pool.setMaxThreadCount(1)
         self._task = None
+        self.original_source = None
+        self.pipeline = AnalysisPipeline(parent=self)
+        self.pipeline.changed.connect(self.analysisChanged)
         self._settings = settings or QSettings("CrystalVision-Lab", "sic-xrt-analyzer")
         stored = self._settings.value("preferences", {})
         self._preferences = self._validated(stored if isinstance(stored, dict) else {})
@@ -110,6 +126,63 @@ class FileBridge(QObject):
     @Property(str, constant=True)
     def systemInfo(self):
         return f"{platform.system()} {platform.release()} · Python {platform.python_version()} · Qt {qVersion()}"
+
+    @Property("QVariantMap", notify=analysisChanged)
+    def analysis(self):
+        p = self.pipeline
+        adapter = p.adapter
+        # Detailed adapter errors stay in Python/logs, never in ordinary UI text.
+        messages = {
+            "CANCELED": "분석이 취소되었습니다",
+            "SOURCE_CHANGED": "원본 파일이 변경되었습니다. 파일을 다시 여세요",
+            "UNSUPPORTED_SCOPE": "모델이 선택한 분석 범위를 지원하지 않습니다",
+            "INVALID_INPUT": "원본 이미지와 분석 입력 조건을 확인하세요",
+            "MODEL_NOT_AVAILABLE": "승인된 모델이 연결되지 않았습니다",
+        }
+        labels = {AnalysisState.UNAVAILABLE: "사용 불가", AnalysisState.READY: "준비 완료",
+                  AnalysisState.RUNNING: "분석 중", AnalysisState.COMPLETED: "완료",
+                  AnalysisState.FAILED: "실패", AnalysisState.CANCELED: "취소됨"}
+        return {
+            "state": p.state.value, "statusLabel": labels[p.state],
+            "modelAvailable": bool(adapter and adapter.available),
+            "modelName": adapter.model_name if adapter else "",
+            "modelVersion": adapter.model_version if adapter else "",
+            "device": (adapter.device or "") if adapter else "",
+            "supportedScopes": [s.value for s in adapter.input_contract.supported_scopes] if adapter else [],
+            "sourceReady": p.source is not None,
+            "inputSource": "Original TIFF" if p.source else "",
+            "scope": p.result.scope.value if p.result else "",
+            "analysisId": p.result.analysis_id if p.result else "",
+            "hasResult": bool(p.result and p.result.status == AnalysisState.COMPLETED),
+            "resultRoiMismatch": p.result_roi_mismatch,
+            "errorCode": p.error.code if p.error else "",
+            "errorMessage": messages.get(p.error.code, "분석에 실패했습니다. 진단 로그를 확인하세요") if p.error else "",
+        }
+
+    @Slot(bool, int, int, int, int)
+    def setCurrentRoi(self, selected, x, y, width, height):
+        self.pipeline.set_current_roi(Region(x, y, width, height) if selected else None)
+
+    @Slot(str, int, int, int, int, "QVariantMap", result=bool)
+    def requestAnalysis(self, scope, x, y, width, height, parameters):
+        # Caller must choose scope explicitly. Presence of a viewer ROI never chooses it.
+        if self.pipeline.adapter is None or not self.pipeline.adapter.available:
+            return self.pipeline.reject(AnalysisError("MODEL_NOT_AVAILABLE", "승인된 모델이 연결되지 않았습니다"))
+        if self.pipeline.source is None:
+            return self.pipeline.reject(AnalysisError("INVALID_INPUT", "원본 TIFF를 여세요"))
+        try:
+            explicit_scope = AnalysisScope(scope)
+            request = AnalysisRequest(self.pipeline.source, explicit_scope,
+                                      self.pipeline.adapter.model_id, self.pipeline.adapter.model_version,
+                                      Region(x, y, width, height) if explicit_scope == AnalysisScope.ROI else None,
+                                      parameters)
+        except (TypeError, ValueError) as exc:
+            return self.pipeline.reject(AnalysisError("INVALID_INPUT", "분석 범위와 입력을 확인하세요", str(exc)))
+        return self.pipeline.start(request)
+
+    @Slot()
+    def cancelAnalysis(self):
+        self.pipeline.cancel()
 
     @Slot(result="QVariantMap")
     def preferences(self):
@@ -166,20 +239,24 @@ class FileBridge(QObject):
 
     @Slot(str, result="QVariantMap")
     def openImage(self, url):
+        self.pipeline.invalidate()
         path = self.localPath(url)
         if not path or not self.isAccessible(path):
             return {"ok": False, "error": "접근 가능한 로컬 TIFF 파일을 선택하세요"}
         try:
+            original = OriginalImageSource(path)
             preview = load_tiff_preview(path)
+            original.validate_identity()
         except Exception as exc:  # noqa: BLE001
             # A damaged file or an unavailable decoder must not terminate the UI.
             return {"ok": False, "error": str(exc)}
-        return self._publish(path, preview)
+        return self._publish(path, preview, original)
 
     @Slot(str)
     def requestImage(self, url):
         if self._task is not None:
             return
+        self.pipeline.invalidate()
         path = self.localPath(url)
         if not path or not self.isAccessible(path):
             self.imageOpened.emit({"ok": False, "error": "접근 가능한 로컬 TIFF 파일을 선택하세요"})
@@ -190,31 +267,38 @@ class FileBridge(QObject):
 
     @Slot(object)
     def _finish_load(self, payload):
-        path, preview, error = payload
+        path, preview, original, error = payload
         self._task = None
-        result = {"ok": False, "error": error} if error else self._publish(path, preview)
+        result = {"ok": False, "error": error} if error else self._publish(path, preview, original)
         self.imageOpened.emit(result)
 
-    def _publish(self, path, preview):
+    def _publish(self, path, preview, original):
+        self.original_source = original
+        self.pipeline.set_source(original)
         self.provider.image = preview.image
         self.revision += 1
         self.recordRecentFile(path)
         return {
             "ok": True, "path": path, "name": self.fileName(path),
             "source": f"image://tiff/current?revision={self.revision}",
-            "width": preview.width, "height": preview.height,
-            "bitDepth": preview.bit_depth, "pageCount": preview.page_count,
+            "width": original.metadata.width, "height": original.metadata.height,
+            "bitDepth": original.metadata.bit_depth, "pageCount": original.metadata.page_count,
+            "dtype": original.metadata.dtype, "channels": original.metadata.channels,
+            "previewWidth": preview.image.width(), "previewHeight": preview.image.height(),
             "sampled": preview.sampled,
         }
 
     @Slot()
     def clearImage(self):
+        self.original_source = None
+        self.pipeline.set_source(None)
         self.provider.image = QImage()
 
     @Slot()
     def waitForLoads(self):
         # Keep worker signal objects alive until decoding ends during shutdown.
         self._pool.waitForDone()
+        self.pipeline.shutdown()
 
     @Slot(str)
     def copyText(self, value):
