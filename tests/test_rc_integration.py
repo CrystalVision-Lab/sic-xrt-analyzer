@@ -52,7 +52,7 @@ def test_continuous_analysis_result_roi_export_and_file_switch(workbench, size):
         assert not w.bridge.research.state['points']
         assert not w.state.property('hasRoi')
         assert not w.bridge.analysis['hasResult']
-        assert w.panel.property('requestedContext') == 'image'
+        assert w.panel.property('requestedContext') == 'viewer'
         QTest.qWait(30)
     invoke(w.window,'closeImage')
     assert not w.state.property('hasImage')

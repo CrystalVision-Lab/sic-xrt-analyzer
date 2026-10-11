@@ -1,5 +1,7 @@
 """Wide default viewer and explicit, reversible task-panel entry."""
+import numpy as np
 import pytest
+from PIL import Image
 from PySide6.QtCore import QPointF
 from PySide6.QtTest import QTest
 from test_analysis_pipeline import spin
@@ -12,6 +14,9 @@ pytest_plugins = ('test_toolbar',)
 @pytest.mark.parametrize('size', [(1100, 700), (1440, 900)])
 def test_wide_default_analysis_entry_and_panel_roundtrip(workbench, size):
     w = workbench
+    jpg = w.path.parent / 'wide.jpg'
+    Image.fromarray(np.zeros((600, 800, 3), dtype=np.uint8)).save(jpg)
+    w.open(jpg)
     w.window.resize(*size)
     QTest.qWait(50)
     viewer = w.item('imageViewer')
@@ -74,4 +79,4 @@ def test_stack_and_roi_task_access_when_default_panel_is_hidden(workbench):
     invoke(w.item('roiDiscardDialog'), 'discarded')
     invoke(w.item('roiDiscardDialog'), 'close')
     spin(w.app, lambda: not w.state.property('loading') and not w.bridge.stack_viewer.initial_loading)
-    assert not w.panel.property('visible')  # Every successful new open restores the wide view.
+    assert w.panel.property('visible') and w.panel.property('requestedContext') == 'viewer'

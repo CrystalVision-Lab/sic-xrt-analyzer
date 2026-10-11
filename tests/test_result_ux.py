@@ -291,7 +291,7 @@ def test_empty_zero_new_run_and_new_file_discard_stale_selection(workbench):
     assert '0 / 0' not in w.item('candidateIndex').property('text')
     w.open(w.path)
     assert not r.state['selected'] and not r.state['points']
-    assert w.panel.property('requestedContext') == 'image'
+    assert w.panel.property('requestedContext') == 'viewer'
 
 
 def test_assigned_class_is_not_recomputed_from_score_vector(workbench):

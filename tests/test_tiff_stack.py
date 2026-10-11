@@ -405,7 +405,7 @@ def test_qml_stack_navigation_contrast_pixel_and_view(qt_app, stack_file, tmp_pa
         assert state.property("dtype") == "uint16" and state.property("pageCount") == 7
         assert bridge.stackState["frames"] == 7 and bridge.stackState["low"] == 1000
         inspector = window.findChild(QObject, "inspectorPanel")
-        assert inspector.property("requestedContext") == "image"
+        assert inspector.property("requestedContext") == "viewer"
         invoke(window.findChild(QObject, "viewerSettingsAction"), "trigger")
         QTest.qWait(35)
         assert inspector.property("requestedContext") == "viewer" and inspector.property("visible")

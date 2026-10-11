@@ -69,7 +69,7 @@ def test_manual_navigation_keyboard_focus_and_panel_bounds(workbench, size):
     w = workbench
     w.window.resize(*size)
     QTest.qWait(35)
-    assert w.panel.property('requestedContext') == 'image'
+    assert w.panel.property('requestedContext') == 'viewer'
     for key in KEYS:
         choose(w, key)
         QTest.qWait(35)
@@ -107,7 +107,7 @@ def test_manual_navigation_keyboard_focus_and_panel_bounds(workbench, size):
 
 def test_open_close_jpeg_and_explicit_stack_settings(workbench, tmp_path):
     w = workbench
-    assert w.panel.property('lastReason') == 'OPEN_IMAGE'
+    assert w.panel.property('lastReason') == 'OPEN_TIFF'
     w.select('advancedToolGroup', 'toolbarViewerSettings')
     assert w.panel.property('requestedContext') == 'viewer'
     assert w.panel.property('lastReason') == 'VIEWER_SETTINGS'

@@ -28,7 +28,7 @@ def prepare(w, mode='success'):
     adapter = CountingAdapter(mode)
     w.bridge.pipeline.adapter = adapter
     w.open(create_source(w.path.parent).path)
-    assert w.panel.property('requestedContext') == 'image'
+    assert w.panel.property('requestedContext') == 'viewer'
     w.click('imagePrepareAnalysis')
     assert w.panel.property('requestedContext') == 'analysis'
     assert not adapter.entered.is_set()  # Navigation never starts inference.
@@ -263,7 +263,7 @@ def test_new_image_keeps_settings_and_requires_a_new_area(workbench, tmp_path):
         replacement = tmp_path / 'replacement'
         replacement.mkdir()
         w.open(create_source(replacement).path)
-        assert w.panel.property('requestedContext') == 'image'
+        assert w.panel.property('requestedContext') == 'viewer'
         assert not w.bridge.analysis['hasResult'] and not w.bridge.research.state['selected']
         w.click('imagePrepareAnalysis')
         assert w.state.property('analysisScope') == 'ROI'

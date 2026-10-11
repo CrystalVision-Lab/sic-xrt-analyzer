@@ -275,7 +275,7 @@ def test_page_scope_visibility_and_new_image_reset(workbench):
     spin(w.app, lambda: not w.state.property('loading') and not w.bridge.roiState['items'])
     assert not w.bridge.roiState['items'] and not w.bridge.roi_manager.selected
     assert not w.state.property('roiEditMode') and not w.state.property('hasRoi')
-    assert w.panel.property('requestedContext') == 'image'
+    assert w.panel.property('requestedContext') == 'viewer'
 
 
 @pytest.mark.parametrize('size', [(1100, 700), (1440, 900)])
