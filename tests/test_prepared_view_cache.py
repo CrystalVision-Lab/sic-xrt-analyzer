@@ -173,11 +173,40 @@ def test_real_image_has_no_demo_canvas_and_demo_still_loads(qt_app, tmp_path):
         assert bridge.stack_viewer.frame is not None
         assert not loader.property('active') and not has_demo()
         ui = window.findChild(QObject, 'uiState')
+        painted = window.findChild(QObject, 'preparedImageView')
         for scale in [1.,2.,4.,8.,16.]:
             ui.setProperty('fitMode', False); ui.setProperty('zoom', scale)
             qt_app.processEvents()
             assert not has_demo()
+            assert not painted.smooth()  # No second bilinear filter on native pixels.
+        ui.setProperty('zoom', 0.5)
+        qt_app.processEvents()
+        assert painted.smooth()  # Existing smooth reduction policy is preserved.
         assert not warnings, warnings
     finally:
         window.setProperty('allowQuit', True); window.close()
         bridge.waitForLoads(); engine.deleteLater(); qt_app.processEvents()
+
+
+@pytest.mark.parametrize('ratio', [1., 1.25, 1.5])
+def test_physical_zoom_preserves_native_samples_at_fractional_dpi(native_view, monkeypatch, ratio):
+    """QPainter backing pixels and logical viewport must share the same DPR.
+
+    This tests original-grid fidelity, not a physical Windows display setting.
+    """
+    view, _, _, raw, _ = native_view
+    monkeypatch.setattr(view, 'window', lambda: SimpleNamespace(devicePixelRatio=lambda: ratio))
+    view.setWidth(128 / ratio)
+    view.setHeight(96 / ratio)
+    for zoom in [1, 2, 4, 8, 4, 1]:
+        scale = zoom / ratio
+        view.viewTransform = [-250*scale, -200*scale, scale]
+        image = QImage(128, 96, QImage.Format_RGB32)
+        image.setDevicePixelRatio(ratio)
+        image.fill(0xff000000)
+        painter = QPainter(image)
+        view.paint(painter)
+        painter.end()
+        np.testing.assert_array_equal(rgb(image), expected(raw, 250, 200, zoom))
+        assert view._display_cache[0][-1] == 0
+        assert view._display_cache[5].sizeInBytes() <= 32*1024**2

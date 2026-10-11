@@ -97,6 +97,43 @@ def test_summary_filter_navigation_and_overlay_share_state(workbench, kind, tota
     assert len(original.detections) == 2946
 
 
+def test_hidden_candidate_overlay_skips_geometry_and_repaints_on_show(workbench):
+    """A getter observes drawing work, including when Canvas gets hidden paints.
+
+    This synthetic regression is separate from real inference benchmarking.
+    """
+    w = workbench
+    analyzed(w)
+    original = w.bridge.pipeline.result
+    overlay = w.item('analysisOverlay')
+    w.state.setProperty('analysisLayerVisible', False)
+    QTest.qWait(40)
+    setup = QQmlExpression(w.engine.rootContext(), overlay, '''(function() {
+        var list = []; list.reads = 0;
+        list.push(Object.defineProperty({y:80, type:"BPD", low_score:false}, "x", {
+            get: function() { list.reads++; return 80; }
+        }));
+        points = list;
+    })()''')
+    setup.evaluate()
+    assert not setup.hasError(), setup.error().toString()
+    def reads():
+        expr = QQmlExpression(w.engine.rootContext(), overlay, 'points.reads')
+        value = expr.evaluate()[0]
+        assert not expr.hasError(), expr.error().toString()
+        return value
+    for offset in [15., 30., 0.]:
+        w.item('imageViewer').setProperty('panX', offset)
+        w.window.grabWindow()
+        QTest.qWait(20)
+    assert reads() == 0  # Hidden repaint must not inspect candidate geometry.
+    w.state.setProperty('analysisLayerVisible', True)
+    w.window.grabWindow()
+    spin(w.app, lambda: reads() > 0)
+    assert w.bridge.pipeline.result is original
+    assert not w.warnings, w.warnings
+
+
 def test_filter_retains_matching_selection_and_clears_excluded_selection(workbench):
     w = workbench
     r = analyzed(w)

@@ -148,6 +148,9 @@ Rectangle {
             PreparedView {
                 objectName: "preparedImageView"; anchors.fill: parent
                 visible: uiState.hasLoadedImage && uiState.stack.preparedDisplay
+                // Match native QPainter sampling at the final scene-graph texture.
+                // Fractional-DPI item origins otherwise blur neighbouring pixels.
+                smooth: root.displayScale * uiState.displayPixelRatio < 1
                 bridge: fileBridge; viewTransform: [imageFrame.x, imageFrame.y, root.displayScale]
                 revision: uiState.stack.revision
             }
@@ -280,7 +283,9 @@ Rectangle {
                 onImageScaleChanged: requestPaint()
                 onVisibleChanged: requestPaint()
                 onPaint: {
-                    var c = getContext("2d"); c.reset(); c.lineWidth = 1.5; c.globalAlpha = candidateOpacity
+                    var c = getContext("2d"); c.reset()
+                    if (!visible) return
+                    c.lineWidth = 1.5; c.globalAlpha = candidateOpacity
                     for (var i = 0; i < points.length; i++) {
                         var p = points[i], x = imageX + p.x * imageScale, y = imageY + p.y * imageScale
                         if (x < -6 || y < -6 || x > width + 6 || y > height + 6) continue
