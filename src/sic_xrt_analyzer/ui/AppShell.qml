@@ -8,7 +8,7 @@ ApplicationWindow {
     property var shellActions
     property var shellBridge
     property bool navigationCollapsed: false
-    property bool inspectorCollapsed: false
+    property bool inspectorCollapsed: true
     property bool statusBarVisible: true
     property alias viewer: workspace.viewer
     property alias inspector: workspace.contextPanel // Existing command callers keep their handle.
