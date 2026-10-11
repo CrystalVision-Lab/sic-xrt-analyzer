@@ -31,6 +31,8 @@ jobs:
       - run: ruff check .
       - run: python -c "import sic_xrt_analyzer"
       - run: python -m compileall -q src
+      - name: Build desktop wheel
+        run: python -m pip wheel --no-deps --no-build-isolation . --wheel-dir dist
       - run: pytest -q
         env:
           QT_QPA_PLATFORM: offscreen

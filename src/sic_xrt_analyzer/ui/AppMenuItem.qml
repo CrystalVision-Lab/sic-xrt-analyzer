@@ -6,10 +6,12 @@ MenuItem {
     property string shortcutLabel: ""
     property string iconName: ""
     property QtObject visualTheme: Theme {}
-    visible: !subMenu || subMenu.available
+    // Availability is independent of the closed popup ancestor visibility.
+    property bool rowAvailable: !subMenu || subMenu.available
+    visible: rowAvailable
     leftPadding: checkable ? 30 : 12
     rightPadding: visualTheme.spacingMd
-    implicitHeight: visible ? visualTheme.menuRowHeight : 0
+    implicitHeight: rowAvailable ? visualTheme.menuRowHeight : 0
     font.pixelSize: visualTheme.bodySize
     ToolTip.text: text
     ToolTip.visible: hovered && menuText.truncated

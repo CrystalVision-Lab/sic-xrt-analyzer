@@ -327,8 +327,12 @@ ApplicationWindow {
                     assert action and QMetaObject.invokeMethod(action, "trigger")
                 elif name == "openDialog":
                     assert QMetaObject.invokeMethod(window, "openImageDialog")
-                else:
+                elif name == "imageSaveDialog":
                     assert QMetaObject.invokeMethod(window, "saveImageCopy")
+                else:
+                    # ROI import / result folder have no Open/Save Action alias.
+                    # Dispatch their own facade, never the unrelated Save picker.
+                    evaluate(qml_id + ".open()")
             else:
                 evaluate(qml_id + ".open()")
             trace.emit(

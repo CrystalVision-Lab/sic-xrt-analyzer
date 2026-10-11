@@ -21,7 +21,7 @@ ToolbarButton {
         ToolbarMenuItem { objectName: "toolAnalysisRoi"; action: root.actions.roi; shortcutLabel: "R"; onTriggered: Qt.callLater(function() { root.hostWindow.viewer.focusView() }) }
         Repeater {
             model: root.choices
-            ToolbarMenuItem { required property var modelData; objectName: "tool" + modelData.tool; action: modelData.action; visible: root.uiState.stackFeaturesVisible }
+            ToolbarMenuItem { required property var modelData; objectName: "tool" + modelData.tool; action: modelData.action; rowAvailable: root.uiState.stackFeaturesVisible }
         }
         MenuSeparator {}
         ToolbarMenuItem { action: root.actions.advanced.roiManager }
