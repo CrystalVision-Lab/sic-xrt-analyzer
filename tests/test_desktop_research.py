@@ -14,6 +14,7 @@ from test_ui_analysis_contract import invoke
 from sic_xrt_analyzer.analysis.contracts import AnalysisRequest, AnalysisScope, Region
 from sic_xrt_analyzer.analysis.desktop_adapter import DesktopResearchAdapter
 from sic_xrt_analyzer.analysis.model_adapter import CancellationToken
+from sic_xrt_analyzer.imaging.image_stack import JpegImageSource
 from sic_xrt_analyzer.imaging.original_source import OriginalImageSource
 from sic_xrt_analyzer.ui.bridge import FileBridge, TiffImageProvider
 
@@ -92,7 +93,8 @@ def test_csv_binding_export_and_replaced_image(qt_app, tmp_path, bridge_factory)
     assert not bridge.research.exportResult(str(tmp_path))
 
 
-def test_real_qml_run_button_results_overlay_and_export(qt_app, tmp_path):
+@pytest.mark.parametrize("suffix", ["tif", "jpg"])
+def test_real_qml_run_button_results_overlay_and_export(qt_app, tmp_path, suffix):
     QQuickStyle.setStyle("Basic")
     engine = QQmlApplicationEngine()
     provider = TiffImageProvider()
@@ -108,8 +110,23 @@ def test_real_qml_run_button_results_overlay_and_export(qt_app, tmp_path):
     state = window.findChild(QObject, "uiState")
     try:
         source = create_source(tmp_path)
+        if suffix == "jpg":
+            from PIL import Image
+            # Exceeds the preview edge, exercising the native JPEG disk cache.
+            pixels = np.zeros((2304, 2304, 3), np.uint8)
+            pixels[250:258, 250:258] = 255
+            path = tmp_path / "large.jpg"
+            Image.fromarray(pixels).save(path, quality=95)
+            source = JpegImageSource(path)
         invoke(window, "selectImagePath", source.path)
         spin(qt_app, lambda: state.property("hasLoadedImage") and not state.property("loading"))
+        if suffix == "jpg":
+            assert bridge.analysis["inputSource"] == "Original JPEG"
+            assert bridge.pipeline.source.prepared is not None
+            # Contrast changes are display-only and must not affect model pixels.
+            bridge.setDisplayRange(0, 80)
+            spin(qt_app, lambda: not bridge.stack_viewer.busy)
+        assert not window.findChild(QObject, "runAction").property("enabled")
         state.setProperty("analysisScope", "FULL_IMAGE")
         run = window.findChild(QObject, "runAction")
         assert run.property("enabled")
@@ -122,9 +139,50 @@ def test_real_qml_run_button_results_overlay_and_export(qt_app, tmp_path):
         overlay = window.findChild(QObject, "analysisOverlay")
         assert overlay.property("visible")
         assert window.findChild(QObject, "analysisExportButton").property("enabled")
+        assert bridge.research.exportResult(str(tmp_path))
+        saved = json.loads((Path(bridge.research.state["exportPath"]) / "result.json").read_text(encoding="utf-8"))
+        assert saved["source"]["canonical_path"] == source.path
         assert not warnings, "\n".join(warnings)
     finally:
         bridge.waitForLoads()
         window.close()
         engine.deleteLater()
         qt_app.processEvents()
+
+
+def test_jpeg_roi_model_uses_original_decoded_rgb_and_detects_file_change(tmp_path):
+    import imagecodecs
+    from PIL import Image
+
+    from sic_xrt_analyzer.imaging.original_source import SourceError
+    from sic_xrt_analyzer.imaging.prepared_image import PreparedPixels
+
+    path = tmp_path / "original.jpg"
+    rgb = np.random.default_rng(45).integers(0, 256, (512, 512, 3), dtype=np.uint8)
+    Image.fromarray(rgb).save(path, quality=93)
+    original_bytes = path.read_bytes()
+    expected = imagecodecs.jpeg8_decode(original_bytes, outcolorspace="RGB")
+    source = JpegImageSource(path)
+    cache = PreparedPixels()
+    assert cache.jpeg(source, lambda: False, lambda *args: None)
+    object.__setattr__(source, 'prepared', cache)
+
+    class CheckingClassifier(Classifier):
+        def predict(self, patches):
+            np.testing.assert_array_equal(patches[0], expected[192:320, 192:320])
+            return super().predict(patches)
+
+    try:
+        adapter = DesktopResearchAdapter(None, CheckingClassifier())
+        request = AnalysisRequest(source, AnalysisScope.ROI, adapter.model_id, adapter.model_version,
+                                  Region(128, 128, 256, 256),
+                                  {"point_mode": "provided_coordinates", "points": [{"x": 256.2, "y": 256}]})
+        adapter.input_contract.validate(request)
+        result = adapter.analyze_source(request, CancellationToken())
+        assert result.detections[0].geometry.points == ((256.2, 256.0),)
+        assert path.read_bytes() == original_bytes
+        path.write_bytes(original_bytes + b'changed')
+        with pytest.raises(SourceError, match="changed"):
+            source.read_region(192, 192, 128, 128)
+    finally:
+        cache.close()
