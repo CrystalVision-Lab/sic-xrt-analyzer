@@ -226,3 +226,12 @@ Windows는 Qt Widgets의 native modal picker 경로와 명시적인 수명 관�
 닫힌 메뉴의 ancestor visibility와 feature availability를 분리해 첫 팝업 항목의 높이·클릭 경로를 안정화했습니다. 기존 Toolbar/Context/ROI/분석 테스트는 수정하지 않았습니다.
 Windows 전체 293개 검사 × 3회, native plugin4개, native Open100/Save100/교차10 자동 반복 및 실제 TIFF4개·RGB JPG/모델/Export 검증을 완료했습니다.
 **RC CODE READY — MANUAL VALIDATION PENDING**: OS 파일창 실제 mouse 조작과 종료 직후 focus 복귀는 아직 미검증입니다. Draft PR #79 및 [TD-12 보고서](docs/ux/XRT-UX-TD-12-RC-STABILIZATION.md)의 수동 절차/제약을 확인하세요. 병합하지 않았습니다.
+
+
+## 독립 원본 점 라벨 검수
+
+전체 주석·대비 후보를 원본 좌표에서 검토하는 독립 [검수 창](docs/dataset-review-v1.md)을 제공합니다. [대표 표본 계획](docs/dataset-review-v1.md)을 선택해 첫 검수 목록을 제한할 수 있습니다. 사람의 직접 확인·수정 이력은 보존하며 자동 후보나 표본 검사를 전체 데이터셋 승인으로 처리하지 않습니다.
+
+## 2026-10-12 PR 통합
+
+누적 코드·검사·보고서를 main에 통합했습니다. 이전 단계의 Draft/미병합 문구는 당시 기록입니다. 실제 Windows 파일창 수동 Acceptance와 Qt 6.12 종료 오류, 모델 정확도 및 남은 Viewer 성능 검증은 미완료이며 코드 병합이 RC 승인을 의미하지 않습니다. GitHub Issue #86에서 정리 결과를 확인할 수 있습니다.
