@@ -6,7 +6,16 @@ from pathlib import Path
 import numpy as np
 import pytest
 import tifffile
-from PySide6.QtCore import Q_ARG, QMetaObject, QObject, QPoint, QPointF, QSettings, Qt, QUrl
+from PySide6.QtCore import (
+    Q_ARG,
+    QMetaObject,
+    QObject,
+    QPoint,
+    QPointF,
+    QSettings,
+    Qt,
+    QUrl,
+)
 from PySide6.QtQml import QQmlApplicationEngine, QQmlExpression
 from PySide6.QtQuickControls2 import QQuickStyle
 from PySide6.QtTest import QTest

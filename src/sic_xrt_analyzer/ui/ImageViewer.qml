@@ -90,8 +90,26 @@ Rectangle {
         if (uiState.defaultView === "fit") fitView()
         else setActualZoom(uiState.defaultView === "actual" ? 1 : uiState.defaultView === "125" ? 1.25 : 2)
     }
-    function zoomIn() { focusAnimation.stop(); if (uiState.canNavigateImage) { uiState.zoom = Math.min(16, uiState.effectiveZoom * 1.25); uiState.fitMode = false } }
-    function zoomOut() { focusAnimation.stop(); if (uiState.canNavigateImage) { uiState.zoom = Math.max(0.01, uiState.effectiveZoom / 1.25); uiState.fitMode = false } }
+    function zoomAt(value, x, y) {
+        if (!uiState.canNavigateImage || displayScale <= 0) return
+        focusAnimation.stop()
+        // x/y are viewport logical pixels; zoom is physical pixels/source pixel.
+        // Snapshot the source anchor BEFORE changing Fit/zoom or frame bindings.
+        var sourceX = (x - imageFrame.x) / displayScale
+        var sourceY = (y - imageFrame.y) / displayScale
+        var zoom = Math.max(0.01, Math.min(16, value))
+        var scale = zoom / uiState.displayPixelRatio
+        // imageFrame origin = (viewport - originalExtent * scale)/2 + pan.
+        // Solve that same transform for pan, independently on each axis.
+        var nextPanX = x - viewport.width / 2 + (uiState.contentWidth / 2 - sourceX) * scale
+        var nextPanY = y - viewport.height / 2 + (uiState.contentHeight / 2 - sourceY) * scale
+        uiState.zoom = zoom
+        uiState.fitMode = false
+        panX = nextPanX
+        panY = nextPanY
+    }
+    function zoomIn() { zoomAt(uiState.effectiveZoom * 1.25, viewport.width / 2, viewport.height / 2) }
+    function zoomOut() { zoomAt(uiState.effectiveZoom / 1.25, viewport.width / 2, viewport.height / 2) }
     function imagePoint(x, y) {
         return Qt.point(Math.max(0, Math.min(1, (x - imageFrame.x) / imageFrame.width)), Math.max(0, Math.min(1, (y - imageFrame.y) / imageFrame.height)))
     }
@@ -183,7 +201,11 @@ Rectangle {
                         root.draggingVertex = fileBridge.beginRoiDrag(editPoint.x * uiState.contentWidth, editPoint.y * uiState.contentHeight, 8 / root.displayScale)
                         return
                     }
-                    if (uiState.activeTool === "Zoom") { if (mouse.modifiers & Qt.AltModifier) root.zoomOut(); else root.zoomIn(); return }
+                    if (uiState.activeTool === "Zoom") {
+                        var click = mapToItem(viewport, mouse.x, mouse.y)
+                        root.zoomAt(uiState.effectiveZoom * ((mouse.modifiers & Qt.AltModifier) ? 1 / 1.25 : 1.25), click.x, click.y)
+                        return
+                    }
                     if (["Pan", "ROI"].indexOf(uiState.activeTool) < 0) {
                         var t = root.toolPoint(mouse)
                         if (["Polygon", "Polyline", "Angle"].indexOf(uiState.activeTool) >= 0) {
@@ -253,8 +275,10 @@ Rectangle {
                     var delta = wheel.angleDelta.y || wheel.pixelDelta.y
                     if (delta === 0) return
                     if (uiState.hasLoadedImage && uiState.pageCount > 1 && !(wheel.modifiers & Qt.ControlModifier)) root.stepPage(delta < 0 ? 1 : -1)
-                    else if (delta > 0) root.actions.zoomIn.trigger()
-                    else root.actions.zoomOut.trigger()
+                    else {
+                        var anchor = mapToItem(viewport, wheel.x, wheel.y)
+                        root.zoomAt(uiState.effectiveZoom * (delta > 0 ? 1.25 : 1 / 1.25), anchor.x, anchor.y)
+                    }
                     wheel.accepted = true
                 }
             }
