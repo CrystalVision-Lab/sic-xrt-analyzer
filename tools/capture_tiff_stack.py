@@ -77,6 +77,10 @@ def main():
                     break
             assert bridge.stack_viewer.preload_state["ready"]
             capture("first-page")
+            inspector = window.findChild(QObject, "inspectorPanel")
+            inspector.setProperty("tabIndex", 0)
+            capture("image-info")
+            inspector.setProperty("tabIndex", 3)
             slider = window.findChild(QObject, "pageSlider")
             slider_origin = slider.mapToScene(QPoint(0, 0))
             def slider_position(fraction):
