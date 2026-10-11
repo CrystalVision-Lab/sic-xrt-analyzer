@@ -13,6 +13,7 @@ ColumnLayout {
     readonly property string filterLabel: results.filterKind === "ALL" ? "전체 후보" : results.filterKind + " 후보"
     signal exportRequested()
     signal overviewRequested()
+    signal reviewRequested()
     spacing: theme.spacingXs
     function filter(kind, low, query) {
         fileBridge.research.setFilter(kind, low, query)
@@ -119,6 +120,7 @@ ColumnLayout {
         Text { text: "후보 목록"; color: theme.muted; font.pixelSize: theme.smallSize; Layout.fillWidth: true }
         Text { text: "살펴봄 " + presentation.count(results.viewedCount) + "개"; color: theme.muted; font.pixelSize: theme.captionSize }
     }
+    AppButton { objectName: "reviewSelectedCandidate"; theme: root.theme; text: "선택 후보 검수하기"; Layout.fillWidth: true; visible: !!selected.id; enabled: uiState.feedback.ready; onClicked: root.reviewRequested() }
     ListView {
         id: candidates; objectName: "candidateList"
         visible: results.total > 0

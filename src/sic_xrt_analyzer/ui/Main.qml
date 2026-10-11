@@ -74,7 +74,7 @@ AppShell {
     function requestContext(key, reason) { return contextPanel.requestContext(key, reason) }
     // Compatibility for plugins/tests; production entries use names.
     function openInspectorTab(index) {
-        var key = ["image", "analysis", "result", "viewer", "roi"][index]
+        var key = ["image", "analysis", "result", "viewer", "roi", "feedback"][index]
         return key ? openContext(key) : false
     }
     Connections {
@@ -214,6 +214,7 @@ AppShell {
     Action { id: shortcutGuideAction; text: "단축키"; onTriggered: window.showInfo("단축키", "파일\n열기  Ctrl+O     닫기  Ctrl+W     종료  Ctrl+Q\n\n보기\n화면 맞춤  Ctrl+0     실제 크기  Ctrl+1\n확대·축소  Ctrl++ / Ctrl+-     전체 화면  F11\n\n도구\nPan  H     ROI  R\n\n메뉴\nAlt+F / E / V / W / A / T / S / H") }
     Action { id: reportIssueAction; text: "문제 보고"; onTriggered: { if (!fileBridge.openIssueTracker()) window.showInfo("문제 보고", "브라우저를 열지 못했습니다. GitHub 저장소의 Issues에서 보고해 주세요.") } }
     Action { id: aboutAction; objectName: "aboutAction"; text: "프로그램 정보"; onTriggered: window.showInfo("SiC XRT Analyzer", "XRT 이미지 검사·분석\n버전 " + fileBridge.appVersion + "\n" + fileBridge.systemInfo + "\n\nTIFF/JPG · ImageJ ROI 뷰어\n모델 분석 미연결\nCrystalVision-Lab") }
+    Connections { target: fileBridge.feedback; function onFocusRequested(x, y) { window.requestContext("feedback", "REVIEW_REQUESTED"); uiState.workspaceIndex = 0; Qt.callLater(function() { viewer.focusCandidate(x, y) }) } }
     Connections { target: fileBridge.research; function onFocusRequested(x, y) { window.requestContext("result", "CANDIDATE_SELECTED"); uiState.workspaceIndex = 0; uiState.updateCandidateRoi(); Qt.callLater(function() { viewer.focusCandidate(x, y) }) } }
     SafeFolderDialog { id: researchModelDialog; objectName: "researchModelDialog"; title: "고정 모델 폴더 선택"; onAccepted: fileBridge.research.loadModel(selectedFolder.toString()) }
     SafeFileDialog { id: coordinatesDialog; title: "현재 영상의 좌표 CSV"; nameFilters: ["좌표 CSV (*.csv)"]; onAccepted: fileBridge.research.setCoordinates(selectedFile.toString()) }

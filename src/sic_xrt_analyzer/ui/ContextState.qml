@@ -2,12 +2,12 @@ import QtQuick
 
 QtObject {
     id: root
-    enum Context { Image, Analysis, Result, Viewer, Roi }
+    enum Context { Image, Analysis, Result, Viewer, Roi, Feedback }
     property QtObject uiState
     // Compatibility index; production requests use names and reasons.
     property int tabIndex: ContextState.Image
-    readonly property var keys: ["image", "analysis", "result", "viewer", "roi"]
-    readonly property var labels: ["이미지 정보", "분석", "결과", "뷰어 · 스택", "ROI 관리"]
+    readonly property var keys: ["image", "analysis", "result", "viewer", "roi", "feedback"]
+    readonly property var labels: ["이미지 정보", "분석", "결과", "뷰어 · 스택", "ROI 관리", "검수"]
     readonly property string requestedContext: keys[tabIndex] || "image"
     readonly property string activeContext: requestedContext === "image" && !uiState.hasImage ? "idle" : requestedContext
     readonly property string detailContext: requestedContext === "result" && !!uiState.research.selected.id ? "candidate" : activeContext
@@ -18,7 +18,7 @@ QtObject {
     readonly property var events: ({
         OPEN_IMAGE: "image", CLOSE_IMAGE: "image", DEMO_OPEN: "image", RESET_LAYOUT: "image",
         ANALYSIS_START: "analysis", ANALYSIS_COMPLETE: "result", ANALYSIS_FAILED: "analysis", ANALYSIS_CANCELED: "analysis",
-        CANDIDATE_SELECTED: "result", ROI_MANAGER_OPEN: "roi", ROI_IMPORT: "roi", ROI_EDIT: "roi", VIEWER_SETTINGS: "viewer"
+        CANDIDATE_SELECTED: "result", REVIEW_REQUESTED: "feedback", ROI_MANAGER_OPEN: "roi", ROI_IMPORT: "roi", ROI_EDIT: "roi", VIEWER_SETTINGS: "viewer"
     })
     function requestContext(key, reason) {
         var index = keys.indexOf(key)
@@ -66,5 +66,6 @@ QtObject {
         : requestedContext === "analysis" ? "현재 원본에서 BPD · TED · TSD 후보를 분석합니다."
         : requestedContext === "result" ? "분류별로 후보를 선택해 영상에서 검토합니다."
         : requestedContext === "viewer" ? uiState.hasImage ? "페이지 탐색과 원본 표시 범위" : "이미지를 열면 표시 설정을 사용할 수 있습니다."
+        : requestedContext === "feedback" ? "사람의 확인·수정 이력을 원본 좌표로 기록합니다."
         : "분석 영역과 ImageJ ROI를 구분하여 관리합니다."
 }

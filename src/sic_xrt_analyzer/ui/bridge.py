@@ -34,6 +34,7 @@ from sic_xrt_analyzer.ui import (
     prepared_view,  # noqa: F401  (register QML type)
 )
 from sic_xrt_analyzer.ui.detail_reader import DetailReader
+from sic_xrt_analyzer.ui.feedback_controller import FeedbackController
 from sic_xrt_analyzer.ui.imagej_workbench import ImageJWorkbench
 from sic_xrt_analyzer.ui.latest_reader import LatestReader
 from sic_xrt_analyzer.ui.native_file_dialog import NativeFileDialogs
@@ -60,8 +61,11 @@ class TiffImageProvider(QQuickImageProvider):
         self.image = QImage()
         self.detail_image = QImage()
         self.research_image = QImage()
+        self.feedback_image = QImage()
 
     def requestImage(self, image_id: str, size: QSize, requested_size: QSize) -> QImage:
+        if image_id.startswith('feedback'):
+            return self.feedback_image
         if image_id.startswith('research'):
             return self.research_image
         return self.detail_image if image_id.startswith('detail') else self.image
@@ -107,6 +111,7 @@ class FileBridge(QObject):
         self.stack_viewer.changed.connect(self.analysisChanged)
         self._settings = settings or QSettings("CrystalVision-Lab", "sic-xrt-analyzer")
         self.research_controller = ResearchController(self)
+        self.feedback_controller = FeedbackController(self)
         stored = self._settings.value("preferences", {})
         self._preferences = self._validated(stored if isinstance(stored, dict) else {})
         recent = self._settings.value("recentFiles", [])
@@ -609,6 +614,8 @@ class FileBridge(QObject):
 
     @Slot()
     def waitForLoads(self):
+        self.feedback_controller.loader.shutdown()
+        self.feedback_controller.preview_loader.shutdown()
         self.native_dialogs.shutdown()
         # Keep worker signal objects alive until decoding ends during shutdown.
         self.research_controller.thumbnail_loader.shutdown()
@@ -627,6 +634,10 @@ class FileBridge(QObject):
     @Property(QObject, constant=True)
     def research(self):
         return self.research_controller
+
+    @Property(QObject, constant=True)
+    def feedback(self):
+        return self.feedback_controller
 
     @Property(QObject, constant=True)
     def imagej(self):

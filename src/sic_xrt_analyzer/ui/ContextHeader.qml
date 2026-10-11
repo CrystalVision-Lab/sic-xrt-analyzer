@@ -13,7 +13,7 @@ ColumnLayout {
         objectName: "contextSwitcher"; theme: root.theme
         text: root.controller.title + " ▾"; tip: "작업 Context 선택 · 방향키와 Enter로 선택"
         Accessible.name: "작업 Context 선택: " + root.controller.title
-        Accessible.description: "이미지 정보, 분석, 결과, 뷰어·스택, ROI 관리"
+        Accessible.description: "이미지 정보, 분석, 결과, 뷰어·스택, ROI 관리, 검수"
         Layout.fillWidth: true; implicitHeight: theme.controlHeight; labelSize: theme.titleSize; labelWeight: Font.Medium; quiet: true
         onClicked: switcher.open()
         ToolTip.visible: hovered && !switcher.visible
