@@ -2,6 +2,8 @@
 
 Issue #58. 기준: [TD-01](XRT-UX-TD-01-IA.md), PR #56의 `refactor/55-ui-information-architecture`, `62cd18f9e97f49389d3681d9cde7c1142c227e21`. 작업 브랜치: `refactor/58-toolbar-simplification`.
 
+후속 [TD-03](XRT-UX-TD-03-CONTEXT.md)은 7-button Toolbar를 유지하고 More에 기존 ViewerContext를 여는 **뷰어·스택 표시 설정** 진입점만 추가한다. 아래 테스트 수와 자동 전환 없음은 TD-02 완료 당시 기록이다. 현재 우측 Navigation/완료 전환 정책은 TD-03 문서를 따른다.
+
 ## 1. 조사와 결정
 
 TD-01 Toolbar는 첫 줄에 열기·저장·Pan·ROI·축소·배율·확대·Fit·모델 상태·분석 실행, 스택의 두 번째 줄에 17개 선택/그리기 도구·측정·Dev·Stk·LUT·추가 도구를 표시했다. 직접 조작, 설정, 전문 명령과 실행 CTA가 한 영역에 섞여 있고 스택을 열면 높이가 40px에서 80px로 증가했다.

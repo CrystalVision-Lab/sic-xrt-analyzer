@@ -63,7 +63,7 @@ ColumnLayout {
     Rectangle {
         Layout.fillWidth: true; Layout.preferredHeight: selected.id ? 266 : 58
         color: theme.viewer; border.color: selected.id ? root.colorFor(selected.type) : theme.border; radius: 5
-        Text { anchors.centerIn: parent; visible: !selected.id; text: uiState.hasResult ? "목록이나 영상의 원을 눌러 후보를 살펴보세요" : "분석을 실행하면 후보가 여기에 표시됩니다"; color: theme.muted; font.pixelSize: 11 }
+        Text { anchors.centerIn: parent; visible: !selected.id; text: uiState.hasResult ? results.total ? "목록이나 영상의 원을 눌러 후보를 살펴보세요" : "분석이 완료되었지만 후보가 없습니다." : "아직 분석 결과가 없습니다."; color: theme.muted; font.pixelSize: 11 }
         ColumnLayout {
             anchors.fill: parent; anchors.margins: 10; spacing: 6; visible: !!selected.id
             RowLayout {

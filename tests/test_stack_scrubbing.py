@@ -260,6 +260,9 @@ def test_qml_pressed_drag_updates_each_page_before_release(qt_app, browse_file, 
     try:
         assert QMetaObject.invokeMethod(window, "selectImagePath", Q_ARG("QVariant", str(path)))
         spin(qt_app, lambda: controller.preload_state["ready"] and controller._task is None)
+        # TD-03 opens image information first; page controls are explicit settings.
+        assert QMetaObject.invokeMethod(window.findChild(QObject, "viewerSettingsAction"), "trigger")
+        QTest.qWait(35)
         status = window.findChild(QObject, "preloadStatus")
         assert "전체 탐색 준비 완료" in status.property("text")
         slider = window.findChild(QObject, "pageSlider")

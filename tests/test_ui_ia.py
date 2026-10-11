@@ -53,10 +53,10 @@ def test_shell_context_layout_and_shared_analysis_command(qt_app, tmp_path, brid
         source = create_source(tmp_path)
         invoke(window, 'selectImagePath', source.path)
         spin(qt_app, lambda: state.property('hasLoadedImage') and not state.property('loading'))
-        assert panel.property('activeContext') == 'viewer'  # Existing image-open behavior.
+        assert panel.property('activeContext') == 'image'  # TD-03: new files begin with image information.
         assert item('currentFileName').property('text') == Path(source.path).name
         for index, context in enumerate(('image', 'analysis', 'result', 'viewer', 'roi')):
-            invoke(item(f'inspectorTab{index}'), 'clicked')
+            invoke(window, 'openContext', context)
             assert panel.property('tabIndex') == index
             assert panel.property('activeContext') == context
         invoke(window, 'openContext', 'analysis')
@@ -81,8 +81,9 @@ def test_shell_context_layout_and_shared_analysis_command(qt_app, tmp_path, brid
         QTest.mouseClick(window, Qt.LeftButton, Qt.NoModifier, QPoint(round(point.x()), round(point.y())))
         spin(qt_app, lambda: bridge.analysis['hasResult'])
         assert bridge.research.state['total'] == 231
-        # Completion does not add an automatic result transition.
-        assert panel.property('activeContext') == 'analysis'
+        # TD-03 adds the explicit analysis-complete milestone.
+        assert panel.property('activeContext') == 'result'
+        assert panel.property('lastReason') == 'ANALYSIS_COMPLETE'
         bridge.research.selectCandidate('candidate_000000')
         spin(qt_app, lambda: panel.property('detailContext') == 'candidate')
         assert panel.property('tabIndex') == 2  # Existing focusRequested behavior.

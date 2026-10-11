@@ -405,7 +405,10 @@ def test_qml_stack_navigation_contrast_pixel_and_view(qt_app, stack_file, tmp_pa
         assert state.property("dtype") == "uint16" and state.property("pageCount") == 7
         assert bridge.stackState["frames"] == 7 and bridge.stackState["low"] == 1000
         inspector = window.findChild(QObject, "inspectorPanel")
-        assert inspector.property("tabIndex") == 3 and inspector.property("visible")
+        assert inspector.property("requestedContext") == "image"
+        invoke(window.findChild(QObject, "viewerSettingsAction"), "trigger")
+        QTest.qWait(35)
+        assert inspector.property("requestedContext") == "viewer" and inspector.property("visible")
         slider = window.findChild(QObject, "pageSlider")
         assert slider.property("visible")
         slider.setProperty("value", 3)
@@ -473,12 +476,9 @@ def test_qml_stack_navigation_contrast_pixel_and_view(qt_app, stack_file, tmp_pa
             inspector_origin = inspector.mapToScene(QPointF(0, 0))
             assert controls_origin.x() >= inspector_origin.x()
             assert controls_origin.x() + slider.property("width") <= inspector_origin.x() + inspector.property("width")
-            # Clicking another tab does not alter the selected page, range or fit.
+            # Manual Context navigation does not alter page, range or fit.
             for index in (0, 1, 2, 3):
-                tabs = window.findChild(QObject, "inspectorTabs").childItems()
-                tab = next(item for item in tabs if item.objectName() == "inspectorTab" + str(index))
-                tab_pos = tab.mapToScene(QPointF(tab.property("width") / 2, tab.property("height") / 2))
-                QTest.mouseClick(window, Qt.LeftButton, Qt.NoModifier, tab_pos.toPoint())
+                invoke(window, "openContext", ("image", "analysis", "result", "viewer")[index])
                 qt_app.processEvents()
                 assert inspector.property("tabIndex") == index
                 assert slider.property("visible") == (index == 3)

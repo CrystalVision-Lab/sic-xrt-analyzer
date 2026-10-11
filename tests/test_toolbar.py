@@ -244,4 +244,5 @@ def test_toolbar_layout_and_analysis_menu_entry(workbench, size):
     spin(w.app, lambda: w.bridge.analysis['hasResult'] or w.bridge.analysis['state'] == 'FAILED')
     assert w.bridge.analysis['hasResult'], w.bridge.analysis
     assert w.bridge.research.state['total'] == 231
-    assert w.panel.property('tabIndex') == 3  # No new automatic Context switch.
+    assert w.panel.property('requestedContext') == 'result'  # TD-03 completion milestone.
+    assert w.panel.property('lastReason') == 'ANALYSIS_COMPLETE'

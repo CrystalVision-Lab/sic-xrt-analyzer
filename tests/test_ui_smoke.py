@@ -60,6 +60,9 @@ def test_workstation_flow(tmp_path):
             ("file", "edit", "view", "process", "analysis", "tools", "settings", "help")] == [
                 "파일", "편집", "이미지 (Image)", "처리 (Process)", "분석 (Analyze)", "플러그인 (Plugins)", "창 (Window)", "도움말"]
     assert not state.property("hasImage")
+    assert inspector.property("activeContext") == "idle"
+    assert inspector.property("lastReason") == "STARTUP"
+    assert window.findChild(QObject, "contextSubtitle").property("text") == "이미지를 열어 작업을 시작하세요."
     assert not window.findChild(QObject, "runAction").property("enabled")
     assert window.findChild(QObject, "settingsMenu").property("count") == 3
     assert window.findChild(QObject, "menuOpenItem").property("text") == window.findChild(QObject, "openAction").property("text")

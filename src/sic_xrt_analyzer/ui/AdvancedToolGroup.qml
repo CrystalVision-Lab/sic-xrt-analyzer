@@ -15,6 +15,7 @@ ToolbarButton {
     AppMenu {
         id: more; objectName: "toolbarMoreMenu"; title: "추가 도구"; y: root.height; width: 290
         ToolbarMenuItem { objectName: "toolbarSaveItem"; action: root.actions.save; shortcutLabel: "Ctrl+S" }
+        ToolbarMenuItem { objectName: "toolbarViewerSettings"; action: root.actions.viewerSettings }
         AppMenu { objectName: "toolbarZoomMenu"; title: "확대 / 축소"
             ToolbarMenuItem { action: root.actions.zoomIn; shortcutLabel: "Ctrl++" }
             ToolbarMenuItem { action: root.actions.zoomOut; shortcutLabel: "Ctrl+-" }
