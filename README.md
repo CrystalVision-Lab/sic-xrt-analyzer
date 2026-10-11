@@ -36,7 +36,9 @@ Fiji/ImageJ2는 다음 명령으로 Java 라이브러리를 설치하고, 작업
 
 **모든 플러그인의 완전 호환은 보장하지 않습니다.** SciJava Command의 ImagePlus/Dataset/ImageDisplay 입력, 서비스 주입, JSON 인수와 이미지 결과 반환을 연결했습니다. Fiji 전체 스택의 편집용 복사본은 512 MiB까지이며 큰 XRT 스택은 현재 페이지로 처리합니다. 장치·JavaFX·임의 매크로 마우스 도구 등은 별도 연결이 필요합니다. [사용법·설치·검증·제약](docs/stack-plugin-compatibility.md) · [기존 정밀 표시 구현](docs/imagej-workbench.md).
 
-**현재 검증:** 회귀 검사 122개와 실제 Windows AWT/Swing 창 검사 4개, 총 **126개**를 통과했습니다. 아래 이전 단계의 테스트 수는 당시 기록입니다. 접근할 수 없는 Linux 원본 XRT 4개는 이번 변경에서 검증하지 못했습니다.
+선택한 ROI를 Fiji Overlay로 전달하여 선택 영역을 사용하는 명령을 실행합니다. 사각형·타원·다각형·자유영역·선·점을 원본 좌표로 연결하며, Dataset만 처리하는 명령은 ROI를 무시할 수 있습니다. 실제 3D XRT TIFF 4개에서 첫·중간·마지막 페이지, 밝기·대비, 연속 탐색, 확대·이동, Fiji ROI 처리와 재열기·캐시 정리를 확인했습니다. [시간·메모리·제약과 검증 재현](docs/stack-validation.md).
+
+**현재 검증:** 회귀 검사 125개와 Windows AWT/Swing 창 검사 4개, 총 **129개**입니다. 아래 이전 단계의 테스트 수는 당시 기록입니다.
 
 ## 화면과 조작
 

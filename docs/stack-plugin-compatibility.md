@@ -51,7 +51,18 @@ Linux는 `.venv/bin/python`을 사용합니다. 앱의 **Fiji 라이브러리…
 {"value": 0.5, "preview": false, "allPlanes": true}
 ```
 
-위 인수는 `net.imagej.plugins.commands.assign.MultiplyDataValuesBy`에 사용할 수 있습니다. 현재 이미지의 ImagePlus/Dataset/ImageDisplay 입력을 자동으로 연결하고 SciJava 초기화·서비스 주입·입력 검증을 수행합니다. 이미지 출력 또는 수정된 입력 Dataset은 TIFF 작업 복사본으로 내부 뷰어에 반환하고 기타 출력은 로그에 표시합니다. SciJava의 출력 창 자동 표시 단계는 실행하지 않습니다. 다른 이미지나 임의 ImgLib2 객체·장치·특수 매개변수 연결은 현재 자동 제공하지 않습니다. **앱의 선택 ROI를 Fiji Overlay로 자동 변환하는 연결은 아직 없으므로**, Fiji 명령은 이미지 전체 대상으로 사용하고 선택 ROI 처리는 ImageJ 1 명령을 사용하세요.
+위 인수는 `net.imagej.plugins.commands.assign.MultiplyDataValuesBy`에 사용할 수 있습니다. 현재 이미지의 ImagePlus/Dataset/ImageDisplay 입력을 자동으로 연결하고 SciJava 초기화·서비스 주입·입력 검증을 수행합니다. 이미지 출력 또는 수정된 입력 Dataset은 TIFF 작업 복사본으로 내부 뷰어에 반환하고 기타 출력은 로그에 표시합니다. SciJava의 출력 창 자동 표시 단계는 실행하지 않습니다. 다른 이미지나 임의 ImgLib2 객체·장치·특수 매개변수 연결은 현재 자동 제공하지 않습니다.
+
+### 선택 ROI 전달 (Issue #39)
+
+- 앱에서 선택한 **사각형·타원·다각형·자유영역·직선·분할선·자유선·점**의 단일 경로를 Fiji Overlay로 전달합니다. 원본 XY 좌표와 Dataset의 XY 단위/눈금을 유지합니다. 선의 여러 구간은 LineOverlay의 합집합이며 영역으로 닫지 않습니다.
+- ImageDisplay에 선택 Overlay를 활성화하고, Command가 요구하는 `Overlay` 또는 호환되는 구체 Overlay 입력을 자동 연결합니다. 선택 ROI가 필요한데 없거나 입력 형태가 다르면 오류로 표시합니다. 복합 경로·텍스트·화살표·각도는 이 연결에서 거부합니다.
+- **Overlay 또는 ImageDisplay의 선택을 사용하는 명령**이 선택 영역을 처리합니다. Dataset만 순회하거나 ROI를 무시하는 외부 명령의 동작을 강제로 제한하지 않습니다. 선택 영역 지원 여부는 해당 명령을 확인하세요. 결과 로그에도 이 조건을 표시합니다. Java ROI Manager와 앱 목록의 양방향 동기화는 아직 없습니다.
+- 예: 사각형 ROI 선택 → Fiji 명령에서 위 클래스 검색 → `{"value":0.5,"preview":false,"allPlanes":false}` → 실행. 영역 안의 값만 절반으로 변경한 작업 복사본을 표시합니다. uint16 결과는 Fiji의 반올림 규칙을 따릅니다.
+- 전체 스택을 넘기면 현재 페이지 위치를 frames 축의 인덱스로 유지합니다. 위 명령에서 `allPlanes=false`는 현재 페이지, `true`는 **같은 XY 영역을 모든 페이지**에 적용합니다. ROI의 원래 페이지 속성을 모든 명령이 자동 존중하는 것은 아닙니다. 전체 스택 512 MiB 제한은 유지합니다.
+- big endian 16비트 TIFF도 Java short 배열에 값이 보존되도록 전달합니다. 원본 데이터 타입·바이트 순서는 읽기 전용 원본에 유지됩니다.
+
+[실제 4개 스택 검증 결과와 재현 방법](stack-validation.md)을 참고하세요.
 
 Fiji 런타임은 공식 portable no-Java ZIP(~907 MB)의 `jars/`, `plugins/` Java 라이브러리만 설치합니다. 실행 파일과 실제 데이터는 설치하지 않습니다. SHA256 `3ad5e202d6f1a5965265547e401c80e329f1af5529c4a69ec2096f8787877508`로 고정하고 경로 이탈·압축 해제 용량을 검사합니다. `--archive`로 이미 받은 ZIP을 사용할 수 있습니다. 공식 latest URL이 바뀌어 해시가 달라지면 설치를 거부하므로 새 파일은 검토 후 핀을 갱신해야 합니다. 기존의 다른 라이브러리 폴더를 덮어쓰지 않습니다.
 

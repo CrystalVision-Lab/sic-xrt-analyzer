@@ -4,6 +4,7 @@ import json
 import os
 import shutil
 import subprocess
+from itertools import pairwise
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from threading import Event, RLock, Thread
@@ -147,7 +148,8 @@ class ImageJRuntime:
                 else:
                     flat = pixels.reshape(-1)
                     if meta.dtype == 'uint16':
-                        flat = flat.view(np.int16)
+                        # ImageJ short[] is native endian; ImageJ TIFF stacks may be >u2.
+                        flat = flat.astype(np.uint16, copy=False).view(np.int16)
                     elif meta.dtype == 'uint8':
                         flat = flat.view(np.int8)
                     else:
@@ -221,7 +223,7 @@ class ImageJRuntime:
             before_log = self.IJ.getLog() or ''
             modern_outputs = {}
             if modern:
-                modern_outputs = self.run_modern(modern, options)
+                modern_outputs = self.run_modern(modern, options, record)
             elif edit:
                 self.edit(*edit)
             elif plugin:
@@ -409,7 +411,41 @@ class ImageJRuntime:
                             'inputs': ', '.join(f'{item.getName()}: {item.getType().getSimpleName()}' for item in info.inputs())}
                            for info in engine.command().getCommands()], key=lambda c:c['label'].lower())
 
-    def run_modern(self, class_name, options):
+    def modern_selection(self, engine, record):
+        """Translate only the current app selection, not stale ImageJ overlays."""
+        if record is None:
+            return None
+        if len(record.paths) != 1 or record.tool in ('Text', 'Arrow', 'Angle'):
+            raise ValueError('Fiji 선택 ROI는 사각형·타원·다각형·자유영역·선·점의 단일 경로를 지원합니다')
+        if record.kind == 'line':
+            # The Fiji legacy harmonizer leaves polyline/free-line ROIs empty.
+            # Use a union of exact segments; never close a line into an area mask.
+            points = record.paths[0]
+            parts = [self.jp.JClass('net.imagej.overlay.LineOverlay')(
+                engine.context(),self.jp.JArray(self.jp.JDouble)(a),self.jp.JArray(self.jp.JDouble)(b))
+                for a,b in pairwise(points)]
+            if not parts:
+                raise ValueError('선 ROI에는 두 개 이상의 좌표가 필요합니다')
+            if len(parts) == 1:
+                overlay = parts[0]
+            else:
+                overlay = self.jp.JClass('net.imagej.overlay.CompositeOverlay')(engine.context(),2)
+                overlay.startWith(parts[0])
+                for part in parts[1:]:
+                    overlay.or_(part)
+            overlay.setName(record.name)
+            return overlay
+        holder = self.jp.JClass('ij.ImagePlus')()
+        holder.setRoi(self.image.getRoi().clone())
+        harmonizer = self.jp.JClass('net.imagej.legacy.translate.OverlayHarmonizer')(engine.context())
+        overlays = harmonizer.getOverlays(holder)
+        if overlays.size() != 1:
+            raise ValueError('선택 ROI를 하나의 Fiji Overlay로 변환할 수 없습니다')
+        overlay = overlays.get(0)
+        overlay.setName(record.name)
+        return overlay
+
+    def run_modern(self, class_name, options, record=None):
         engine = self.modern_engine()
         args = json.loads(options or '{}')
         if not isinstance(args, dict):
@@ -424,10 +460,13 @@ class ImageJRuntime:
         dataset_type = self.jp.JClass('net.imagej.Dataset')
         dataset = None
         display = None
+        overlay = self.modern_selection(engine, record)
         if self.image.getStackSize() > 1:
             # ImageJ needs C/Z/T dimensions. Use frames solely as a page-order
             # interoperability axis, without assigning physical Z or time spacing.
+            page = self.image.getCurrentSlice()
             self.image.setDimensions(1, 1, self.image.getStackSize())
+            self.image.setPosition(1, 1, page)
         try:
             for item in info.inputs():
                 name, type_name = str(item.getName()), str(item.getType().getName())
@@ -448,9 +487,29 @@ class ImageJRuntime:
                     if type_name == 'net.imagej.display.ImageDisplay':
                         if display is None:
                             display = engine.imageDisplay().createImageDisplay(dataset)
+                            # The frames axis is an interoperability page index only.
+                            axes = self.jp.JClass('net.imagej.axis.Axes')
+                            if dataset.dimensionIndex(axes.TIME) >= 0:
+                                display.setPosition(self.image.getFrame() - 1, axes.TIME)
+                            if overlay is not None:
+                                overlays = self.jp.JClass('java.util.ArrayList')()
+                                overlays.add(overlay)
+                                engine.overlay().addOverlays(display, overlays)
+                                for view in display:
+                                    if view.getData() == overlay:
+                                        view.setSelected(True)
+                                display.update()
                         values.put(name, display)
                     else:
                         values.put(name, dataset)
+                elif type_name.startswith('net.imagej.overlay.'):
+                    if overlay is None:
+                        if item.isRequired():
+                            raise ValueError('이 Fiji 명령에는 선택 ROI가 필요합니다')
+                    elif not item.getType().isInstance(overlay):
+                        raise ValueError(name + ': 선택 ROI와 명령의 Overlay 형식이 다릅니다')
+                    else:
+                        values.put(name, overlay)
                 elif name in args:
                     value = args[name]
                     if type_name in ('boolean','java.lang.Boolean') and type(value) is not bool:
@@ -484,6 +543,9 @@ class ImageJRuntime:
         if module.isCanceled():
             raise ValueError('ImageJ2 명령이 취소되었습니다: ' + str(module.getCancelReason()))
         outputs = {}
+        if record is not None:
+            outputs['selection'] = ('선택 ROI: ' + record.name + ' · 원본 XY 좌표 · '
+                                    'Overlay/ImageDisplay를 사용하는 명령에 적용됩니다. Dataset만 처리하는 명령은 ROI를 무시할 수 있습니다.')
         image_output = False
         for name in module.getOutputs().keySet():
             output = module.getOutput(name)
