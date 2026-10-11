@@ -38,7 +38,7 @@ AGENTS.md 수정도 보존한다. 작업 환경은 D 프로젝트이며 실행 �
 ### 로컬 결과 (2026-10-12)
 
 - 관련 UI 검사는 101개가 통과했다(기존 그룹 34개, 두 번째 그룹 63개와 수정된 4개 재검사). 신규 3개 검사를 포함한다.
-- 최초 새 검사에서 모델 입력 형식/ROI 변경 확인/결과 레이아웃 반영 대기를 빠뜨린 fixture 오류와, 기존 long-filename 검사의 항상 열린 패널 가정이 실패했다. 기존 입력 제한 및 ROI 확인 로직은 유지하고 검사 준비를 수정했다. 최종 해당 4개 PASS, 8.20초 실행 명령 exit0.
+- 최초 새 검사에서 모델 입력 형식/ROI 변경 확인/결과 레이아웃 반영 대기를 빠뜨린 fixture 오류와, 기존 long-filename 검사의 항상 열린 패널 가정이 실패했다. 기존 입력 제한 및 ROI 확인 로직은 유지하고 검사 준비를 수정했다. 최종 해당 4개 PASS, pytest 6.90초, exit0.
 - Ruff, compileall, 변경 파일 whitespace 검사 PASS. 사용자 AGENTS.md SHA256는 작업 전후 동일하다.
 - Windows native Qt 합성 TIFF 화면 1100×700/1440×900 캡처 확인, QML 경고 0. 캡처는 ignored artifacts에 보관한다.
 - 전체 Linux 회귀와 PR 정책 CI 결과는 연결 PR에서 확인한다. 이번 작업에서는 원본 XRT 성능이나 Native Dialog 안정성을 다시 판정하지 않는다.
