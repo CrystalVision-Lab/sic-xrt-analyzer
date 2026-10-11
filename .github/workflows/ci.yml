@@ -18,17 +18,33 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: "17"
+          java-version: "21"
       - name: Install Qt runtime libraries
-        run: sudo apt-get update && sudo apt-get install -y libegl1 libopengl0
-      - run: python -m pip install -e ".[dev,viewer,imagej,research]"
+        run: sudo apt-get update && sudo apt-get install -y libegl1 libopengl0 xvfb libxkbcommon-x11-0 libxcb-cursor0 libxcb-icccm4 libxcb-keysyms1 libxcb-shape0 libxcb-xinerama0 libxcb-randr0 libxcb-render-util0
+      # Keep the viewer comparison on TD-12's validated Qt runtime. Full-suite
+      # finalization under 6.12 remains a separate compatibility investigation.
+      - run: python -m pip install -e ".[dev,viewer,imagej,research]" "PySide6==6.11.2"
       - run: python tools/setup_imagej.py
+      - uses: actions/cache@v4
+        with:
+          path: artifacts/fiji-runtime
+          key: fiji-java-libraries-${{ hashFiles('tools/setup_fiji.py') }}
+      - run: python tools/setup_fiji.py
       - run: ruff check .
       - run: python -c "import sic_xrt_analyzer"
       - run: python -m compileall -q src
+      - name: Build desktop wheel
+        run: python -m pip wheel --no-deps --no-build-isolation . --wheel-dir dist
       - run: pytest -q
         env:
           QT_QPA_PLATFORM: offscreen
+          SIC_XRT_FIJI_HOME: artifacts/fiji-runtime
+      - name: Verify real plugin windows on Linux X11
+        if: success() || failure()
+        run: xvfb-run -a pytest -q tests/test_stack_compatibility.py -k gui_plugin
+        env:
+          QT_QPA_PLATFORM: xcb
+          QSG_RENDER_LOOP: basic
       - name: Validate PR policy
         if: github.event_name == 'pull_request'
         env:

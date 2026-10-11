@@ -1,5 +1,11 @@
 import QtQuick
 QtObject {
+    id: root
+    property QtObject analysisFlow: AnalysisFlowState { uiState: root }
+    property QtObject resultPresentation: ResultPresentation {}
+    property QtObject roiFlow: RoiFlowState { uiState: root }
+    property QtObject loadFlow: TiffLoadState { uiState: root }
+    property QtObject roiInteraction: null
     property string filePath: ""
     property string fileName: ""
     property int workspaceIndex: 0
@@ -15,13 +21,14 @@ QtObject {
     property int bitDepth: 0
     property int pageCount: 0
     property int pageIndex: 0
+    property bool workingStackContext: false
     property string dtype: ""
     property string imageFormat: ""
     property int previewWidth: 0
     property int previewHeight: 0
     property bool sampledPreview: false
     property bool opening: false
-    readonly property bool loading: opening || !!stack.initialLoading
+    readonly property bool loading: opening || (!!stack.initialLoading && !stack.frameViewable)
     property string loadError: ""
     property bool hasRoi: false
     property bool selectingRoi: false
@@ -43,7 +50,40 @@ QtObject {
     property var importedRois: fileBridge.roiState
     property bool roiEditMode: false
     property var detail: fileBridge.detailState
-    property string analysisScope: ""
+    property string analysisScope: "FULL_IMAGE"
+    property string analysisPointMode: "contrast_proposals"
+    property var research: fileBridge.research.state
+    property bool autoCandidateRoi: true
+    property int candidateRoiSize: 128
+    property string candidateRoiId: ""
+    function stopCandidateRoiTracking() {
+        candidateRoiId = ""
+        autoCandidateRoi = false
+    }
+    function updateCandidateRoi() {
+        var candidate = research.selected || ({})
+        if (!autoCandidateRoi || !candidate.id || !hasLoadedImage || !hasResult || loading || analysisRunning || contentWidth <= 0 || contentHeight <= 0) return
+        var w = Math.min(candidateRoiSize, contentWidth), h = Math.min(candidateRoiSize, contentHeight)
+        var x = Math.max(0, Math.min(contentWidth - w, Math.round(candidate.x - w / 2)))
+        var y = Math.max(0, Math.min(contentHeight - h, Math.round(candidate.y - h / 2)))
+        candidateRoiId = candidate.id
+        roiStartX = x / contentWidth; roiStartY = y / contentHeight
+        roiEndX = (x + w) / contentWidth; roiEndY = (y + h) / contentHeight
+        hasRoi = true; selectingRoi = false; roiLayerVisible = true
+        statusText = "후보 #" + candidate.number + " 탐색 ROI · " + w + " × " + h + " px"
+    }
+    onAutoCandidateRoiChanged: {
+        if (autoCandidateRoi) updateCandidateRoi()
+        else candidateRoiId = ""
+    }
+    onCandidateRoiSizeChanged: updateCandidateRoi()
+    onResearchChanged: {
+        if (candidateRoiId && !(research.selected || ({})).id) {
+            candidateRoiId = ""
+            hasRoi = false
+        }
+    }
+    property bool analysisLayerVisible: true
     readonly property bool modelAvailable: analysis.modelAvailable
     readonly property bool analysisRunning: analysis.state === "RUNNING"
     readonly property bool hasResult: analysis.hasResult
@@ -58,14 +98,19 @@ QtObject {
     readonly property bool projectModified: false
     readonly property bool hasSelectedFile: filePath.length > 0
     readonly property bool hasLoadedImage: imageSource.length > 0 && hasSelectedFile
+    readonly property bool stackFeaturesVisible: workspaceIndex === 0 && hasLoadedImage && imageFormat === "TIFF" && (pageCount > 1 || workingStackContext)
     readonly property bool hasImage: demoMode || hasLoadedImage
     readonly property int contentWidth: demoMode ? 960 : imageWidth
     readonly property int contentHeight: demoMode ? 600 : imageHeight
     readonly property bool canNavigateImage: workspaceIndex === 0 && hasImage && !loading && !fileBridge.imagej.state.busy
-    readonly property bool canAnalyze: hasLoadedImage && analysis.sourceReady && modelAvailable && !analysisRunning && !loading && !pageLoading && analysis.supportedScopes.indexOf(analysisScope) >= 0 && (analysisScope === "FULL_IMAGE" || (analysisScope === "ROI" && hasRoi && roiWidth > 0 && roiHeight > 0))
-    readonly property string analysisReason: analysis.errorMessage || (!modelAvailable ? "승인된 모델이 연결되지 않았습니다" : !analysis.sourceReady ? "원본 TIFF를 여세요" : analysisRunning ? "분석 중입니다" : !analysisScope ? "분석 범위를 선택하세요" : analysis.supportedScopes.indexOf(analysisScope) < 0 ? "모델이 선택한 분석 범위를 지원하지 않습니다" : analysisScope === "ROI" && !hasRoi ? "ROI를 선택하세요" : "원본 TIFF 분석")
+    readonly property var inputPreflight: analysis.inputPreflight || ({state: "UNKNOWN", isCompatible: false})
+    readonly property string inputCompatibilityState: loading || pageLoading ? "UNKNOWN" : inputPreflight.state
+    readonly property bool inputCompatible: !loading && !pageLoading && inputPreflight.isCompatible === true
+    readonly property bool canAnalyze: generalReady && inputCompatible
+    readonly property bool generalReady: hasLoadedImage && analysis.sourceReady && modelAvailable && !analysisRunning && !loading && !pageLoading && analysis.supportedScopes.indexOf(analysisScope) >= 0 && (analysisScope === "FULL_IMAGE" || (analysisScope === "ROI" && hasRoi && roiWidth > 0 && roiHeight > 0))
+    readonly property string analysisReason: analysis.errorMessage || (!modelAvailable ? "승인된 모델이 연결되지 않았습니다" : !analysis.sourceReady ? "원본 TIFF 또는 JPG를 여세요" : analysisRunning ? "분석 중입니다" : !analysisScope ? "분석 범위를 선택하세요" : inputCompatibilityState === "ERROR" ? inputPreflight.message : analysis.supportedScopes.indexOf(analysisScope) < 0 ? "모델이 선택한 분석 범위를 지원하지 않습니다" : analysisScope === "ROI" && !hasRoi ? "ROI를 선택하세요" : !inputCompatible ? inputPreflight.message : "원본 이미지 분석")
     readonly property string workflowLabel: loading ? "로딩 중" : loadError ? "파일 오류" : hasImage ? (hasRoi ? "ROI 선택됨" : "이미지 준비 완료") : "이미지 없음"
-    readonly property string viewerStatus: loading ? "로딩 중" : loadError || stack.error ? "파일 오류" : pageLoading ? "페이지 로딩 중" : hasImage ? "준비 완료" : "이미지 없음"
+    readonly property string viewerStatus: loadFlow.statusLabel
     readonly property real effectiveZoom: fitMode ? fitZoom : zoom
     readonly property string zoomLabel: canNavigateImage ? (fitMode ? "FIT" : (Math.round(effectiveZoom * 1000) / 10) + "%") : "—"
     function pixelEdge(normalized, extent) {

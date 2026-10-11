@@ -8,7 +8,8 @@ QtObject {
     readonly property color border: "#343c43"
     readonly property color text: "#e4e8eb"
     readonly property color muted: "#929da6"
-    readonly property color disabled: "#77828a"
+    readonly property color disabled: "#87939d"
+    readonly property color borderSubtle: "#2d353c"
     readonly property color accent: "#45c3cf"
     readonly property color accentPale: "#253a40"
     readonly property color success: "#68ba8b"
@@ -21,15 +22,31 @@ QtObject {
     readonly property string fontFamily: "Segoe UI"
     readonly property string monoFontFamily: "Consolas"
     readonly property int space: 8
+    readonly property int spacingXs: 4
+    readonly property int spacingSm: 8
+    readonly property int spacingMd: 12
+    readonly property int spacingLg: 16
+    readonly property int spacingXl: 24
+    readonly property int radiusSm: 4
+    readonly property int radiusControl: 6
+    readonly property int radiusDialog: 8
+    readonly property int compactHeight: 28
+    readonly property int primaryHeight: 36
+    readonly property int toolbarButtonHeight: 32
+    readonly property int menuRowHeight: 32
+    readonly property int listRowHeight: 40
+    readonly property int iconSize: 18
+    readonly property int toolbarIconSize: 20
+    readonly property int metricSize: 22
     readonly property int panelWidth: 282
     readonly property int navigationWidth: 184
     readonly property int toolbarHeight: 80
     readonly property int statusHeight: 28
-    readonly property int controlHeight: 28
-    readonly property int bodySize: 12
-    readonly property int smallSize: 11
+    readonly property int controlHeight: 32
+    readonly property int bodySize: 13
+    readonly property int smallSize: 12
     readonly property int captionSize: 11
-    readonly property int sectionSize: 11
+    readonly property int sectionSize: 13
     readonly property int emptyTitleSize: 17
-    readonly property int titleSize: 14
+    readonly property int titleSize: 15
 }

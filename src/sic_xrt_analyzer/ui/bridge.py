@@ -24,17 +24,24 @@ from sic_xrt_analyzer.analysis.contracts import (
     AnalysisState,
     Region,
 )
+from sic_xrt_analyzer.analysis.input_preflight import input_preflight
 from sic_xrt_analyzer.analysis.pipeline import AnalysisPipeline
 from sic_xrt_analyzer.imaging.image_stack import open_stack
-from sic_xrt_analyzer.imaging.original_source import OriginalImageSource
+from sic_xrt_analyzer.imaging.original_source import OriginalPixelSource
 from sic_xrt_analyzer.imaging.roi_edit import export_copy
-from sic_xrt_analyzer.ui import prepared_view  # noqa: F401  (register QML type)
+from sic_xrt_analyzer.ui import (
+    native_plugin_window,  # noqa: F401  (register QML type)
+    prepared_view,  # noqa: F401  (register QML type)
+)
 from sic_xrt_analyzer.ui.detail_reader import DetailReader
 from sic_xrt_analyzer.ui.imagej_workbench import ImageJWorkbench
 from sic_xrt_analyzer.ui.latest_reader import LatestReader
+from sic_xrt_analyzer.ui.native_file_dialog import NativeFileDialogs
 from sic_xrt_analyzer.ui.pixel_reader import PixelReader
+from sic_xrt_analyzer.ui.research_controller import ResearchController
 from sic_xrt_analyzer.ui.roi_manager import RoiManager
 from sic_xrt_analyzer.ui.stack_controller import StackController
+from sic_xrt_analyzer.ui.stack_measurements import StackMeasurements
 
 DEFAULTS = {
     "smoothImages": True,
@@ -52,8 +59,11 @@ class TiffImageProvider(QQuickImageProvider):
         super().__init__(QQuickImageProvider.Image)
         self.image = QImage()
         self.detail_image = QImage()
+        self.research_image = QImage()
 
     def requestImage(self, image_id: str, size: QSize, requested_size: QSize) -> QImage:
+        if image_id.startswith('research'):
+            return self.research_image
         return self.detail_image if image_id.startswith('detail') else self.image
 
 
@@ -70,9 +80,12 @@ class FileBridge(QObject):
 
     def __init__(self, provider=None, parent=None, settings=None):
         super().__init__(parent)
+        self.native_dialogs = NativeFileDialogs(self)
         self.provider = provider or TiffImageProvider()
         self.revision = 0
         self._working_path = ''
+        self._pending_working_path = ''
+        self._stack_context = False
         self.stack_viewer = StackController(self)
         self.stack_viewer.changed.connect(self.stackChanged)
         self.stack_viewer.frameReady.connect(self._on_frame)
@@ -89,8 +102,11 @@ class FileBridge(QObject):
         self.roi_exporter.ready.connect(self._on_roi_saved)
         self.pipeline = AnalysisPipeline(parent=self)
         self.workbench = ImageJWorkbench(self)
+        self.measurements = StackMeasurements(self)
         self.pipeline.changed.connect(self.analysisChanged)
+        self.stack_viewer.changed.connect(self.analysisChanged)
         self._settings = settings or QSettings("CrystalVision-Lab", "sic-xrt-analyzer")
+        self.research_controller = ResearchController(self)
         stored = self._settings.value("preferences", {})
         self._preferences = self._validated(stored if isinstance(stored, dict) else {})
         recent = self._settings.value("recentFiles", [])
@@ -120,6 +136,10 @@ class FileBridge(QObject):
     def recentFiles(self):
         return self._recent_files
 
+    @Property(QObject, constant=True)
+    def nativeDialogs(self):
+        return self.native_dialogs
+
     @Property(str, constant=True)
     def appVersion(self):
         try:
@@ -141,6 +161,8 @@ class FileBridge(QObject):
         low, high = s.window or (0.0, 65535.0)
         return {
             "busy": s.busy, "error": s.error, "revision": self.revision,
+            "frameViewable": f is not None and s.opening_request is None,
+            "openingPath": s.opening_request.path if s.opening_request else "",
             "initialLoading": s.initial_loading,
             "preparing": s.preparing,
             "preload": s.preload_state, "preloadError": s.preload_error,
@@ -162,7 +184,7 @@ class FileBridge(QObject):
 
     @Slot(int, result=bool)
     def requestPage(self, page):
-        if self.stack_viewer.frame is None or not 0 <= page < self.stack_viewer.frame.source.metadata.page_count:
+        if self.stack_viewer.initial_loading or self.stack_viewer.frame is None or not 0 <= page < self.stack_viewer.frame.source.metadata.page_count:
             return False
         if page != self.stack_viewer.frame.source.page_index:
             self.pipeline.invalidate()
@@ -361,6 +383,8 @@ class FileBridge(QObject):
     def analysis(self):
         p = self.pipeline
         adapter = p.adapter
+        preflight = input_preflight(adapter, p.source,
+                                    waiting=self.stack_viewer.busy or self.stack_viewer.opening_request is not None)
         # Detailed adapter errors stay in Python/logs, never in ordinary UI text.
         messages = {
             "CANCELED": "분석이 취소되었습니다",
@@ -378,9 +402,10 @@ class FileBridge(QObject):
             "modelName": adapter.model_name if adapter else "",
             "modelVersion": adapter.model_version if adapter else "",
             "device": (adapter.device or "") if adapter else "",
-            "supportedScopes": [s.value for s in adapter.input_contract.supported_scopes] if adapter else [],
+            "supportedScopes": preflight["modelExpected"].get("supportedScopes", []),
+            "inputPreflight": preflight,
             "sourceReady": p.source is not None,
-            "inputSource": "Original TIFF" if p.source else "",
+            "inputSource": f"Original {p.source.metadata.format}" if p.source else "",
             "scope": p.result.scope.value if p.result else "",
             "analysisId": p.result.analysis_id if p.result else "",
             "hasResult": bool(p.result and p.result.status == AnalysisState.COMPLETED),
@@ -399,8 +424,10 @@ class FileBridge(QObject):
         if self.pipeline.adapter is None or not self.pipeline.adapter.available:
             return self.pipeline.reject(AnalysisError("MODEL_NOT_AVAILABLE", "승인된 모델이 연결되지 않았습니다"))
         if self.pipeline.source is None:
-            return self.pipeline.reject(AnalysisError("INVALID_INPUT", "원본 TIFF를 여세요"))
+            return self.pipeline.reject(AnalysisError("INVALID_INPUT", "원본 TIFF 또는 JPG를 여세요"))
         try:
+            if getattr(self.pipeline.adapter, "research_only", False):
+                parameters = self.research_controller.parameters(parameters)
             explicit_scope = AnalysisScope(scope)
             request = AnalysisRequest(self.pipeline.source, explicit_scope,
                                       self.pipeline.adapter.model_id, self.pipeline.adapter.model_version,
@@ -493,13 +520,15 @@ class FileBridge(QObject):
 
     @Slot(str)
     def requestImage(self, url):
+        if self.workbench.windows:
+            self.workbench.cancel()
         self.workbench.runtime.session += 1
         self._request_image(url)
 
     def _request_image(self, url):
         if self.workbench.busy:
             self.workbench.cancel()
-        self._working_path = ''
+        self._pending_working_path = ''
         self.pipeline.invalidate()
         self.pixel_reader.clear()
         self.detail_reader.clear()
@@ -511,15 +540,23 @@ class FileBridge(QObject):
     @Slot(str)
     def requestWorkingCopy(self, path):
         self._request_image(self.localUrl(path))
-        self._working_path = path
+        self._pending_working_path = path
 
     @Slot(object, bool)
     def _on_frame(self, frame, opening):
+        if opening:
+            self._working_path = self._pending_working_path
         working = frame.source.path == self._working_path
+        if opening and not working:
+            self._stack_context = frame.source.metadata.format == 'TIFF' and frame.source.metadata.page_count > 1
+        if opening and (not working or self.original_source is None or
+                        (frame.source.metadata.width,frame.source.metadata.height) != (self.original_source.metadata.width,self.original_source.metadata.height)):
+            self.measurements.reset()
         if working and self.original_source and (frame.source.metadata.width, frame.source.metadata.height) != (self.original_source.metadata.width, self.original_source.metadata.height):
             self.roi_manager.clear()
         result = self._publish(frame.source.path, frame.preview, frame.source, record_recent=opening and not working)
         result['workingCopy'] = working
+        result['stackContext'] = self._stack_context
         result["browsePreview"] = frame.pixels is None and frame.source.metadata.page_count > 1
         (self.imageOpened if opening else self.pageChanged).emit(result)
         self.roisChanged.emit()
@@ -535,7 +572,7 @@ class FileBridge(QObject):
         if record_recent:
             self.roi_manager.clear()
         self.original_source = original
-        if not isinstance(original, OriginalImageSource):
+        if not isinstance(original, OriginalPixelSource):
             self.pipeline.set_source(None)
         elif self.pipeline.source is None or self.pipeline.source.identity != original.identity:
             self.pipeline.set_source(original)
@@ -557,6 +594,11 @@ class FileBridge(QObject):
 
     @Slot()
     def clearImage(self):
+        self.workbench.cancel()
+        self.workbench.runtime.session += 1
+        self._working_path = ''
+        self._pending_working_path = ''
+        self._stack_context = False
         self.stack_viewer.clear()
         self.pixel_reader.clear()
         self.roi_manager.clear()
@@ -567,8 +609,10 @@ class FileBridge(QObject):
 
     @Slot()
     def waitForLoads(self):
+        self.native_dialogs.shutdown()
         # Keep worker signal objects alive until decoding ends during shutdown.
-        if self.workbench.busy:
+        self.research_controller.thumbnail_loader.shutdown()
+        if self.workbench.busy or self.workbench.windows:
             self.workbench.cancel()
         self.workbench.reader.shutdown()
         self.stack_viewer.shutdown()
@@ -577,11 +621,20 @@ class FileBridge(QObject):
         self.roi_manager.shutdown()
         self.roi_exporter.shutdown()
         self.pipeline.shutdown()
+        self.research_controller.loader.shutdown()
         self.workbench.shutdown()
+
+    @Property(QObject, constant=True)
+    def research(self):
+        return self.research_controller
 
     @Property(QObject, constant=True)
     def imagej(self):
         return self.workbench
+
+    @Property(QObject, constant=True)
+    def stackMeasurements(self):
+        return self.measurements
 
     @Slot(str)
     def copyText(self, value):

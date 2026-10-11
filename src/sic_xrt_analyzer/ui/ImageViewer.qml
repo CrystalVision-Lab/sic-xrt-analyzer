@@ -15,9 +15,34 @@ Rectangle {
     property real pressY: 0
     property real pressPanX: 0
     property real pressPanY: 0
+    property real focusZoom: 1
+    property real focusPanX: 0
+    property real focusPanY: 0
+    function focusCandidate(x, y) {
+        if (!uiState.hasLoadedImage || uiState.loading || !uiState.hasResult || !uiState.research.selected.id || uiState.research.selected.x !== x || uiState.research.selected.y !== y) return
+        focusAnimation.stop()
+        var current = displayScale
+        uiState.zoom = current * uiState.displayPixelRatio
+        uiState.fitMode = false
+        var span = uiState.candidateRoiId ? Math.max(192, uiState.candidateRoiSize * 1.3) : 192
+        var target = Math.max(fitScale, Math.min(4, Math.min(viewport.width, viewport.height) / span))
+        focusZoom = target * uiState.displayPixelRatio
+        focusPanX = (uiState.contentWidth / 2 - x) * target
+        focusPanY = (uiState.contentHeight / 2 - y) * target
+        uiState.analysisLayerVisible = true
+        focusAnimation.start()
+    }
+    ParallelAnimation {
+        id: focusAnimation; objectName: "candidateFocusAnimation"
+        NumberAnimation { target: root.uiState; property: "zoom"; to: root.focusZoom; duration: 450; easing.type: Easing.InOutCubic }
+        NumberAnimation { target: root; property: "panX"; to: root.focusPanX; duration: 450; easing.type: Easing.InOutCubic }
+        NumberAnimation { target: root; property: "panY"; to: root.focusPanY; duration: 450; easing.type: Easing.InOutCubic }
+    }
     property bool draggingVertex: false
     property var toolPoints: []
     property bool drawingTool: false
+    Binding { target: root.uiState; property: "roiInteraction"; value: root }
+    function cancelToolDrawing() { toolPoints = []; drawingTool = false; toolPreview.requestPaint() }
     function finishTool() {
         if (toolPoints.length) fileBridge.imagej.gesture(uiState.activeTool, toolPoints)
         toolPoints = []; drawingTool = false; toolPreview.requestPaint()
@@ -32,7 +57,7 @@ Rectangle {
     Binding { target: root.uiState; property: "fitZoom"; value: root.fitScale * root.uiState.displayPixelRatio }
     signal fileDropped(string url)
     color: theme.viewer
-    function resetPan() { panX = 0; panY = 0 }
+    function resetPan() { focusAnimation.stop(); panX = 0; panY = 0 }
     function focusView() { viewerMouse.forceActiveFocus() }
     function syncDetailView() {
         if (uiState.stack.preparedDisplay || !uiState.hasLoadedImage || uiState.loading || !uiState.sampledPreview || uiState.pageCount !== 1 || displayScale <= 0) { fileBridge.clearDetail(); return }
@@ -48,6 +73,12 @@ Rectangle {
         target: root.uiState
         function onImageSourceChanged() { Qt.callLater(root.syncDetailView) }
         function onLoadingChanged() { Qt.callLater(root.syncDetailView) }
+        function onActiveToolChanged() { root.cancelToolDrawing() }
+        function onRoiEditModeChanged() { root.cancelToolDrawing() }
+        function onPageIndexChanged() { root.cancelToolDrawing() }
+        function onOpeningChanged() { if (uiState.opening) root.cancelToolDrawing() }
+        function onResearchChanged() { if (!uiState.research.selected.id) focusAnimation.stop() }
+        function onHasResultChanged() { if (!uiState.hasResult) focusAnimation.stop() }
     }
     function stepPage(delta) {
         if (uiState.hasLoadedImage && uiState.pageCount > 1 && !uiState.loading)
@@ -59,27 +90,17 @@ Rectangle {
         if (uiState.defaultView === "fit") fitView()
         else setActualZoom(uiState.defaultView === "actual" ? 1 : uiState.defaultView === "125" ? 1.25 : 2)
     }
-    function zoomIn() { if (uiState.canNavigateImage) { uiState.zoom = Math.min(16, uiState.effectiveZoom * 1.25); uiState.fitMode = false } }
-    function zoomOut() { if (uiState.canNavigateImage) { uiState.zoom = Math.max(0.01, uiState.effectiveZoom / 1.25); uiState.fitMode = false } }
+    function zoomIn() { focusAnimation.stop(); if (uiState.canNavigateImage) { uiState.zoom = Math.min(16, uiState.effectiveZoom * 1.25); uiState.fitMode = false } }
+    function zoomOut() { focusAnimation.stop(); if (uiState.canNavigateImage) { uiState.zoom = Math.max(0.01, uiState.effectiveZoom / 1.25); uiState.fitMode = false } }
     function imagePoint(x, y) {
         return Qt.point(Math.max(0, Math.min(1, (x - imageFrame.x) / imageFrame.width)), Math.max(0, Math.min(1, (y - imageFrame.y) / imageFrame.height)))
     }
     ColumnLayout {
         anchors.fill: parent
         spacing: 0
-        Rectangle {
+        ViewerHeader {
             Layout.fillWidth: true; Layout.preferredHeight: 52
-            color: theme.viewerHeader
-            RowLayout {
-                anchors.fill: parent; anchors.margins: 12; spacing: 14
-                ColumnLayout {
-                    spacing: 3; Layout.fillWidth: true
-                    Text { text: "XRT VIEWER"; color: theme.muted; font.family: theme.fontFamily; font.pixelSize: 11 }
-                    Text { text: uiState.demoMode ? "합성 데모 · 실제 XRT 데이터 아님" : uiState.fileName || "XRT 이미지 없음"; color: theme.text; font.family: theme.fontFamily; font.pixelSize: 12; elide: Text.ElideMiddle; Layout.fillWidth: true }
-                }
-                Text { text: uiState.hasImage ? uiState.contentWidth + " × " + uiState.contentHeight + (uiState.demoMode ? " · 데모" : " · " + uiState.dtype + " · " + (uiState.pageIndex + 1) + "/" + uiState.pageCount) : "TIFF / JPG"; color: theme.muted; font.family: theme.monoFontFamily; font.pixelSize: 11 }
-                StatusIndicator { theme: root.theme; text: uiState.roiEditMode ? "ROI 편집" : uiState.activeTool.toUpperCase(); ink: theme.accent; visible: uiState.canNavigateImage }
-            }
+            theme: root.theme; uiState: root.uiState
         }
         Rectangle {
             id: viewport
@@ -99,7 +120,14 @@ Rectangle {
                 y: (viewport.height - height) / 2 + root.panY
                 onXChanged: Qt.callLater(root.syncDetailView)
                 onYChanged: Qt.callLater(root.syncDetailView)
-                DemoImage { theme: root.theme; anchors.fill: parent; visible: uiState.demoMode }
+                // A hidden Canvas still receives size changes/requestPaint.
+                // Never allocate the synthetic demo's image-sized backing store
+                // while a large real image is being zoomed.
+                Loader {
+                    objectName: "demoImageLoader"; anchors.fill: parent
+                    active: uiState.demoMode
+                    sourceComponent: Component { DemoImage { theme: root.theme } }
+                }
                 Image { objectName: "tiffImage"; anchors.fill: parent; source: uiState.imageSource; visible: uiState.hasLoadedImage && !uiState.demoMode && !uiState.stack.preparedDisplay; smooth: uiState.smoothImages; cache: false }
                 Image {
                     objectName: "detailImage"; visible: uiState.detail.ready
@@ -120,6 +148,9 @@ Rectangle {
             PreparedView {
                 objectName: "preparedImageView"; anchors.fill: parent
                 visible: uiState.hasLoadedImage && uiState.stack.preparedDisplay
+                // Match native QPainter sampling at the final scene-graph texture.
+                // Fractional-DPI item origins otherwise blur neighbouring pixels.
+                smooth: root.displayScale * uiState.displayPixelRatio < 1
                 bridge: fileBridge; viewTransform: [imageFrame.x, imageFrame.y, root.displayScale]
                 revision: uiState.stack.revision
             }
@@ -143,7 +174,9 @@ Rectangle {
                 }
                 cursorShape: uiState.roiEditMode ? Qt.CrossCursor : uiState.activeTool === "Pan" ? (pressed ? Qt.ClosedHandCursor : Qt.OpenHandCursor) : Qt.CrossCursor
                 onPressed: function(mouse) {
+                    focusAnimation.stop()
                     forceActiveFocus()
+                    if (uiState.analysisRunning && uiState.activeTool === "ROI" && !uiState.roiEditMode) return
                     root.pressX = mouse.x; root.pressY = mouse.y; root.pressPanX = root.panX; root.pressPanY = root.panY
                     if (uiState.roiEditMode) {
                         var editPoint = root.imagePoint(mouse.x, mouse.y)
@@ -162,6 +195,7 @@ Rectangle {
                         toolPreview.requestPaint(); return
                     }
                     if (uiState.activeTool !== "Pan") {
+                        uiState.stopCandidateRoiTracking()
                         uiState.selectingRoi = true
                         var p = root.imagePoint(mouse.x, mouse.y)
                         uiState.roiStartX = p.x; uiState.roiStartY = p.y
@@ -173,7 +207,7 @@ Rectangle {
                     var p = root.imagePoint(mouse.x, mouse.y)
                     uiState.cursorX = inside ? Math.min(uiState.contentWidth - 1, Math.floor(p.x * uiState.contentWidth)) : -1
                     uiState.cursorY = inside ? Math.min(uiState.contentHeight - 1, Math.floor(p.y * uiState.contentHeight)) : -1
-                    if (!pressed) return
+                    if (!pressed || (uiState.analysisRunning && uiState.activeTool === "ROI" && !uiState.roiEditMode)) return
                     if (root.drawingTool) {
                         var t = root.toolPoint(mouse)
                         if (["Rectangle", "Oval", "Line", "Arrow"].indexOf(uiState.activeTool) >= 0) root.toolPoints = [root.toolPoints[0], t]
@@ -203,7 +237,17 @@ Rectangle {
                         fileBridge.addRoiVertex(p.x * uiState.contentWidth, p.y * uiState.contentHeight)
                     }
                 }
-                onReleased: { if (root.drawingTool) root.finishTool(); uiState.selectingRoi = false; if (root.draggingVertex) fileBridge.finishRoiDrag(false); root.draggingVertex = false }
+                onReleased: function(mouse) {
+                    if (uiState.activeTool === "Pan" && !uiState.roiEditMode && uiState.hasResult && uiState.analysisLayerVisible && Math.hypot(mouse.x-root.pressX, mouse.y-root.pressY) < 4) {
+                        var points = uiState.research.filteredPoints, best = null, distance = 12
+                        for (var i=0; i<points.length; i++) {
+                            var p=points[i], d=Math.hypot(mouse.x-imageFrame.x-p.x*root.displayScale, mouse.y-imageFrame.y-p.y*root.displayScale)
+                            if (d < distance) { best=p; distance=d }
+                        }
+                        if (best) fileBridge.research.selectCandidate(best.id)
+                    }
+                    if (root.drawingTool) root.finishTool(); uiState.selectingRoi = false; if (root.draggingVertex) fileBridge.finishRoiDrag(false); root.draggingVertex = false
+                }
                 onCanceled: { root.toolPoints = []; root.drawingTool = false; toolPreview.requestPaint(); uiState.selectingRoi = false; if (root.draggingVertex) fileBridge.finishRoiDrag(true); root.draggingVertex = false }
                 onWheel: function(wheel) {
                     var delta = wheel.angleDelta.y || wheel.pixelDelta.y
@@ -223,6 +267,43 @@ Rectangle {
                 editMode: uiState.roiEditMode; selectedVertex: uiState.importedRois.vertex
             }
             Canvas {
+                id: analysisOverlay; objectName: "analysisOverlay"; anchors.fill: parent; z: 3
+                property var points: uiState.research.filteredPoints
+                property var selected: uiState.research.selected
+                readonly property real candidateOpacity: 0.55
+                readonly property real selectedOpacity: 1
+                property real imageX: imageFrame.x
+                property real imageY: imageFrame.y
+                property real imageScale: root.displayScale
+                visible: uiState.hasResult && uiState.analysisLayerVisible && uiState.hasLoadedImage
+                onPointsChanged: requestPaint()
+                onSelectedChanged: requestPaint()
+                onImageXChanged: requestPaint()
+                onImageYChanged: requestPaint()
+                onImageScaleChanged: requestPaint()
+                onVisibleChanged: requestPaint()
+                onPaint: {
+                    var c = getContext("2d"); c.reset()
+                    if (!visible) return
+                    c.lineWidth = 1.5; c.globalAlpha = candidateOpacity
+                    for (var i = 0; i < points.length; i++) {
+                        var p = points[i], x = imageX + p.x * imageScale, y = imageY + p.y * imageScale
+                        if (x < -6 || y < -6 || x > width + 6 || y > height + 6) continue
+                        c.strokeStyle = p.low_score ? "#ffffff" : uiState.resultPresentation.colorFor(p.type)
+                        c.beginPath(); c.arc(x, y, 5, 0, Math.PI * 2); c.stroke()
+                    }
+                    if (selected.id) {
+                        c.globalAlpha = selectedOpacity
+                        var sx=imageX+selected.x*imageScale, sy=imageY+selected.y*imageScale
+                        c.strokeStyle="#fff04a"; c.lineWidth=2
+                        c.beginPath(); c.arc(sx,sy,11,0,Math.PI*2); c.stroke()
+                        c.beginPath(); c.moveTo(sx-20,sy); c.lineTo(sx-13,sy); c.moveTo(sx+13,sy); c.lineTo(sx+20,sy); c.moveTo(sx,sy-20); c.lineTo(sx,sy-13); c.moveTo(sx,sy+13); c.lineTo(sx,sy+20); c.stroke()
+                        c.fillStyle="#14191e"; c.fillRect(sx+15,sy-30,110,22)
+                        c.fillStyle="#fff04a"; c.font="12px sans-serif"; c.fillText("#"+selected.number+"  "+selected.type,sx+20,sy-15)
+                    }
+                }
+            }
+            Canvas {
                 id: toolPreview; anchors.fill: parent
                 z: 3
                 onPaint: {
@@ -239,64 +320,67 @@ Rectangle {
                 }
             }
             ColumnLayout {
-                anchors.centerIn: parent; spacing: 10
-                visible: !uiState.hasImage && !uiState.loading
-                Text { text: "XRT 이미지 없음"; color: theme.text; font.family: theme.fontFamily; font.pixelSize: 17 }
-                Text { text: "TIFF / JPG · 16-bit TIFF 및 RGB 지원"; color: theme.muted; font.family: theme.fontFamily; font.pixelSize: 12 }
+                anchors.centerIn: parent; spacing: theme.spacingMd
+                visible: !uiState.hasImage && uiState.loadFlow.phase === "EMPTY"
+                Text { text: "XRT 이미지 없음"; color: theme.text; font.family: theme.fontFamily; font.pixelSize: theme.emptyTitleSize }
+                Text { text: "TIFF / JPG · 16-bit TIFF 및 RGB 지원"; color: theme.muted; font.family: theme.fontFamily; font.pixelSize: theme.bodySize }
                 AppButton { theme: root.theme; action: root.actions.open; text: "XRT 이미지 열기"; iconName: "open"; Layout.alignment: Qt.AlignHCenter }
-                Text { text: "또는 TIFF/JPG 파일을 이 영역에 놓으세요"; color: theme.muted; font.pixelSize: 11; Layout.alignment: Qt.AlignHCenter }
+                Text { text: "또는 TIFF/JPG 파일을 이 영역에 놓으세요"; color: theme.muted; font.pixelSize: theme.smallSize; Layout.alignment: Qt.AlignHCenter }
             }
             Rectangle {
                 objectName: "initialLoadingOverlay"
                 z: 10
-                anchors.fill: parent; visible: uiState.loading; color: "#db111518"
-                ColumnLayout { anchors.centerIn: parent; width: Math.min(380, parent.width - 40); spacing: 12
-                    BusyIndicator { running: uiState.loading && !uiState.stack.preloadError; Layout.alignment: Qt.AlignHCenter }
+                anchors.fill: parent; visible: uiState.loadFlow.blocking && (!uiState.loadFlow.isOpening || uiState.loadFlow.indicatorElapsed); color: "#db111518"
+                ColumnLayout { anchors.centerIn: parent; width: Math.min(380, parent.width - 40); spacing: theme.spacingMd
+                    BusyIndicator { visible: uiState.loadFlow.isOpening; running: visible && parent.parent.visible; Layout.alignment: Qt.AlignHCenter }
                     Text {
                         objectName: "initialLoadingText"; Layout.fillWidth: true; wrapMode: Text.Wrap
-                        horizontalAlignment: Text.AlignHCenter; color: uiState.stack.preloadError ? theme.error : theme.text
-                        text: uiState.stack.preloadError ? "전체 페이지 로딩 실패\n" + uiState.stack.preloadError
-                              : uiState.stack.preparing.label && uiState.opening ? uiState.stack.preparing.label
-                              : uiState.stack.preload.total > 0 ? "전체 페이지 불러오는 중 · " + uiState.stack.preload.prepared + " / " + uiState.stack.preload.total
-                              : "이미지 정보를 읽는 중…"
+                        horizontalAlignment: Text.AlignHCenter; color: uiState.loadFlow.hasError ? theme.error : theme.text
+                        text: uiState.loadFlow.message; Accessible.name: text
                     }
-                    ProgressBar {
-                        id: preloadProgress
-                        objectName: "initialLoadingProgress"; Layout.fillWidth: true
-                        implicitHeight: 6; padding: 0
-                        visible: uiState.stack.preload.total > 0 || uiState.stack.preparing.total > 0
-                        from: 0; to: Math.max(1, uiState.opening ? uiState.stack.preparing.total || 1 : uiState.stack.preload.total); value: uiState.opening ? uiState.stack.preparing.done || 0 : uiState.stack.preload.prepared
-                        background: Rectangle { color: theme.border; radius: 2 }
-                        contentItem: Item {
-                            Rectangle { width: parent.width * preloadProgress.visualPosition; height: parent.height; color: theme.accent; radius: 2 }
-                        }
-                    }
-                    Text { Layout.fillWidth: true; horizontalAlignment: Text.AlignHCenter; wrapMode: Text.Wrap; color: theme.muted; text: "전체 로딩이 완료되면 스크롤과 드래그가 활성화됩니다." }
+                    Text { Layout.fillWidth: true; horizontalAlignment: Text.AlignHCenter; wrapMode: Text.Wrap; color: theme.muted; text: uiState.loadFlow.isOpening ? uiState.loadFlow.openingHint : "다른 파일을 열거나 오류 상세를 확인하세요." }
                     RowLayout { Layout.alignment: Qt.AlignHCenter
-                        AppButton { theme: root.theme; text: "다시 준비"; visible: !!uiState.stack.preloadError; onClicked: fileBridge.retryPreload() }
-                        AppButton { objectName: "cancelInitialLoading"; theme: root.theme; text: "취소"; onClicked: root.actions.closeImage.trigger() }
+                        AppButton { theme: root.theme; action: root.actions.open; text: "다시 열기…"; visible: uiState.loadFlow.hasError }
+                        AppButton { objectName: "openingErrorDetails"; theme: root.theme; text: "상세 정보…"; visible: uiState.loadFlow.hasError; onClicked: loadErrorDialog.open() }
+                        AppButton { objectName: "cancelInitialLoading"; theme: root.theme; text: "취소·닫기"; visible: uiState.loadFlow.isOpening; onClicked: root.actions.closeImage.trigger() }
                     }
                 }
             }
             DropArea { anchors.fill: parent; onDropped: function(drop) { if (drop.hasUrls && drop.urls.length > 0) root.fileDropped(drop.urls[0].toString()) } }
             Rectangle {
                 visible: uiState.pageLoading; anchors.right: parent.right; anchors.top: parent.top; anchors.margins: 12
-                width: 178; height: 30; color: theme.panel; border.color: theme.border; radius: 3
-                Text { anchors.centerIn: parent; text: "페이지 " + (uiState.stack.requestedPage + 1) + " 읽는 중…"; color: theme.text; font.pixelSize: 11 }
+                width: Math.min(parent.width - 24, 320); height: 30; color: theme.panel; border.color: theme.border; radius: theme.radiusSm
+                Text { objectName: "pageRequestStatus"; anchors.centerIn: parent; text: uiState.loadFlow.pageRequestLabel; color: theme.text; font.pixelSize: theme.smallSize; Accessible.name: text }
             }
             Rectangle {
                 visible: uiState.detail.busy || uiState.detail.error.length > 0
                 anchors.right: parent.right; anchors.top: parent.top; anchors.margins: 12
                 width: Math.min(parent.width - 24, 280); height: detailText.implicitHeight + 16
-                color: theme.panel; border.color: theme.border; radius: 3
-                Text { id: detailText; anchors.fill: parent; anchors.margins: 8; text: uiState.detail.error ? "정밀 영역 읽기 실패: " + uiState.detail.error : "정밀 영역 읽는 중…"; color: uiState.detail.error ? theme.warning : theme.muted; wrapMode: Text.Wrap; font.pixelSize: 11 }
+                color: theme.panel; border.color: theme.border; radius: theme.radiusSm
+                Text { id: detailText; anchors.fill: parent; anchors.margins: 8; text: uiState.detail.error ? "정밀 영역 읽기 실패: " + uiState.detail.error : "정밀 영역 읽는 중…"; color: uiState.detail.error ? theme.warning : theme.muted; wrapMode: Text.Wrap; font.pixelSize: theme.smallSize }
             }
         }
         Rectangle {
-            visible: uiState.loadError.length > 0 || uiState.stack.error.length > 0
-            Layout.fillWidth: true; Layout.preferredHeight: errorText.implicitHeight + 18
+            objectName: "loadingErrorNotice"; visible: uiState.loadFlow.hasError && uiState.loadFlow.hasViewableFrame
+            Layout.fillWidth: true; Layout.preferredHeight: errorNotice.implicitHeight + 12
             color: "#332427"
-            Text { id: errorText; anchors.fill: parent; anchors.margins: 9; text:  "파일 오류 · " + (uiState.loadError || uiState.stack.error) + (uiState.hasImage ? "\n이전 이미지를 유지했습니다." : ""); color: theme.error; font.pixelSize: 11; wrapMode: Text.Wrap }
+            RowLayout {
+                id: errorNotice; anchors.fill: parent; anchors.margins: 6
+                Text { text: uiState.loadFlow.message; color: theme.error; font.pixelSize: theme.smallSize; wrapMode: Text.Wrap; Layout.fillWidth: true }
+                AppButton { objectName: "retryPreparationNotice"; theme: root.theme; text: "다시 준비"; visible: !!uiState.stack.preloadError; onClicked: fileBridge.retryPreload() }
+                AppButton { theme: root.theme; action: root.actions.open; text: "다시 열기…"; visible: !uiState.stack.preloadError }
+                AppButton { objectName: "loadingErrorDetails"; theme: root.theme; text: "상세 정보…"; onClicked: loadErrorDialog.open() }
+            }
+        }
+    }
+    SurfaceDialog {
+        id: loadErrorDialog; objectName: "loadingErrorDialog"; parent: Overlay.overlay; title: "이미지 준비 오류 상세"
+        modal: true; width: Math.min(600, parent.width - 40); height: Math.min(420, parent.height - 60)
+        x: (parent.width - width)/2; y: (parent.height - height)/2; standardButtons: Dialog.Close
+        onClosed: Qt.callLater(root.focusView)
+        contentItem: ScrollView {
+            id: loadErrorScroll; clip: true; contentWidth: availableWidth
+            TextArea { objectName: "loadingErrorText"; width: loadErrorScroll.availableWidth; readOnly: true; selectByMouse: true; wrapMode: TextEdit.Wrap; text: uiState.loadFlow.errorDetails }
         }
     }
 }

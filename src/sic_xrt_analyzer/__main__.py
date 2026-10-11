@@ -3,7 +3,7 @@ import os
 import sys
 from pathlib import Path
 
-from PySide6.QtCore import QUrl
+from PySide6.QtCore import QTimer, QUrl
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtQml import QQmlApplicationEngine
 from PySide6.QtQuickControls2 import QQuickStyle
@@ -14,7 +14,11 @@ from sic_xrt_analyzer.ui.bridge import FileBridge, TiffImageProvider
 def main() -> int:
     # Python-painted items run on the GUI thread; avoid render-thread/GIL waits.
     os.environ.setdefault('QSG_RENDER_LOOP', 'basic')
-    app = QGuiApplication(sys.argv)
+    if sys.platform == 'win32':
+        from PySide6.QtWidgets import QApplication
+        app = QApplication(sys.argv)
+    else:
+        app = QGuiApplication(sys.argv)
     app.setApplicationName("sic-xrt-analyzer")
     app.setOrganizationName("CrystalVision-Lab")
     QQuickStyle.setStyle("Basic")
@@ -22,6 +26,7 @@ def main() -> int:
     provider = TiffImageProvider()
     engine.addImageProvider("tiff", provider)
     bridge = FileBridge(provider, engine)
+    QTimer.singleShot(0, bridge.research_controller.load_saved)
     app.aboutToQuit.connect(bridge.waitForLoads)
     engine.rootContext().setContextProperty("fileBridge", bridge)
     engine.load(QUrl.fromLocalFile(str(Path(__file__).parent / "ui" / "Main.qml")))

@@ -102,7 +102,7 @@ def test_large_jpeg_is_sampled_and_exact_pixel_restored_async(qt_app, tmp_path):
         frame = bridge.stack_viewer.frame
         assert frame is not None and frame.pixels is None and frame.preview.sampled
         assert max(frame.preview.image.width(), frame.preview.image.height()) <= 2048
-        assert bridge.pipeline.source is None and not bridge.stackState['browsePreview']
+        assert bridge.pipeline.source is frame.source and not bridge.stackState['browsePreview']
         assert bridge.pixelValue(2100, 2300) == ''
         spin(qt_app, lambda: bool(bridge.pixelValue(2100, 2300)))
         expected = frame.source.read_region(2100, 2300, 1, 1)[0, 0]
@@ -242,7 +242,7 @@ def test_qml_jpeg_imported_roi_overlay_pan_zoom_visibility_and_file_switch(qt_ap
     try:
         invoke(window, 'selectImagePath', str(path))
         spin(qt_app, lambda: not state.property('loading'))
-        assert state.property('imageFormat') == 'JPEG' and not bridge.analysis['sourceReady']
+        assert state.property('imageFormat') == 'JPEG' and bridge.analysis['sourceReady']
         assert bridge.importRois([bridge.localUrl(str(roi))])
         spin(qt_app, lambda: len(bridge.roiState['items']) == 1)
         QTest.qWait(50)
@@ -268,11 +268,18 @@ def test_qml_jpeg_imported_roi_overlay_pan_zoom_visibility_and_file_switch(qt_ap
         bridge.setImportedRoiVisible(item['id'], False)
         assert not bridge.roiState['items'][0]['visible']
         bridge.setImportedRoiVisible(item['id'], True)
+        # TD-06: explicit analysis-area conversion lives in ROI details.
+        entry = window.findChild(QObject, 'roiEditorDetails')
+        origin = entry.mapToScene(QPointF(entry.property('width') / 2, entry.property('height') / 2))
+        QTest.mouseClick(window, Qt.LeftButton, Qt.NoModifier, origin.toPoint())
+        QTest.qWait(40)
+        assert window.findChild(QObject, 'roiEditorDialog').property('visible')
         button = window.findChild(QObject, 'selectImportedBoundsButton')
         origin = button.mapToScene(QPointF(button.property('width') / 2, button.property('height') / 2))
         QTest.mouseClick(window, Qt.LeftButton, Qt.NoModifier, QPoint(round(origin.x()), round(origin.y())))
         assert state.property('hasRoi')
         assert state.property('roiX') == 40 and state.property('roiY') == 50
+        invoke(window.findChild(QObject, 'roiEditorDialog'), 'reject')
         assert not window.findChild(QObject, 'runAction').property('enabled')
         second = tmp_path / 'other.tif'
         tifffile.imwrite(second, np.zeros((200, 200), np.uint16))
@@ -283,8 +290,9 @@ def test_qml_jpeg_imported_roi_overlay_pan_zoom_visibility_and_file_switch(qt_ap
         assert bridge.analysis['inputSource'] == 'Original TIFF'
         assert not warnings, '\n'.join(warnings)
     finally:
-        bridge.waitForLoads()
+        window.setProperty('allowQuit', True)
         window.close()
+        bridge.waitForLoads()
         engine.deleteLater()
         qt_app.processEvents()
 
