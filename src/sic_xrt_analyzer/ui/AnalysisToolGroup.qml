@@ -8,6 +8,6 @@ RowLayout {
     property QtObject theme
     property var actions
     property QtObject uiState
-    spacing: 5
+    spacing: theme.spacingXs
         AppButton { theme: root.theme; action: root.actions.run; text: "분석 실행"; iconName: "run"; primary: true; tip: uiState.analysisReason }
 }

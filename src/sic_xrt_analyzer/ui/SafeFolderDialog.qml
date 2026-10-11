@@ -1,0 +1,1 @@
+SafeFileDialog { folderMode: true }

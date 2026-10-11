@@ -240,7 +240,7 @@ def test_qml_toolbar_rectangle_oval_and_polygon_mouse(qt_app, tmp_path):
     tifffile.imwrite(path,np.zeros((2,200,200),np.uint16),photometric='minisblack')
     try:
         invoke(window,'selectImagePath',str(path))
-        spin(qt_app,lambda: not state.property('loading'))
+        spin(qt_app,lambda: not state.property('loading') and not bridge.stack_viewer.initial_loading)
         mouse=window.findChild(QObject,'viewerMouseArea')
         frame=window.findChild(QObject,'imageFrame')
         scale=window.findChild(QObject,'imageViewer').property('displayScale')
@@ -263,9 +263,12 @@ def test_qml_toolbar_rectangle_oval_and_polygon_mouse(qt_app, tmp_path):
             yield item
             for child in item.childItems():
                 yield from visual_items(child)
+        # Annotation tools now live in the measurement dropdown.
+        invoke(window.findChild(QObject, 'measurementToolDropdown'), 'clicked')
+        QTest.qWait(40)
         # Keep the complete scene's Python wrappers alive while pumping Qt events.
         scene = list(visual_items(window.contentItem()))
-        arrow = next(i for i in scene if i.objectName() == 'toolArrow')
+        arrow = next(i for i in scene if i.objectName() == 'measurementArrow')
         assert arrow.isVisible() and arrow.mapToScene(__import__('PySide6.QtCore',fromlist=['QPointF']).QPointF()).x() + arrow.width() < 1100
         assert not warnings, '\n'.join(warnings)
     finally:

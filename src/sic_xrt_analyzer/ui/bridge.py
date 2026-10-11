@@ -24,6 +24,7 @@ from sic_xrt_analyzer.analysis.contracts import (
     AnalysisState,
     Region,
 )
+from sic_xrt_analyzer.analysis.input_preflight import input_preflight
 from sic_xrt_analyzer.analysis.pipeline import AnalysisPipeline
 from sic_xrt_analyzer.imaging.image_stack import open_stack
 from sic_xrt_analyzer.imaging.original_source import OriginalPixelSource
@@ -36,6 +37,7 @@ from sic_xrt_analyzer.ui.detail_reader import DetailReader
 from sic_xrt_analyzer.ui.feedback_controller import FeedbackController
 from sic_xrt_analyzer.ui.imagej_workbench import ImageJWorkbench
 from sic_xrt_analyzer.ui.latest_reader import LatestReader
+from sic_xrt_analyzer.ui.native_file_dialog import NativeFileDialogs
 from sic_xrt_analyzer.ui.pixel_reader import PixelReader
 from sic_xrt_analyzer.ui.research_controller import ResearchController
 from sic_xrt_analyzer.ui.roi_manager import RoiManager
@@ -82,6 +84,7 @@ class FileBridge(QObject):
 
     def __init__(self, provider=None, parent=None, settings=None):
         super().__init__(parent)
+        self.native_dialogs = NativeFileDialogs(self)
         self.provider = provider or TiffImageProvider()
         self.revision = 0
         self._working_path = ''
@@ -105,6 +108,7 @@ class FileBridge(QObject):
         self.workbench = ImageJWorkbench(self)
         self.measurements = StackMeasurements(self)
         self.pipeline.changed.connect(self.analysisChanged)
+        self.stack_viewer.changed.connect(self.analysisChanged)
         self._settings = settings or QSettings("CrystalVision-Lab", "sic-xrt-analyzer")
         self.research_controller = ResearchController(self)
         self.feedback_controller = FeedbackController(self)
@@ -137,6 +141,10 @@ class FileBridge(QObject):
     def recentFiles(self):
         return self._recent_files
 
+    @Property(QObject, constant=True)
+    def nativeDialogs(self):
+        return self.native_dialogs
+
     @Property(str, constant=True)
     def appVersion(self):
         try:
@@ -158,6 +166,8 @@ class FileBridge(QObject):
         low, high = s.window or (0.0, 65535.0)
         return {
             "busy": s.busy, "error": s.error, "revision": self.revision,
+            "frameViewable": f is not None and s.opening_request is None,
+            "openingPath": s.opening_request.path if s.opening_request else "",
             "initialLoading": s.initial_loading,
             "preparing": s.preparing,
             "preload": s.preload_state, "preloadError": s.preload_error,
@@ -179,7 +189,7 @@ class FileBridge(QObject):
 
     @Slot(int, result=bool)
     def requestPage(self, page):
-        if self.stack_viewer.frame is None or not 0 <= page < self.stack_viewer.frame.source.metadata.page_count:
+        if self.stack_viewer.initial_loading or self.stack_viewer.frame is None or not 0 <= page < self.stack_viewer.frame.source.metadata.page_count:
             return False
         if page != self.stack_viewer.frame.source.page_index:
             self.pipeline.invalidate()
@@ -378,6 +388,8 @@ class FileBridge(QObject):
     def analysis(self):
         p = self.pipeline
         adapter = p.adapter
+        preflight = input_preflight(adapter, p.source,
+                                    waiting=self.stack_viewer.busy or self.stack_viewer.opening_request is not None)
         # Detailed adapter errors stay in Python/logs, never in ordinary UI text.
         messages = {
             "CANCELED": "분석이 취소되었습니다",
@@ -395,7 +407,8 @@ class FileBridge(QObject):
             "modelName": adapter.model_name if adapter else "",
             "modelVersion": adapter.model_version if adapter else "",
             "device": (adapter.device or "") if adapter else "",
-            "supportedScopes": [s.value for s in adapter.input_contract.supported_scopes] if adapter else [],
+            "supportedScopes": preflight["modelExpected"].get("supportedScopes", []),
+            "inputPreflight": preflight,
             "sourceReady": p.source is not None,
             "inputSource": f"Original {p.source.metadata.format}" if p.source else "",
             "scope": p.result.scope.value if p.result else "",
@@ -603,6 +616,7 @@ class FileBridge(QObject):
     def waitForLoads(self):
         self.feedback_controller.loader.shutdown()
         self.feedback_controller.preview_loader.shutdown()
+        self.native_dialogs.shutdown()
         # Keep worker signal objects alive until decoding ends during shutdown.
         self.research_controller.thumbnail_loader.shutdown()
         if self.workbench.busy or self.workbench.windows:

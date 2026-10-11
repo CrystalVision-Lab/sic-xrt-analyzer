@@ -268,11 +268,18 @@ def test_qml_jpeg_imported_roi_overlay_pan_zoom_visibility_and_file_switch(qt_ap
         bridge.setImportedRoiVisible(item['id'], False)
         assert not bridge.roiState['items'][0]['visible']
         bridge.setImportedRoiVisible(item['id'], True)
+        # TD-06: explicit analysis-area conversion lives in ROI details.
+        entry = window.findChild(QObject, 'roiEditorDetails')
+        origin = entry.mapToScene(QPointF(entry.property('width') / 2, entry.property('height') / 2))
+        QTest.mouseClick(window, Qt.LeftButton, Qt.NoModifier, origin.toPoint())
+        QTest.qWait(40)
+        assert window.findChild(QObject, 'roiEditorDialog').property('visible')
         button = window.findChild(QObject, 'selectImportedBoundsButton')
         origin = button.mapToScene(QPointF(button.property('width') / 2, button.property('height') / 2))
         QTest.mouseClick(window, Qt.LeftButton, Qt.NoModifier, QPoint(round(origin.x()), round(origin.y())))
         assert state.property('hasRoi')
         assert state.property('roiX') == 40 and state.property('roiY') == 50
+        invoke(window.findChild(QObject, 'roiEditorDialog'), 'reject')
         assert not window.findChild(QObject, 'runAction').property('enabled')
         second = tmp_path / 'other.tif'
         tifffile.imwrite(second, np.zeros((200, 200), np.uint16))

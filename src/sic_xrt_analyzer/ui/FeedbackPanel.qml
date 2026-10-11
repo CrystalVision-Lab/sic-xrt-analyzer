@@ -14,8 +14,8 @@ ScrollView {
     readonly property bool configured: review.ready && !!review.wafer
     readonly property bool canRecord: configured && !!selected.id
     clip: true; contentWidth: availableWidth
-    FolderDialog { id: exportDialog; title: "검수 기록 내보내기"; onAccepted: fileBridge.feedback.exportFeedback(selectedFolder.toString()) }
-    FileDialog { id: importDialog; title: "같은 원본의 검수 기록 불러오기"; nameFilters: ["검수 기록 (*.json)"]; onAccepted: fileBridge.feedback.importFeedback(selectedFile.toString()) }
+    SafeFolderDialog { id: exportDialog; objectName: "feedbackExportDialog"; title: "검수 기록 내보내기"; onAccepted: fileBridge.feedback.exportFeedback(selectedFolder.toString()) }
+    SafeFileDialog { id: importDialog; objectName: "feedbackImportDialog"; title: "같은 원본의 검수 기록 불러오기"; nameFilters: ["검수 기록 (*.json)"]; onAccepted: fileBridge.feedback.importFeedback(selectedFile.toString()) }
     onSelectedChanged: noteField.text = selected.note || ""
     ColumnLayout {
         width: root.availableWidth; spacing: 8

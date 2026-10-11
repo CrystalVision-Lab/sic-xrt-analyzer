@@ -57,7 +57,7 @@ def test_ui_original_metadata_and_pipeline_states(qt_app, tmp_path):
         bridge.pipeline.invalidate()
         qt_app.processEvents()
         assert state.property("modelAvailable")
-        assert not run.property("enabled")  # Scope still not selected.
+        assert run.property("enabled")  # TD-04: explicit, visible FULL_IMAGE default.
         state.setProperty("roiStartX", .125)
         state.setProperty("roiStartY", 1 / 3)
         state.setProperty("roiEndX", .175)
