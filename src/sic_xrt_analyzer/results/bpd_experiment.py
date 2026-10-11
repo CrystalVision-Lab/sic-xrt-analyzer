@@ -535,7 +535,7 @@ def comparison_image(experiment, project, attached):
 
     # Explicit visualization conversion only; detection used dtype-range floats.
     pixels = experiment.original
-    if pixels.dtype == np.uint16:
+    if pixels.dtype.kind == "u" and pixels.dtype.itemsize == 2:
         lo, hi = np.percentile(pixels, (1, 99))
         pixels = (
             np.clip((pixels.astype(np.float32) - lo) / max(hi - lo, 1), 0, 1) * 255

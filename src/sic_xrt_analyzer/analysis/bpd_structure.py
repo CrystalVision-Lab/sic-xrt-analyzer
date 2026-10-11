@@ -192,7 +192,7 @@ def detect_structures(source, roi, settings, *, cancel=lambda: False):
     )
     if original.shape[:2] != (roi.height, roi.width):
         raise ValueError("Source returned a different ROI shape")
-    if original.dtype not in (np.dtype("uint8"), np.dtype("uint16")):
+    if original.dtype.kind != "u" or original.dtype.itemsize not in (1, 2):
         raise ValueError("Research preprocessing supports explicitly uint8/uint16 only")
     if original.ndim == 3 and original.shape[2] != 3 or original.ndim not in (2, 3):
         raise ValueError("Research processing supports gray or interleaved RGB only")

@@ -564,3 +564,28 @@ def test_junction_representative_paths_follow_actual_cluster_pixels():
     for _, _, path in topology.paths:
         for p, q in pairwise(path):
             assert q in neighbors[p]
+
+
+def test_big_endian_uint16_retains_samples_and_research_display(tmp_path):
+    import io
+
+    from PIL import Image
+
+    path = tmp_path / "big-endian.tif"
+    pixels = synthetic_sample("y", dtype="uint16").astype(">u2")
+    tifffile.imwrite(path, pixels, byteorder=">", photometric="minisblack")
+    source = OriginalImageSource(path)
+    original = source.read_region(0, 0, 160, 160)
+    before = original.tobytes()
+    e = detect_structures(source, Region(0, 0, 160, 160), settings())
+    assert e.original.dtype.str == ">u2"
+    assert e.original.tobytes() == before
+    assert e.preprocessing["divisor"] == 65535
+    assert len(e.proposals) == 1 and e.proposals[0].topology.degrees.count(3) == 1
+    project = AnalysisProject("Endian research")
+    a = attach_experiment(project, e)
+    sheet = Image.open(io.BytesIO(comparison_image(e, project, a)))
+    assert not np.all(np.asarray(sheet)[35:180, :160] == 255)
+    out = tmp_path / "bundle"
+    save_experiment_bundle(out, a, comparison_image(e, project, a))
+    assert load_experiment_bundle(out)[0] == a.project
