@@ -117,6 +117,9 @@ class FileBridge(QObject):
         low, high = s.window or (0.0, 65535.0)
         return {
             "busy": s.busy, "error": s.error, "revision": self.revision,
+            "preload": s.preload_state, "preloadError": s.preload_error,
+            "detailBusy": s.detail_busy, "rawReady": f is not None and f.pixels is not None,
+            "browsePreview": f is not None and f.pixels is None,
             "requestedPage": s.requested_page, "currentPage": f.source.page_index if f else 0,
             "pageCount": f.source.metadata.page_count if f else 0,
             "dtype": f.source.metadata.dtype if f else "",
@@ -135,6 +138,18 @@ class FileBridge(QObject):
         if page != self.stack_viewer.frame.source.page_index:
             self.pipeline.invalidate()
         return self.stack_viewer.page(page)
+
+    @Slot()
+    def beginScrub(self):
+        self.stack_viewer.begin_scrub()
+
+    @Slot()
+    def endScrub(self):
+        self.stack_viewer.end_scrub()
+
+    @Slot()
+    def retryPreload(self):
+        self.stack_viewer.retry_preload()
 
     @Slot(float, float, result=bool)
     def setDisplayRange(self, low, high):
@@ -296,6 +311,7 @@ class FileBridge(QObject):
     @Slot(object, bool)
     def _on_frame(self, frame, opening):
         result = self._publish(frame.source.path, frame.preview, frame.source, record_recent=opening)
+        result["browsePreview"] = frame.pixels is None
         (self.imageOpened if opening else self.pageChanged).emit(result)
 
     @Slot(str, bool)

@@ -158,7 +158,7 @@ def test_display_cache_window_identity_eviction_and_budgets(stack_file):
 
 def test_prefetch_cache_publishes_immediately_and_demand_wins(qt_app, stack_file, monkeypatch):
     path, raw = stack_file
-    controller = StackController()
+    controller = StackController(preload_enabled=False)
     gate, entered = Event(), Event()
     calls, published = [], []
     actual = TiffStack.read_page
@@ -255,7 +255,7 @@ def test_scroll_benchmark_reports_synchronous_publication(stack_file):
 
 def test_file_switch_during_prefetch_clears_both_caches(qt_app, stack_file, tmp_path, monkeypatch):
     path, _ = stack_file
-    controller = StackController()
+    controller = StackController(preload_enabled=False)
     gate, entered = Event(), Event()
     actual = TiffStack.read_page
     def blocked_read(stack, index):
@@ -287,7 +287,7 @@ def test_file_switch_during_prefetch_clears_both_caches(qt_app, stack_file, tmp_
 
 def test_latest_page_request_only_and_file_cache_cleanup(qt_app, stack_file, tmp_path, monkeypatch):
     path, _ = stack_file
-    controller = StackController(prefetch_enabled=False)
+    controller = StackController(prefetch_enabled=False, preload_enabled=False)
     gate, entered = Event(), Event()
     calls, threads = [], []
     actual = TiffStack.read_page
@@ -398,7 +398,7 @@ def test_qml_stack_navigation_contrast_pixel_and_view(qt_app, stack_file, tmp_pa
     def invoke(obj, name, *args):
         assert QMetaObject.invokeMethod(obj, name, *(Q_ARG("QVariant", arg) for arg in args))
     def wait_page(index):
-        spin(qt_app, lambda: not bridge.stack_viewer.busy and state.property("pageIndex") == index)
+        spin(qt_app, lambda: not bridge.stack_viewer.busy and bridge.stackState["rawReady"] and state.property("pageIndex") == index)
     try:
         invoke(window, "selectImagePath", str(path))
         spin(qt_app, lambda: not state.property("loading"))
@@ -415,7 +415,7 @@ def test_qml_stack_navigation_contrast_pixel_and_view(qt_app, stack_file, tmp_pa
         wait_page(6)
         QTest.keyClick(window, Qt.Key_Home)
         wait_page(0)
-        spin(qt_app, lambda: bridge.stack_viewer._reader.stack.cached_frame(1, bridge.stack_viewer.window) is not None)
+        spin(qt_app, lambda: bridge.stack_viewer.preload_state["ready"])
         spin(qt_app, lambda: bridge.stack_viewer._task is None)
 
         viewport = window.findChild(QObject, "viewerViewport")

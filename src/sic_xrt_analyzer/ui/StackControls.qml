@@ -8,7 +8,7 @@ Rectangle {
     property QtObject theme
     property QtObject uiState
     visible: uiState.hasLoadedImage
-    implicitHeight: visible ? (uiState.pageCount > 1 ? 132 : 100) : 0
+    implicitHeight: visible ? (uiState.pageCount > 1 ? 156 : 100) : 0
     color: theme.viewerHeader
     ColumnLayout {
         anchors.fill: parent; anchors.margins: 10; spacing: 6
@@ -19,10 +19,24 @@ Rectangle {
             AppSlider {
                 objectName: "pageSlider"; theme: root.theme; Layout.fillWidth: true
                 from: 0; to: Math.max(1, uiState.pageCount - 1); stepSize: 1
+                live: true
                 value: uiState.stack.requestedPage; enabled: !uiState.loading
                 onMoved: fileBridge.requestPage(Math.round(value))
+                onPressedChanged: { if (pressed) fileBridge.beginScrub(); else fileBridge.endScrub() }
             }
             AppButton { theme: root.theme; text: "›"; enabled: !uiState.loading && uiState.stack.requestedPage < uiState.pageCount - 1; onClicked: fileBridge.requestPage(uiState.stack.requestedPage + 1) }
+        }
+        RowLayout {
+            visible: uiState.pageCount > 1; Layout.fillWidth: true; spacing: 8
+            Text {
+                objectName: "preloadStatus"; Layout.fillWidth: true; elide: Text.ElideRight
+                font.pixelSize: 11; color: uiState.stack.preloadError ? theme.warning : theme.muted
+                text: uiState.stack.preloadError ? "전체 페이지 준비 실패: " + uiState.stack.preloadError
+                      : uiState.stack.preload.ready ? "전체 탐색 준비 완료 · " + uiState.stack.preload.total + " 페이지 · 드래그로 연속 탐색"
+                      : "전체 페이지 미리 불러오는 중 " + uiState.stack.preload.prepared + " / " + uiState.stack.preload.total + " · 완료 후 드래그 즉시 표시"
+            }
+            Text { visible: uiState.stack.browsePreview; text: "탐색 미리보기 · 놓으면 정밀 표시"; color: theme.muted; font.pixelSize: 10 }
+            AppButton { theme: root.theme; text: "다시 준비"; visible: !!uiState.stack.preloadError; onClicked: fileBridge.retryPreload() }
         }
         RowLayout {
             Layout.fillWidth: true; spacing: 8
