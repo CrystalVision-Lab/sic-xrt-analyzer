@@ -240,3 +240,8 @@ Windows 전체 293개 검사 × 3회, native plugin4개, native Open100/Save100/
 ## 후보 검수 이력
 
 결과의 **선택 후보 검수하기** 또는 현재 작업 메뉴의 **검수**에서 결함 유무·종류·원본 위치를 확인하거나 수정하고, 누락·중복·보류·되돌리기를 기록합니다. 기존 예측과 원본은 보존하며 클릭이 학습이나 모델 변경을 실행하지 않습니다. [저장·복원·내보내기 계약](docs/review-feedback.md).
+
+
+## 분석 프로젝트 도메인·로컬 저장 기반 (RESULT-TD-01)
+
+`results/` Python 서비스는 기존 AnalysisResult를 후보·모델 예측·결함 객체·검수 이력으로 구분하고, 버전이 있는 프로젝트 JSON을 원자적으로 저장·재불러옵니다. 후보를 실제 결함으로 자동 확정하지 않으며 기존 JSON/CSV Export와 별도 계약입니다. 프로젝트 저장 UI와 서버 동기화는 후속 단계입니다. [설계·API·실행 방법](docs/result/XRT-RESULT-TD-01-DOMAIN.md), [검증 결과와 제약](docs/result/XRT-RESULT-TD-01-RESULT.md).
