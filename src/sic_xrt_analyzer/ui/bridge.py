@@ -30,6 +30,7 @@ from sic_xrt_analyzer.imaging.image_stack import open_stack
 from sic_xrt_analyzer.imaging.original_source import OriginalPixelSource
 from sic_xrt_analyzer.imaging.roi_edit import export_copy
 from sic_xrt_analyzer.ui import (
+    geometry_overlay,  # noqa: F401  (register QML type)
     native_plugin_window,  # noqa: F401  (register QML type)
     prepared_view,  # noqa: F401  (register QML type)
 )
@@ -62,8 +63,11 @@ class TiffImageProvider(QQuickImageProvider):
         self.detail_image = QImage()
         self.research_image = QImage()
         self.feedback_image = QImage()
+        self.experiment_image = QImage()
 
     def requestImage(self, image_id: str, size: QSize, requested_size: QSize) -> QImage:
+        if image_id.startswith('experiment'):
+            return self.experiment_image
         if image_id.startswith('feedback'):
             return self.feedback_image
         if image_id.startswith('research'):
@@ -112,6 +116,7 @@ class FileBridge(QObject):
         self._settings = settings or QSettings("CrystalVision-Lab", "sic-xrt-analyzer")
         self.research_controller = ResearchController(self)
         self.feedback_controller = FeedbackController(self)
+        self.feedback_controller.changed.connect(self.research_controller.changed)
         stored = self._settings.value("preferences", {})
         self._preferences = self._validated(stored if isinstance(stored, dict) else {})
         recent = self._settings.value("recentFiles", [])
@@ -192,6 +197,7 @@ class FileBridge(QObject):
         if self.stack_viewer.initial_loading or self.stack_viewer.frame is None or not 0 <= page < self.stack_viewer.frame.source.metadata.page_count:
             return False
         if page != self.stack_viewer.frame.source.page_index:
+            self.research_controller.experiments.unload()
             self.pipeline.invalidate()
         return self.stack_viewer.page(page)
 
@@ -501,6 +507,7 @@ class FileBridge(QObject):
 
     @Slot(str, result="QVariantMap")
     def openImage(self, url):
+        self.research_controller.experiments.unload()
         self.workbench.runtime.session += 1
         self.pipeline.invalidate()
         path = self.localPath(url)
@@ -534,6 +541,7 @@ class FileBridge(QObject):
         if self.workbench.busy:
             self.workbench.cancel()
         self._pending_working_path = ''
+        self.research_controller.experiments.unload()
         self.pipeline.invalidate()
         self.pixel_reader.clear()
         self.detail_reader.clear()
@@ -577,6 +585,7 @@ class FileBridge(QObject):
         if record_recent:
             self.roi_manager.clear()
         self.original_source = original
+        self.research_controller.experiments.bind_source(original)
         if not isinstance(original, OriginalPixelSource):
             self.pipeline.set_source(None)
         elif self.pipeline.source is None or self.pipeline.source.identity != original.identity:
@@ -609,6 +618,7 @@ class FileBridge(QObject):
         self.roi_manager.clear()
         self.detail_reader.clear()
         self.original_source = None
+        self.research_controller.experiments.bind_source(None)
         self.pipeline.set_source(None)
         self.provider.image = QImage()
 
@@ -618,6 +628,10 @@ class FileBridge(QObject):
         self.feedback_controller.preview_loader.shutdown()
         self.native_dialogs.shutdown()
         # Keep worker signal objects alive until decoding ends during shutdown.
+        for reader in self.research_controller.experiments.mask_readers:
+            reader.shutdown()
+        self.research_controller.experiments.preview_reader.shutdown()
+        self.research_controller.experiments.reader.shutdown()
         self.research_controller.thumbnail_loader.shutdown()
         if self.workbench.busy or self.workbench.windows:
             self.workbench.cancel()
@@ -634,6 +648,10 @@ class FileBridge(QObject):
     @Property(QObject, constant=True)
     def research(self):
         return self.research_controller
+
+    @Property(QObject, constant=True)
+    def experiments(self):
+        return self.research_controller.experiments
 
     @Property(QObject, constant=True)
     def feedback(self):

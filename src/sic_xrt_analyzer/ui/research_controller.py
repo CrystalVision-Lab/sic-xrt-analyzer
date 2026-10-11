@@ -57,12 +57,15 @@ class ResearchController(QObject):
         self.kind_filter, self.query, self.low_only = "ALL", "", False
         self.page = 0
         self.selected_id = ""
+        self.selection_kind = ""
         self.visited = set()
         self.thumbnail_source = self.thumbnail_error = ""
         self.thumbnail_center = [0.5, 0.5]
         self.thumbnail_revision = 0
         self.thumbnail_loader = LatestReader(self)
         self.thumbnail_loader.ready.connect(self._thumbnail_ready)
+        from .experiment_controller import ExperimentController
+        self.experiments = ExperimentController(self)
         bridge.pipeline.changed.connect(self._pipeline_changed)
 
     def load_saved(self):
@@ -131,6 +134,8 @@ class ResearchController(QObject):
 
     def _clear_selection(self):
         self.selected_id = ""
+        if self.selection_kind == "OBSERVATION":
+            self.selection_kind = ""
         self.thumbnail_source = self.thumbnail_error = ""
         self.thumbnail_loader.invalidate()
 
@@ -160,7 +165,7 @@ class ResearchController(QObject):
 
     @Slot(str)
     def selectCandidate(self, candidate_id):
-        row = next((p for p in self.filtered if p["id"] == candidate_id), None)
+        row = next((p for p in self.rows if p["id"] == candidate_id), None)
         result = self.bridge.pipeline.result
         if row is None or result is None or result.analysis_id != self.result_identity:
             return
@@ -170,10 +175,13 @@ class ResearchController(QObject):
         except SourceError:
             self.bridge.pipeline.refresh_source()
             return
+        self.experiments.clear_selection()
+        self.selection_kind = "OBSERVATION"
         self.selected_id = candidate_id
         self.bridge.feedback_controller.select_candidate(row)
         self.visited.add(candidate_id)
-        self.page = self.filtered.index(row) // 100
+        if row in self.filtered:
+            self.page = self.filtered.index(row) // 100
         self.thumbnail_source = self.thumbnail_error = ""
         result_id = self.result_identity
         def read():
@@ -253,7 +261,13 @@ class ResearchController(QObject):
         result = self.bridge.pipeline.result
         summary = result.summary if result and result.status == AnalysisState.COMPLETED else {}
         selected_index = next((i for i, p in enumerate(self.filtered) if p["id"] == self.selected_id), -1)
-        selected = self.filtered[selected_index] if selected_index >= 0 else {}
+        selected = next((p for p in self.rows if p["id"] == self.selected_id), {})
+        selection = {"kind": self.selection_kind, "id": self.selected_id if self.selection_kind == "OBSERVATION" else self.experiments.selected_id,
+                     "page_index": self.bridge.original_source.page_index if self.bridge.original_source else -1,
+                     "source_id": self.bridge.original_source.identity.canonical_path if self.bridge.original_source else "",
+                     "origin": "ONNX" if self.selection_kind == "OBSERVATION" else "EXPERIMENT"}
+        review = self.bridge.feedback_controller.selected() if selected else {}
+        reviewed = bool(selected and review and review["original"].get("candidate_id") == selected["id"] and review["revision"])
         return {"loading": self.loading, "error": self.error, "bundle": self.bundle,
                 "coordinatesPath": self.csv_path, "coordinatesCount": len(self.points),
                 "counts": dict(summary.get("counts", {})), "points": self.rows,
@@ -261,6 +275,8 @@ class ResearchController(QObject):
                 "filteredPoints": self.filtered, "filteredTotal": len(self.filtered),
                 "filterKind": self.kind_filter, "filterLow": self.low_only, "query": self.query,
                 "page": self.page, "pages": max(1, (len(self.filtered) + 99) // 100),
+                "relatedStructures": [{"id": r["id"], "number": r["number"], "ambiguous": r["ambiguous"]} for r in self.experiments.related(selected)],
+                "selection": selection, "reviewStatus": "검토 이력 · " + review["status"] if reviewed else "사람 검수 미확정",
                 "selected": selected, "selectedIndex": selected_index, "viewedCount": len(self.visited),
                 "thumbnailSource": self.thumbnail_source, "thumbnailError": self.thumbnail_error,
                 "thumbnailCenter": self.thumbnail_center,
