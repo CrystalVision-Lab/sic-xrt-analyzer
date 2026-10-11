@@ -134,6 +134,10 @@ def main():
              patch.object(imagecodecs,'jpeg8_decode',s.timed('jpeg_decode',imagecodecs.jpeg8_decode)):
             s.__init__(app,args.output,args.baseline_ref or False)
             s.window.setTitle('XRT-PERF-TD-03 automated benchmark')
+            if args.benchmark:
+                s.window.raise_()
+                s.window.requestActivate()
+                spin(app,lambda:s.window.isExposed(),20)
             previous=None
             for path in args.paths:
                 row={'file':path.name,'sha_before':digest(path)}
