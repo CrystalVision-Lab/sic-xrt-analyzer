@@ -24,7 +24,8 @@ Rectangle {
         var current = displayScale
         uiState.zoom = current * uiState.displayPixelRatio
         uiState.fitMode = false
-        var target = Math.max(fitScale, Math.min(4, Math.min(viewport.width, viewport.height) / 192))
+        var span = uiState.candidateRoiId ? Math.max(192, uiState.candidateRoiSize * 1.3) : 192
+        var target = Math.max(fitScale, Math.min(4, Math.min(viewport.width, viewport.height) / span))
         focusZoom = target * uiState.displayPixelRatio
         focusPanX = (uiState.contentWidth / 2 - x) * target
         focusPanY = (uiState.contentHeight / 2 - y) * target
@@ -187,6 +188,7 @@ Rectangle {
                         toolPreview.requestPaint(); return
                     }
                     if (uiState.activeTool !== "Pan") {
+                        uiState.stopCandidateRoiTracking()
                         uiState.selectingRoi = true
                         var p = root.imagePoint(mouse.x, mouse.y)
                         uiState.roiStartX = p.x; uiState.roiStartY = p.y

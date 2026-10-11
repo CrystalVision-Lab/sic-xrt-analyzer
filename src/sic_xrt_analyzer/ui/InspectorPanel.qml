@@ -29,8 +29,8 @@ Rectangle {
             }
         }
         ScrollView {
-            id: resultScroll; visible: root.tabIndex === 2; Layout.fillWidth: true; Layout.fillHeight: true; clip: true; contentWidth: availableWidth; contentHeight: Math.max(720, availableHeight)
-            ResultExplorer { theme: root.theme; uiState: root.uiState; width: resultScroll.availableWidth; height: Math.max(720, resultScroll.availableHeight); onExportRequested: resultsDialog.open(); onOverviewRequested: root.overviewRequested() }
+            id: resultScroll; visible: root.tabIndex === 2; Layout.fillWidth: true; Layout.fillHeight: true; clip: true; contentWidth: availableWidth; contentHeight: Math.max(780, availableHeight)
+            ResultExplorer { theme: root.theme; uiState: root.uiState; width: resultScroll.availableWidth; height: Math.max(780, resultScroll.availableHeight); onExportRequested: resultsDialog.open(); onOverviewRequested: root.overviewRequested() }
         }
         ScrollView {
             visible: root.tabIndex !== 2
