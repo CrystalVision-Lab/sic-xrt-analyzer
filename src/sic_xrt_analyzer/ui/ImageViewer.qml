@@ -15,6 +15,28 @@ Rectangle {
     property real pressY: 0
     property real pressPanX: 0
     property real pressPanY: 0
+    property real focusZoom: 1
+    property real focusPanX: 0
+    property real focusPanY: 0
+    function focusCandidate(x, y) {
+        if (!uiState.hasLoadedImage || uiState.loading || !uiState.hasResult || !uiState.research.selected.id || uiState.research.selected.x !== x || uiState.research.selected.y !== y) return
+        focusAnimation.stop()
+        var current = displayScale
+        uiState.zoom = current * uiState.displayPixelRatio
+        uiState.fitMode = false
+        var target = Math.max(fitScale, Math.min(4, Math.min(viewport.width, viewport.height) / 192))
+        focusZoom = target * uiState.displayPixelRatio
+        focusPanX = (uiState.contentWidth / 2 - x) * target
+        focusPanY = (uiState.contentHeight / 2 - y) * target
+        uiState.analysisLayerVisible = true
+        focusAnimation.start()
+    }
+    ParallelAnimation {
+        id: focusAnimation; objectName: "candidateFocusAnimation"
+        NumberAnimation { target: root.uiState; property: "zoom"; to: root.focusZoom; duration: 450; easing.type: Easing.InOutCubic }
+        NumberAnimation { target: root; property: "panX"; to: root.focusPanX; duration: 450; easing.type: Easing.InOutCubic }
+        NumberAnimation { target: root; property: "panY"; to: root.focusPanY; duration: 450; easing.type: Easing.InOutCubic }
+    }
     property bool draggingVertex: false
     property var toolPoints: []
     property bool drawingTool: false
@@ -32,7 +54,7 @@ Rectangle {
     Binding { target: root.uiState; property: "fitZoom"; value: root.fitScale * root.uiState.displayPixelRatio }
     signal fileDropped(string url)
     color: theme.viewer
-    function resetPan() { panX = 0; panY = 0 }
+    function resetPan() { focusAnimation.stop(); panX = 0; panY = 0 }
     function focusView() { viewerMouse.forceActiveFocus() }
     function syncDetailView() {
         if (uiState.stack.preparedDisplay || !uiState.hasLoadedImage || uiState.loading || !uiState.sampledPreview || uiState.pageCount !== 1 || displayScale <= 0) { fileBridge.clearDetail(); return }
@@ -48,6 +70,8 @@ Rectangle {
         target: root.uiState
         function onImageSourceChanged() { Qt.callLater(root.syncDetailView) }
         function onLoadingChanged() { Qt.callLater(root.syncDetailView) }
+        function onResearchChanged() { if (!uiState.research.selected.id) focusAnimation.stop() }
+        function onHasResultChanged() { if (!uiState.hasResult) focusAnimation.stop() }
     }
     function stepPage(delta) {
         if (uiState.hasLoadedImage && uiState.pageCount > 1 && !uiState.loading)
@@ -59,8 +83,8 @@ Rectangle {
         if (uiState.defaultView === "fit") fitView()
         else setActualZoom(uiState.defaultView === "actual" ? 1 : uiState.defaultView === "125" ? 1.25 : 2)
     }
-    function zoomIn() { if (uiState.canNavigateImage) { uiState.zoom = Math.min(16, uiState.effectiveZoom * 1.25); uiState.fitMode = false } }
-    function zoomOut() { if (uiState.canNavigateImage) { uiState.zoom = Math.max(0.01, uiState.effectiveZoom / 1.25); uiState.fitMode = false } }
+    function zoomIn() { focusAnimation.stop(); if (uiState.canNavigateImage) { uiState.zoom = Math.min(16, uiState.effectiveZoom * 1.25); uiState.fitMode = false } }
+    function zoomOut() { focusAnimation.stop(); if (uiState.canNavigateImage) { uiState.zoom = Math.max(0.01, uiState.effectiveZoom / 1.25); uiState.fitMode = false } }
     function imagePoint(x, y) {
         return Qt.point(Math.max(0, Math.min(1, (x - imageFrame.x) / imageFrame.width)), Math.max(0, Math.min(1, (y - imageFrame.y) / imageFrame.height)))
     }
@@ -143,6 +167,7 @@ Rectangle {
                 }
                 cursorShape: uiState.roiEditMode ? Qt.CrossCursor : uiState.activeTool === "Pan" ? (pressed ? Qt.ClosedHandCursor : Qt.OpenHandCursor) : Qt.CrossCursor
                 onPressed: function(mouse) {
+                    focusAnimation.stop()
                     forceActiveFocus()
                     root.pressX = mouse.x; root.pressY = mouse.y; root.pressPanX = root.panX; root.pressPanY = root.panY
                     if (uiState.roiEditMode) {
@@ -203,7 +228,17 @@ Rectangle {
                         fileBridge.addRoiVertex(p.x * uiState.contentWidth, p.y * uiState.contentHeight)
                     }
                 }
-                onReleased: { if (root.drawingTool) root.finishTool(); uiState.selectingRoi = false; if (root.draggingVertex) fileBridge.finishRoiDrag(false); root.draggingVertex = false }
+                onReleased: function(mouse) {
+                    if (uiState.activeTool === "Pan" && !uiState.roiEditMode && uiState.hasResult && uiState.analysisLayerVisible && Math.hypot(mouse.x-root.pressX, mouse.y-root.pressY) < 4) {
+                        var points = uiState.research.filteredPoints, best = null, distance = 12
+                        for (var i=0; i<points.length; i++) {
+                            var p=points[i], d=Math.hypot(mouse.x-imageFrame.x-p.x*root.displayScale, mouse.y-imageFrame.y-p.y*root.displayScale)
+                            if (d < distance) { best=p; distance=d }
+                        }
+                        if (best) fileBridge.research.selectCandidate(best.id)
+                    }
+                    if (root.drawingTool) root.finishTool(); uiState.selectingRoi = false; if (root.draggingVertex) fileBridge.finishRoiDrag(false); root.draggingVertex = false
+                }
                 onCanceled: { root.toolPoints = []; root.drawingTool = false; toolPreview.requestPaint(); uiState.selectingRoi = false; if (root.draggingVertex) fileBridge.finishRoiDrag(true); root.draggingVertex = false }
                 onWheel: function(wheel) {
                     var delta = wheel.angleDelta.y || wheel.pixelDelta.y
@@ -224,12 +259,14 @@ Rectangle {
             }
             Canvas {
                 id: analysisOverlay; objectName: "analysisOverlay"; anchors.fill: parent; z: 3
-                property var points: uiState.research.points
+                property var points: uiState.research.filteredPoints
+                property var selected: uiState.research.selected
                 property real imageX: imageFrame.x
                 property real imageY: imageFrame.y
                 property real imageScale: root.displayScale
                 visible: uiState.hasResult && uiState.analysisLayerVisible && uiState.hasLoadedImage
                 onPointsChanged: requestPaint()
+                onSelectedChanged: requestPaint()
                 onImageXChanged: requestPaint()
                 onImageYChanged: requestPaint()
                 onImageScaleChanged: requestPaint()
@@ -241,6 +278,14 @@ Rectangle {
                         if (x < -6 || y < -6 || x > width + 6 || y > height + 6) continue
                         c.strokeStyle = p.low_score ? "#ffffff" : p.type === "BPD" ? "#ffad42" : p.type === "TED" ? "#50e0ee" : "#ff78c4"
                         c.beginPath(); c.arc(x, y, 5, 0, Math.PI * 2); c.stroke()
+                    }
+                    if (selected.id) {
+                        var sx=imageX+selected.x*imageScale, sy=imageY+selected.y*imageScale
+                        c.strokeStyle="#fff04a"; c.lineWidth=2
+                        c.beginPath(); c.arc(sx,sy,11,0,Math.PI*2); c.stroke()
+                        c.beginPath(); c.moveTo(sx-20,sy); c.lineTo(sx-13,sy); c.moveTo(sx+13,sy); c.lineTo(sx+20,sy); c.moveTo(sx,sy-20); c.lineTo(sx,sy-13); c.moveTo(sx,sy+13); c.lineTo(sx,sy+20); c.stroke()
+                        c.fillStyle="#14191e"; c.fillRect(sx+15,sy-30,110,22)
+                        c.fillStyle="#fff04a"; c.font="12px sans-serif"; c.fillText("#"+selected.number+"  "+selected.type,sx+20,sy-15)
                     }
                 }
             }
