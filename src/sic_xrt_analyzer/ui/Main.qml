@@ -134,7 +134,11 @@ AppShell {
             if (!result.workingCopy) uiState.activeTool = "Pan"
             if (!result.workingCopy || sizeChanged) uiState.hasRoi = false
             uiState.cursorX = -1; uiState.cursorY = -1
-            if (!result.workingCopy) window.requestContext("image", "OPEN_IMAGE")
+            if (!result.workingCopy) {
+                // The decoder's format is authoritative, even for a renamed file.
+                var isTiff = result.format === "TIFF"
+                window.requestContext(isTiff ? "viewer" : "image", isTiff ? "OPEN_TIFF" : "OPEN_IMAGE")
+            }
             if (!result.workingCopy || sizeChanged) viewer.defaultView()
             viewer.focusView()
             uiState.statusText = result.format + " · 현재 페이지 준비 완료"

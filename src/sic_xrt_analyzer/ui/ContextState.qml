@@ -16,7 +16,7 @@ QtObject {
     property string completedAnalysisId: ""
     signal contextRequested(string reason)
     readonly property var events: ({
-        OPEN_IMAGE: "image", CLOSE_IMAGE: "image", DEMO_OPEN: "image", RESET_LAYOUT: "image",
+        OPEN_IMAGE: "image", OPEN_TIFF: "viewer", CLOSE_IMAGE: "image", DEMO_OPEN: "image", RESET_LAYOUT: "image",
         ANALYSIS_START: "analysis", ANALYSIS_COMPLETE: "result", ANALYSIS_FAILED: "analysis", ANALYSIS_CANCELED: "analysis",
         CANDIDATE_SELECTED: "result", REVIEW_REQUESTED: "feedback", ROI_MANAGER_OPEN: "roi", ROI_IMPORT: "roi", ROI_EDIT: "roi", VIEWER_SETTINGS: "viewer"
     })
