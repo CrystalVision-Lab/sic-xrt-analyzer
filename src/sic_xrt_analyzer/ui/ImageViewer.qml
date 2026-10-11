@@ -120,7 +120,14 @@ Rectangle {
                 y: (viewport.height - height) / 2 + root.panY
                 onXChanged: Qt.callLater(root.syncDetailView)
                 onYChanged: Qt.callLater(root.syncDetailView)
-                DemoImage { theme: root.theme; anchors.fill: parent; visible: uiState.demoMode }
+                // A hidden Canvas still receives size changes/requestPaint.
+                // Never allocate the synthetic demo's image-sized backing store
+                // while a large real image is being zoomed.
+                Loader {
+                    objectName: "demoImageLoader"; anchors.fill: parent
+                    active: uiState.demoMode
+                    sourceComponent: Component { DemoImage { theme: root.theme } }
+                }
                 Image { objectName: "tiffImage"; anchors.fill: parent; source: uiState.imageSource; visible: uiState.hasLoadedImage && !uiState.demoMode && !uiState.stack.preparedDisplay; smooth: uiState.smoothImages; cache: false }
                 Image {
                     objectName: "detailImage"; visible: uiState.detail.ready
