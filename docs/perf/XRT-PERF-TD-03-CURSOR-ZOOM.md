@@ -254,8 +254,14 @@ Windows/Python3.13.7/Qt6.11.2의 제품·테스트 HEAD
 다시 실행한다. 최종 SHA/CI/Windows Native 재검사 결과는 PR 본문에 기록한다.
 
 Ruff, compileall, wheel build PASS. Windows Native Plugin 기존 4개 검사는
-4 passed / 5 deselected (49.78s), 첫 실행 exit0였다. 이전 TD-02의 간헐적인 geometry
-실패 기록을 삭제하거나 해결됐다고 하지 않는다. Native Dialog 제품 코드는 변경하지 않았다.
+4 passed / 5 deselected (49.78s), 첫 실행 exit0였다. 보고서 포함 최종 HEAD
+be5dfcf 재검사에서는 **3 passed / 1 failed / 5 deselected**, 26.53s, exit1:
+ImageJ hosted window의 parent 이동 뒤 container.x가 기대 50 대신 30으로 남았다
+(test_stack_compatibility.py:402). TD-02 #84와 같은 간헐 geometry 실패다.
+해당 검사에서 ImageViewer를 생성하지 않으며 NativePluginWindow/검사 코드 모두
+현재 main과 동일하다. Viewer Zoom의 실패로 확정하지 않는다.
+**Windows Native Plugin 안정성 PARTIAL**, 첫 PASS와 실패 로그를 모두 보존한다.
+이전 TD-02의 간헐적인 geometry 실패 기록을 삭제하거나 해결됐다고 하지 않는다. Native Dialog 제품 코드는 변경하지 않았다.
 새 20개 좌표 테스트 및 기존 Toolbar/Context/Analysis/Result/ROI/Model Preflight/
 TIFF Loading/Viewer Render/Native Dialog/Export 검사를 유지했다.
 
@@ -290,7 +296,7 @@ main 통합 전 예비 전체 검사는 통합 후 재검사를 위해 중단했
 
 Raw 결과: `artifacts/perf-td03/actual-software-{1,1.25,1.5}/report.json`,
 `before-anchors`, `before-hardware-125-final`, `after-hardware-125-final`,
-`native-plugin.xml`, `final-full-pytest.xml`. 실제 영상 캡처는 Git에 추가하지 않았다.
+`native-plugin.xml`, `final-head-native-plugin.xml`, `final-full-pytest.xml`. 실제 영상 캡처는 Git에 추가하지 않았다.
 
 ## 18. Git
 
