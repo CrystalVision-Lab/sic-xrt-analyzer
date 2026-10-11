@@ -45,6 +45,9 @@ QtObject {
     property bool roiEditMode: false
     property var detail: fileBridge.detailState
     property string analysisScope: ""
+    property string analysisPointMode: "contrast_proposals"
+    property var research: fileBridge.research.state
+    property bool analysisLayerVisible: true
     readonly property bool modelAvailable: analysis.modelAvailable
     readonly property bool analysisRunning: analysis.state === "RUNNING"
     readonly property bool hasResult: analysis.hasResult

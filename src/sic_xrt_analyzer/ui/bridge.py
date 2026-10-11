@@ -36,6 +36,7 @@ from sic_xrt_analyzer.ui.detail_reader import DetailReader
 from sic_xrt_analyzer.ui.imagej_workbench import ImageJWorkbench
 from sic_xrt_analyzer.ui.latest_reader import LatestReader
 from sic_xrt_analyzer.ui.pixel_reader import PixelReader
+from sic_xrt_analyzer.ui.research_controller import ResearchController
 from sic_xrt_analyzer.ui.roi_manager import RoiManager
 from sic_xrt_analyzer.ui.stack_controller import StackController
 from sic_xrt_analyzer.ui.stack_measurements import StackMeasurements
@@ -98,6 +99,7 @@ class FileBridge(QObject):
         self.measurements = StackMeasurements(self)
         self.pipeline.changed.connect(self.analysisChanged)
         self._settings = settings or QSettings("CrystalVision-Lab", "sic-xrt-analyzer")
+        self.research_controller = ResearchController(self)
         stored = self._settings.value("preferences", {})
         self._preferences = self._validated(stored if isinstance(stored, dict) else {})
         recent = self._settings.value("recentFiles", [])
@@ -408,6 +410,8 @@ class FileBridge(QObject):
         if self.pipeline.source is None:
             return self.pipeline.reject(AnalysisError("INVALID_INPUT", "원본 TIFF를 여세요"))
         try:
+            if getattr(self.pipeline.adapter, "research_only", False):
+                parameters = self.research_controller.parameters(parameters)
             explicit_scope = AnalysisScope(scope)
             request = AnalysisRequest(self.pipeline.source, explicit_scope,
                                       self.pipeline.adapter.model_id, self.pipeline.adapter.model_version,
@@ -599,7 +603,12 @@ class FileBridge(QObject):
         self.roi_manager.shutdown()
         self.roi_exporter.shutdown()
         self.pipeline.shutdown()
+        self.research_controller.loader.shutdown()
         self.workbench.shutdown()
+
+    @Property(QObject, constant=True)
+    def research(self):
+        return self.research_controller
 
     @Property(QObject, constant=True)
     def imagej(self):

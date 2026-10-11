@@ -8,7 +8,13 @@ import zipfile
 from pathlib import Path, PurePosixPath
 
 URL = 'https://downloads.imagej.net/fiji/latest/fiji-latest-portable-nojava.zip'
-SHA256 = '3ad5e202d6f1a5965265547e401c80e329f1af5529c4a69ec2096f8787877508'
+# Official portable no-Java checksum, reviewed 2026-10-06 (2026-10-04 build).
+SHA256 = '4790b29860deafec11fa7921efa8ea0964b40852a6ab713cedc92f94733ce4c9'
+# Keep previously verified installations; new downloads still require SHA256.
+INSTALLED_SHA256 = {
+    SHA256,
+    '3ad5e202d6f1a5965265547e401c80e329f1af5529c4a69ec2096f8787877508',
+}
 
 
 def verify(path):
@@ -22,7 +28,7 @@ def install(archive, destination):
     verify(archive)
     if destination.exists():
         marker = destination / '.sic-xrt-runtime-sha256'
-        if marker.is_file() and marker.read_text() == SHA256:
+        if marker.is_file() and marker.read_text() in INSTALLED_SHA256:
             return
         raise FileExistsError('Choose a new directory; existing files will not be overwritten: ' + str(destination))
     destination.parent.mkdir(parents=True, exist_ok=True)
@@ -59,7 +65,7 @@ def main():
     args = parser.parse_args()
     directory = args.directory.resolve()
     marker = directory / '.sic-xrt-runtime-sha256'
-    if marker.is_file() and marker.read_text() == SHA256:
+    if marker.is_file() and marker.read_text() in INSTALLED_SHA256:
         print('verified installation:', directory)
         return
     if args.archive:

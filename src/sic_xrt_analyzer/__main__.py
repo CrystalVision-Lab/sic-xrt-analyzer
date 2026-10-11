@@ -3,7 +3,7 @@ import os
 import sys
 from pathlib import Path
 
-from PySide6.QtCore import QUrl
+from PySide6.QtCore import QTimer, QUrl
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtQml import QQmlApplicationEngine
 from PySide6.QtQuickControls2 import QQuickStyle
@@ -22,6 +22,7 @@ def main() -> int:
     provider = TiffImageProvider()
     engine.addImageProvider("tiff", provider)
     bridge = FileBridge(provider, engine)
+    QTimer.singleShot(0, bridge.research_controller.load_saved)
     app.aboutToQuit.connect(bridge.waitForLoads)
     engine.rootContext().setContextProperty("fileBridge", bridge)
     engine.load(QUrl.fromLocalFile(str(Path(__file__).parent / "ui" / "Main.qml")))

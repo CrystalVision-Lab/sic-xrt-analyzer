@@ -223,6 +223,28 @@ Rectangle {
                 editMode: uiState.roiEditMode; selectedVertex: uiState.importedRois.vertex
             }
             Canvas {
+                id: analysisOverlay; objectName: "analysisOverlay"; anchors.fill: parent; z: 3
+                property var points: uiState.research.points
+                property real imageX: imageFrame.x
+                property real imageY: imageFrame.y
+                property real imageScale: root.displayScale
+                visible: uiState.hasResult && uiState.analysisLayerVisible && uiState.hasLoadedImage
+                onPointsChanged: requestPaint()
+                onImageXChanged: requestPaint()
+                onImageYChanged: requestPaint()
+                onImageScaleChanged: requestPaint()
+                onVisibleChanged: requestPaint()
+                onPaint: {
+                    var c = getContext("2d"); c.reset(); c.lineWidth = 1.5
+                    for (var i = 0; i < points.length; i++) {
+                        var p = points[i], x = imageX + p.x * imageScale, y = imageY + p.y * imageScale
+                        if (x < -6 || y < -6 || x > width + 6 || y > height + 6) continue
+                        c.strokeStyle = p.low_score ? "#ffffff" : p.type === "BPD" ? "#ffad42" : p.type === "TED" ? "#50e0ee" : "#ff78c4"
+                        c.beginPath(); c.arc(x, y, 5, 0, Math.PI * 2); c.stroke()
+                    }
+                }
+            }
+            Canvas {
                 id: toolPreview; anchors.fill: parent
                 z: 3
                 onPaint: {

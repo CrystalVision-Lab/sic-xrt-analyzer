@@ -22,3 +22,6 @@ runs/
 *.tiff
 *.npy
 *.npz
+*.local.json
+build/
+dist/

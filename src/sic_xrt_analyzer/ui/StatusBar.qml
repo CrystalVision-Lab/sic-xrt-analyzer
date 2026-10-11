@@ -18,7 +18,7 @@ Rectangle {
         Text { text: uiState.hasLoadedImage ? uiState.bitDepth + "-bit" : uiState.demoMode ? "합성" : "—"; color: theme.muted; font.pixelSize: theme.smallSize }
         Text { visible: uiState.loading || uiState.loadError.length > 0; text: uiState.statusText; color: theme.muted; font.pixelSize: theme.smallSize; elide: Text.ElideRight; Layout.fillWidth: true }
         Item { visible: !uiState.loading && !uiState.loadError; Layout.fillWidth: true }
-        Text { text: "모델 —"; color: theme.muted; font.pixelSize: theme.smallSize }
+        Text { text: uiState.modelAvailable ? "연구 모델 · " + uiState.analysis.device : "모델 —"; color: theme.muted; font.pixelSize: theme.smallSize }
     }
     ToolTip.text: uiState.statusText + "\n원본 픽셀값: " + (uiState.cursorValue || "—") + "\n물리 스케일·장비는 미연결 상태입니다"
     ToolTip.visible: statusHover.containsMouse
