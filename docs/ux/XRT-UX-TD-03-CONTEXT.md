@@ -2,6 +2,8 @@
 
 Issue #60. 기준: [TD-01 IA](XRT-UX-TD-01-IA.md), [TD-02 Toolbar](XRT-UX-TD-02-TOOLBAR.md), PR #59 / `refactor/58-toolbar-simplification` / `6a13501a66f201a9bf4c27fd7be07daaf883dab5`. 작업: `refactor/60-context-panel-workflow`.
 
+후속 [TD-04 분석 Flow](XRT-UX-TD-04-ANALYSIS-FLOW.md)는 이 전환 정책을 유지하고, Analysis의 모델·범위·입력을 기본 화면에 모으며 후보 방식/CSV만 고급 설정 Scroll로 옮겼다. 실행·상태 하단 유지와 ROI 관리 Context의 역할은 그대로다. 아래 테스트 수와 화면은 TD-03 당시 기록이다.
+
 ## 1. 기존 구조 조사
 
 RightContextPanel은 같은 크기의 이미지/분석/결과/뷰어/ROI 5개 버튼을 표시하고 ContextState.tabIndex 하나로 본문을 선택했다. Main의 직접 숫자 탭 변경, 메뉴와 AdvancedActions의 openInspectorTab 호출이 섞여 있었다. 정보·설정·실행·결과·ROI 관리를 같은 탭 위계로 표현하고 완료 단계의 연결이 약했다.

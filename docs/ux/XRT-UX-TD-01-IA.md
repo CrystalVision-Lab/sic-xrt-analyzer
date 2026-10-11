@@ -2,6 +2,8 @@
 
 작업 기준: `feat/52-candidate-roi`, `e49e4be59ea8c16fa27750fa46940dd57829ee2e`. Issue #55.
 
+현재 Analysis 내부 위계와 준비 조건은 [TD-04 단일 화면 분석](XRT-UX-TD-04-ANALYSIS-FLOW.md)을 따른다. 이 문서의 이전 구조·테스트 수는 단계별 기록이며 아래 기능 Inventory는 후속 진입점을 반영한다.
+
 ## 1. 기존 구조 조사
 
 | 영역 | 기존 구현 | 조사 결과 |
@@ -114,7 +116,7 @@ TD-01/02에서는 새 자동 전환을 추가하지 않았다. **TD-03 현재 �
 | ROI 생성 | 분석→ROI / 초기화 | ROI 드롭다운→분석 ROI / 스택 형상 도구 | — | ROI 편집 | 그리기 | R | Toolbar ROI | Menu/Viewer, ROI Context는 편집·관리 |
 | ROI 가져오기 / 저장 | 파일→가져오기 | — | — | ROI 가져오기 / 새 ZIP 복사본 | ROI Overlay | — | RoiContext | 파일 Menu는 가져오기, 저장은 RoiEditor |
 | ROI 좌표 복사 | 편집 | — | — | 분석의 좌표 표시 | ROI Overlay | — | Edit Menu | Context의 좌표는 읽기 정보 |
-| 분석 실행 / 취소 | 분석 | — | — | 분석→실행/취소 | — | — | AnalysisContext | Analyze Menu, 같은 Action, Toolbar CTA 제거 |
+| 분석 실행 / 취소 | 분석 | — | — | Analysis 고정 실행/준비 요약 | — | — | AnalysisContext | Analyze Menu 공유 Action, Image의 준비 진입은 실행하지 않음 |
 | 결과 탐색 / 후보 선택 | 분석→결과 탭 | — | — | ResultExplorer | 후보 표시점 | — | ResultContext | Viewer 표시점으로 동일 후보 선택 |
 | 연구 결과 내보내기 | 파일의 일반 내보내기는 미연결 | — | — | 결과 폴더 저장 | — | — | ResultContext | 일반 Menu의 미연결 CSV와 혼동 금지 |
 | 이미지 복사본 저장 | 파일 | More→저장 | — | — | — | Ctrl+S | File Menu | More/단축키로 동일 Action |
@@ -129,7 +131,7 @@ TD-01/02에서는 새 자동 전환을 추가하지 않았다. **TD-03 현재 �
 | 매크로 / 플러그인 / 모든 명령 / Fiji | 플러그인 [스택] | More [스택] | — | — | — | Alt+T | Global Menu | More; 같은 Action·작업창·backend |
 | Dev / 명령 기록 | — | More→명령 기록 [스택] | — | — | — | — | More | ImageJ 실행 창의 기록 설정, Dev 약어 제거 |
 | 작업 영역 전환 | 창 | — | Workspace | — | 해당 작업 영역 | Alt+W | Left | Menu, 미연결 영역의 안내 유지 |
-| 모델 선택 / 상태 | 플러그인→모델 정보 [스택] | — | — | Analysis / ModelDetails / ModelStatusGroup | — | — | AnalysisContext | Menu/Status, 기존 모델 상태 컴포넌트 재사용 |
+| 모델 선택 / 상태 | 플러그인→모델 정보 [스택] | — | — | Analysis 모델 요약 / ModelStatusGroup | — | — | AnalysisContext | 변경/상세, hash·폴더·device는 기존 Model Info Dialog |
 | 패널 / Status / 전체 화면 | 이미지 | — | 접기 | — | — | F11 | Global Menu | Left 접기, 지속 상태는 StatusBar |
 
 ## 5. 이번 변경의 제한
