@@ -21,9 +21,9 @@ ColumnLayout {
         wrapMode: Text.Wrap; Layout.fillWidth: true
     }
     ResultExplorer {
-        visible: root.uiState.hasResult; theme: root.theme; uiState: root.uiState
+        visible: root.uiState.hasLoadedImage; theme: root.theme; uiState: root.uiState
         Layout.fillWidth: true; Layout.fillHeight: true
         onExportRequested: root.exportRequested(); onOverviewRequested: root.overviewRequested(); onReviewRequested: root.reviewRequested()
     }
-    Item { visible: !root.uiState.hasResult; Layout.fillHeight: true }
+    Item { visible: !root.uiState.hasLoadedImage; Layout.fillHeight: true }
 }

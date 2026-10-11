@@ -31,7 +31,19 @@ Rectangle {
         focusZoom = target * uiState.displayPixelRatio
         focusPanX = (uiState.contentWidth / 2 - x) * target
         focusPanY = (uiState.contentHeight / 2 - y) * target
-        uiState.analysisLayerVisible = true
+        focusAnimation.start()
+    }
+    function focusGeometry(x, y, w, h) {
+        if (!uiState.hasLoadedImage || uiState.loading) return
+        focusAnimation.stop()
+        var target = Math.max(fitScale, Math.min(4, (viewport.width - 48) / Math.max(64, w * 1.25), (viewport.height - 48) / Math.max(64, h * 1.25)))
+        var cx = Math.max(w / 2, Math.min(uiState.contentWidth - w / 2, x + w / 2))
+        var cy = Math.max(h / 2, Math.min(uiState.contentHeight - h / 2, y + h / 2))
+        uiState.zoom = displayScale * uiState.displayPixelRatio
+        uiState.fitMode = false
+        focusZoom = target * uiState.displayPixelRatio
+        focusPanX = (uiState.contentWidth / 2 - cx) * target
+        focusPanY = (uiState.contentHeight / 2 - cy) * target
         focusAnimation.start()
     }
     ParallelAnimation {
@@ -80,7 +92,7 @@ Rectangle {
         function onRoiEditModeChanged() { root.cancelToolDrawing() }
         function onPageIndexChanged() { root.cancelToolDrawing() }
         function onOpeningChanged() { if (uiState.opening) root.cancelToolDrawing() }
-        function onResearchChanged() { if (!uiState.research.selected.id) focusAnimation.stop() }
+        function onResearchChanged() { if (!uiState.research.selection.id) focusAnimation.stop() }
         function onHasResultChanged() { if (!uiState.hasResult) focusAnimation.stop() }
     }
     function stepPage(delta) {
@@ -189,6 +201,7 @@ Rectangle {
                 anchors.fill: parent; enabled: uiState.canNavigateImage; hoverEnabled: true
                 focus: true
                 Keys.onPressed: function(event) {
+                    if (uiState.pageCount === 1 && uiState.hasResult && !uiState.roiEditMode && [Qt.Key_Left, Qt.Key_Right].indexOf(event.key) >= 0) { fileBridge.research.stepCandidate(event.key === Qt.Key_Right ? 1 : -1); event.accepted = true; return }
                     if (event.key === Qt.Key_Escape) { fileBridge.feedback.setMode(""); root.toolPoints = []; root.drawingTool = false; toolPreview.requestPaint(); event.accepted = true; return }
                     if ((event.key === Qt.Key_Return || event.key === Qt.Key_Enter) && root.toolPoints.length) { root.finishTool(); event.accepted = true; return }
                     if (uiState.roiEditMode && event.key === Qt.Key_Delete) { fileBridge.deleteRoiVertex(); event.accepted = true; return }
@@ -288,10 +301,16 @@ Rectangle {
                         }
                         if (nearest) { fileBridge.feedback.selectRecord(nearest.id); return }
                     }
-                    if (uiState.activeTool === "Pan" && !uiState.roiEditMode && uiState.hasResult && uiState.analysisLayerVisible && Math.hypot(mouse.x-root.pressX, mouse.y-root.pressY) < 4) {
-                        var points = uiState.research.filteredPoints, best = null, distance = 12
+                    if (uiState.activeTool === "Pan" && !uiState.roiEditMode && Math.hypot(mouse.x-root.pressX, mouse.y-root.pressY) < 4) {
+                        if (geometryOverlay.visible) {
+                            var hit = geometryOverlay.hit((mouse.x-imageFrame.x)/root.displayScale, (mouse.y-imageFrame.y)/root.displayScale, 8/root.displayScale)
+                            if (hit) { fileBridge.experiments.select(hit); return }
+                        }
+                        if (!uiState.hasResult || !uiState.analysisLayerVisible) return
+                        var points = uiState.research.points, best = null, distance = 12
                         for (var i=0; i<points.length; i++) {
-                            var p=points[i], d=Math.hypot(mouse.x-imageFrame.x-p.x*root.displayScale, mouse.y-imageFrame.y-p.y*root.displayScale)
+                            var p=points[i]; if (!uiState.candidateLayer(p.type)) continue
+                            var d=Math.hypot(mouse.x-imageFrame.x-p.x*root.displayScale, mouse.y-imageFrame.y-p.y*root.displayScale)
                             if (d < distance) { best=p; distance=d }
                         }
                         if (best) fileBridge.research.selectCandidate(best.id)
@@ -316,20 +335,24 @@ Rectangle {
                 anchors.fill: parent
                 rois: uiState.importedRois.items
                 imageX: imageFrame.x; imageY: imageFrame.y; imageScale: root.displayScale
-                layerVisible: uiState.roiLayerVisible && uiState.hasLoadedImage
+                layerVisible: uiState.roiLayerVisible && uiState.imagejRoiLayerVisible && uiState.hasLoadedImage
                 editMode: uiState.roiEditMode; selectedVertex: uiState.importedRois.vertex
             }
             Canvas {
                 id: analysisOverlay; objectName: "analysisOverlay"; anchors.fill: parent; z: 3
-                property var points: uiState.research.filteredPoints
+                property var points: uiState.research.points
                 property var selected: uiState.research.selected
                 property bool reviewing: uiState.feedbackVisible
-                readonly property real candidateOpacity: 0.55
+                property real paintMs: 0
+                property int paintCount: 0
+                readonly property real candidateOpacity: 0.35
+                property var layers: [uiState.bpdLayerVisible, uiState.tedLayerVisible, uiState.tsdLayerVisible, uiState.selectedLayerVisible]
+                onLayersChanged: requestPaint()
                 readonly property real selectedOpacity: 1
                 property real imageX: imageFrame.x
                 property real imageY: imageFrame.y
                 property real imageScale: root.displayScale
-                visible: uiState.hasResult && uiState.analysisLayerVisible && uiState.hasLoadedImage
+                visible: uiState.hasResult && (uiState.analysisLayerVisible || (uiState.selectedLayerVisible && !!selected.id)) && uiState.hasLoadedImage
                 onPointsChanged: requestPaint()
                 onSelectedChanged: requestPaint()
                 onReviewingChanged: requestPaint()
@@ -338,16 +361,18 @@ Rectangle {
                 onImageScaleChanged: requestPaint()
                 onVisibleChanged: requestPaint()
                 onPaint: {
+                    var started = Date.now()
                     var c = getContext("2d"); c.reset()
                     if (!visible) return
                     c.lineWidth = 1.5; c.globalAlpha = candidateOpacity
-                    for (var i = 0; i < points.length; i++) {
-                        var p = points[i], x = imageX + p.x * imageScale, y = imageY + p.y * imageScale
+                    for (var i = 0; uiState.analysisLayerVisible && i < points.length; i++) {
+                        var p = points[i]; if (!uiState.candidateLayer(p.type)) continue
+                        var x = imageX + p.x * imageScale, y = imageY + p.y * imageScale
                         if (x < -6 || y < -6 || x > width + 6 || y > height + 6) continue
                         c.strokeStyle = p.low_score ? "#ffffff" : uiState.resultPresentation.colorFor(p.type)
-                        c.beginPath(); c.arc(x, y, 5, 0, Math.PI * 2); c.stroke()
+                        c.beginPath(); c.arc(x, y, 2.5, 0, Math.PI * 2); c.stroke()
                     }
-                    if (selected.id && !reviewing) {
+                    if (selected.id && uiState.selectedLayerVisible && !reviewing) {
                         c.globalAlpha = selectedOpacity
                         var sx=imageX+selected.x*imageScale, sy=imageY+selected.y*imageScale
                         c.strokeStyle="#fff04a"; c.lineWidth=2
@@ -356,7 +381,24 @@ Rectangle {
                         c.fillStyle="#14191e"; c.fillRect(sx+15,sy-30,110,22)
                         c.fillStyle="#fff04a"; c.font="12px sans-serif"; c.fillText("#"+selected.number+"  "+selected.type,sx+20,sy-15)
                     }
+                    paintMs = Date.now() - started; paintCount += 1
                 }
+            }
+            GeometryOverlay {
+                id: geometryOverlay; objectName: "geometryOverlay"; anchors.fill: parent; z: 3
+                controller: fileBridge.experiments
+                rows: uiState.experiment.rows
+                selectedId: uiState.experiment.selected.id || ""
+                viewTransform: [imageFrame.x, imageFrame.y, root.displayScale]
+                visible: uiState.hasLoadedImage && uiState.structureLayerVisible && uiState.experiment.total > 0
+                maskMode: uiState.maskMode; lines: uiState.structureLinesVisible
+                highlight: uiState.selectedLayerVisible; lineWidth: uiState.structureLineWidth
+            }
+            Text {
+                anchors.left: parent.left; anchors.bottom: parent.bottom; anchors.margins: 12; z: 5
+                visible: geometryOverlay.visible
+                text: uiState.experiment.status + (geometryOverlay.stats.maskError ? " · Mask 읽기 오류" : "")
+                color: "#d3bef8"; font.pixelSize: 11; style: Text.Outline; styleColor: "#111518"
             }
             Canvas {
                 id: feedbackOverlay; objectName: "feedbackOverlay"; anchors.fill: parent; z: 4

@@ -10,7 +10,7 @@ QtObject {
     readonly property var labels: ["이미지 정보", "분석", "결과", "뷰어 · 스택", "ROI 관리", "검수"]
     readonly property string requestedContext: keys[tabIndex] || "image"
     readonly property string activeContext: requestedContext === "image" && !uiState.hasImage ? "idle" : requestedContext
-    readonly property string detailContext: requestedContext === "result" && !!uiState.research.selected.id ? "candidate" : activeContext
+    readonly property string detailContext: requestedContext === "result" && !!uiState.experiment.selected.id ? "structure" : requestedContext === "result" && !!uiState.research.selected.id ? "candidate" : activeContext
     property string lastReason: "STARTUP"
     property string observedAnalysisPhase: ""
     property string completedAnalysisId: ""

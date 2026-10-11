@@ -33,6 +33,7 @@ QtObject {
     property bool hasRoi: false
     property bool selectingRoi: false
     property bool roiLayerVisible: true
+    property bool imagejRoiLayerVisible: true
     property real roiStartX: 0
     property real roiStartY: 0
     property real roiEndX: 0
@@ -86,6 +87,17 @@ QtObject {
             hasRoi = false
         }
     }
+    // List filters do not control rendering layers. These display preferences persist across sources.
+    property var experiment: fileBridge.experiments.state
+    property bool bpdLayerVisible: true
+    property bool tedLayerVisible: true
+    property bool tsdLayerVisible: true
+    property bool structureLayerVisible: true
+    property bool selectedLayerVisible: true
+    property bool structureLinesVisible: true
+    property string maskMode: "off"
+    property real structureLineWidth: 1.5
+    function candidateLayer(kind) { return kind === "BPD" ? bpdLayerVisible : kind === "TED" ? tedLayerVisible : tsdLayerVisible }
     property bool analysisLayerVisible: true
     readonly property bool modelAvailable: analysis.modelAvailable
     readonly property bool analysisRunning: analysis.state === "RUNNING"

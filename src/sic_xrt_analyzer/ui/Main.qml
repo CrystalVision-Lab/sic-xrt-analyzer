@@ -223,6 +223,7 @@ AppShell {
     Action { id: aboutAction; objectName: "aboutAction"; text: "프로그램 정보"; onTriggered: window.showInfo("SiC XRT Analyzer", "XRT 이미지 검사·분석\n버전 " + fileBridge.appVersion + "\n" + fileBridge.systemInfo + "\n\nTIFF/JPG · ImageJ ROI 뷰어\n모델 분석 미연결\nCrystalVision-Lab") }
     Connections { target: fileBridge.feedback; function onFocusRequested(x, y) { window.requestContext("feedback", "REVIEW_REQUESTED"); uiState.workspaceIndex = 0; Qt.callLater(function() { viewer.focusCandidate(x, y) }) } }
     Connections { target: fileBridge.research; function onFocusRequested(x, y) { window.requestContext("result", "CANDIDATE_SELECTED"); uiState.workspaceIndex = 0; uiState.updateCandidateRoi(); Qt.callLater(function() { viewer.focusCandidate(x, y) }) } }
+    Connections { target: fileBridge.experiments; function onFocusRequested(x, y, w, h) { window.requestContext("result", "CANDIDATE_SELECTED"); uiState.workspaceIndex = 0; Qt.callLater(function() { viewer.focusGeometry(x, y, w, h) }) } }
     SafeFolderDialog { id: researchModelDialog; objectName: "researchModelDialog"; title: "고정 모델 폴더 선택"; onAccepted: fileBridge.research.loadModel(selectedFolder.toString()) }
     SafeFileDialog { id: coordinatesDialog; title: "현재 영상의 좌표 CSV"; nameFilters: ["좌표 CSV (*.csv)"]; onAccepted: fileBridge.research.setCoordinates(selectedFile.toString()) }
     SafeFolderDialog { id: resultsDialog; title: "결과를 저장할 폴더"; onAccepted: fileBridge.research.exportResult(selectedFolder.toString()) }
