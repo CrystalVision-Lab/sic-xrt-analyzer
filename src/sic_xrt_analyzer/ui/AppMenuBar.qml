@@ -175,7 +175,7 @@ MenuBar {
         id: settingsMenu; objectName: "settingsMenu"; title: "창 (Window)"
         AppMenu {
             id: workspaceMenu; objectName: "workspaceMenu"; title: "작업 영역"
-            AppMenuItem { text: "이미지 분석"; onTriggered: root.hostWindow.selectWorkspace(0) }
+            AppMenuItem { objectName: "workspaceViewerMenu"; text: "이미지 뷰어"; onTriggered: root.hostWindow.selectWorkspace(0) }
             AppMenuItem { text: "Wafer Map"; onTriggered: root.hostWindow.selectWorkspace(1) }
             AppMenuItem { text: "이미지 정합"; onTriggered: root.hostWindow.selectWorkspace(2) }
             AppMenuItem { text: "3D 뷰어"; onTriggered: root.hostWindow.selectWorkspace(3) }

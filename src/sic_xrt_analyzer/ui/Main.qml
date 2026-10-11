@@ -68,7 +68,7 @@ AppShell {
     function openImageDialog() { openDialog.open() }
     function selectWorkspace(index) {
         uiState.workspaceIndex = index
-        uiState.statusText = index === 0 ? "이미지 분석 화면" : ["", "Wafer Map", "이미지 정합", "3D 뷰어"][index] + " · 미연결"
+        uiState.statusText = index === 0 ? "이미지 뷰어 화면" : ["", "Wafer Map", "이미지 정합", "3D 뷰어"][index] + " · 미연결"
     }
     function openContext(key) { inspectorCollapsed = false; return contextPanel.showContext(key) }
     function requestContext(key, reason) { return contextPanel.requestContext(key, reason) }
@@ -81,7 +81,7 @@ AppShell {
         target: window.contextPanel
         function onActivateRequested(reason) {
             // File milestones restore the roomy viewer; explicit tasks reveal their panel.
-            window.inspectorCollapsed = ["OPEN_IMAGE", "CLOSE_IMAGE", "DEMO_OPEN", "RESET_LAYOUT"].indexOf(reason) >= 0
+            window.inspectorCollapsed = ["OPEN_IMAGE", "OPEN_TIFF", "CLOSE_IMAGE", "DEMO_OPEN", "RESET_LAYOUT"].indexOf(reason) >= 0
         }
         function onFocusRequested() { viewer.focusView() }
     }

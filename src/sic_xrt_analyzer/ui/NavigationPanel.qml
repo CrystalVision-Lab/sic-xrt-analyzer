@@ -21,7 +21,7 @@ Rectangle {
             AppButton { theme: root.theme; text: root.collapsed ? "›" : "‹"; quiet: true; implicitWidth: 28; tip: "작업 영역 접기 / 펼치기"; onClicked: root.collapseRequested() }
         }
         Repeater {
-            model: [{name:"이미지 분석",icon:"image"},{name:"Wafer Map",icon:"wafer"},{name:"이미지 정합",icon:"align"},{name:"3D 뷰어",icon:"cube"}]
+            model: [{name:"이미지 뷰어",icon:"image"},{name:"Wafer Map",icon:"wafer"},{name:"이미지 정합",icon:"align"},{name:"3D 뷰어",icon:"cube"}]
             delegate: Rectangle {
                 required property int index
                 required property var modelData
@@ -31,7 +31,7 @@ Rectangle {
                 RowLayout {
                     anchors.fill: parent; anchors.leftMargin: 13; anchors.rightMargin: 8; spacing: theme.spacingSm
                     AppIcon { name: modelData.icon; ink: root.uiState.workspaceIndex === index ? theme.accent : theme.muted }
-                    Text { visible: !root.collapsed; text: modelData.name; color: root.uiState.workspaceIndex === index ? theme.text : theme.muted; font.pixelSize: theme.bodySize; Layout.fillWidth: true }
+                    Text { objectName: index === 0 ? "workspaceViewerLabel" : ""; visible: !root.collapsed; text: modelData.name; color: root.uiState.workspaceIndex === index ? theme.text : theme.muted; font.pixelSize: theme.bodySize; Layout.fillWidth: true }
                 }
                 MouseArea { id: itemHover; anchors.fill: parent; hoverEnabled: true; onClicked: root.workspaceRequested(index) }
                 ToolTip.visible: itemHover.containsMouse && (root.collapsed || index > 0)
