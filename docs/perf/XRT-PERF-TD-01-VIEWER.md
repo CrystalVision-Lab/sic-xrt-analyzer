@@ -259,7 +259,10 @@ JSON의 CPU %, RSS, 단계별 호출 수, median/p95/max/n, warnings, SHA 결과
 - 구현 commit: `5cf26e341b1c8b63d9665d793d38fcff3350d193`.
 - 계측/회귀 commit: `1198fc1976736d32b4d0ce09f75d17c07f7e39d9`.
 - 문서 commit은 이 보고서를 포함하는 Git history에서 확인한다.
-- Push, Draft PR / CI: 게시 후 갱신.
+- Push: `origin/perf/81-viewer-render-investigation` 게시 완료.
+- Draft PR: [#82](https://github.com/CrystalVision-Lab/sic-xrt-analyzer/pull/82),
+  base `fix/78-windows-ui-rc-stabilization` / head `perf/81-viewer-render-investigation`.
+- GitHub Actions CI: 실행 결과는 PR Checks에서 확인한다. 로컬 회귀와 별도로 판정한다.
 - 기존 stacked PR은 merge/rebase/retarget하지 않았다.
 
 ## 후속 TD
