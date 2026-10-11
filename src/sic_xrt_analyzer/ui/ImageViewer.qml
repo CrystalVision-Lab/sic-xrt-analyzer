@@ -41,6 +41,8 @@ Rectangle {
     property bool draggingVertex: false
     property var toolPoints: []
     property bool drawingTool: false
+    Binding { target: root.uiState; property: "roiInteraction"; value: root }
+    function cancelToolDrawing() { toolPoints = []; drawingTool = false; toolPreview.requestPaint() }
     function finishTool() {
         if (toolPoints.length) fileBridge.imagej.gesture(uiState.activeTool, toolPoints)
         toolPoints = []; drawingTool = false; toolPreview.requestPaint()
@@ -71,6 +73,10 @@ Rectangle {
         target: root.uiState
         function onImageSourceChanged() { Qt.callLater(root.syncDetailView) }
         function onLoadingChanged() { Qt.callLater(root.syncDetailView) }
+        function onActiveToolChanged() { root.cancelToolDrawing() }
+        function onRoiEditModeChanged() { root.cancelToolDrawing() }
+        function onPageIndexChanged() { root.cancelToolDrawing() }
+        function onOpeningChanged() { if (uiState.opening) root.cancelToolDrawing() }
         function onResearchChanged() { if (!uiState.research.selected.id) focusAnimation.stop() }
         function onHasResultChanged() { if (!uiState.hasResult) focusAnimation.stop() }
     }

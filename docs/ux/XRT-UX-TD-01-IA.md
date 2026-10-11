@@ -2,7 +2,7 @@
 
 작업 기준: `feat/52-candidate-roi`, `e49e4be59ea8c16fa27750fa46940dd57829ee2e`. Issue #55.
 
-현재 Analysis 내부 위계와 준비 조건은 [TD-04 단일 화면 분석](XRT-UX-TD-04-ANALYSIS-FLOW.md), Result 내부 구조는 [TD-05 후보 검토](XRT-UX-TD-05-RESULT.md)를 따른다. 이 문서의 이전 구조·테스트 수는 단계별 기록이며 아래 기능 Inventory는 후속 진입점을 반영한다.
+현재 Analysis 내부 위계와 준비 조건은 [TD-04 단일 화면 분석](XRT-UX-TD-04-ANALYSIS-FLOW.md), Result 내부 구조는 [TD-05 후보 검토](XRT-UX-TD-05-RESULT.md), ROI 상태·생성·편집·관리는 [TD-06 ROI](XRT-UX-TD-06-ROI.md)를 따른다. 이 문서의 이전 구조·테스트 수는 단계별 기록이며 아래 기능 Inventory는 후속 진입점을 반영한다.
 
 ## 1. 기존 구조 조사
 
@@ -113,8 +113,8 @@ TD-01/02에서는 새 자동 전환을 추가하지 않았다. **TD-03 현재 �
 | Pan | — | Pan | — | — | 드래그 | H | Toolbar | Viewer/단축키, 공통 Action |
 | Zoom / 1:1 | 이미지 | Zoom / More→확대·축소·1:1 | — | — | Ctrl+휠 | Ctrl++/-/1 | Toolbar Zoom | Menu/More/Viewer/단축키 |
 | 화면 맞춤 | 이미지 | Fit | — | 결과→전체 보기 | — | Ctrl+0 | Toolbar | 결과 전체 보기는 후보 확대에서 복귀 |
-| ROI 생성 | 분석→ROI / 초기화 | ROI 드롭다운→분석 ROI / 스택 형상 도구 | — | ROI 편집 | 그리기 | R | Toolbar ROI | Menu/Viewer, ROI Context는 편집·관리 |
-| ROI 가져오기 / 저장 | 파일→가져오기 | — | — | ROI 가져오기 / 새 ZIP 복사본 | ROI Overlay | — | RoiContext | 파일 Menu는 가져오기, 저장은 RoiEditor |
+| ROI 생성 | 분석→ROI / 초기화 | ROI 드롭다운→분석 영역 / 스택 형상 도구 | — | 분석/ROI의 공통 영역 지정(R)·제거, 도형 편집 | 그리기 | R | Toolbar 도구 / Viewer 입력 | ROI Context는 상태·관리, ImageJ 기록은 분석 영역과 별도 |
+| ROI 가져오기 / 저장 | 파일→가져오기 | — | — | ROI 가져오기 / 새 ZIP 복사본 | ROI Overlay | — | RoiContext | 파일 Menu는 가져오기, 좌표 편집/외접 사각형 변환은 세부 설정 |
 | ROI 좌표 복사 | 편집 | — | — | 분석의 좌표 표시 | ROI Overlay | — | Edit Menu | Context의 좌표는 읽기 정보 |
 | 분석 실행 / 취소 | 분석 | — | — | Analysis 고정 실행/준비 요약 | — | — | AnalysisContext | Analyze Menu 공유 Action, Image의 준비 진입은 실행하지 않음 |
 | 결과 탐색 / 후보 선택 | 분석→결과 탭 | — | — | ResultExplorer | 후보 표시점 | — | ResultContext | Viewer 표시점으로 동일 후보 선택 |
@@ -150,7 +150,7 @@ TD-01/02에서는 새 자동 전환을 추가하지 않았다. **TD-03 현재 �
 | TD-03 Right Context Panel | 자동 전환 규칙·후보 Context·탭 UX | ContextState / 5개 Context |
 | TD-04 분석 Flow | 준비→실행→상태→결과 흐름 | AnalysisContext + 공통 Action |
 | TD-05 결과 UX | Summary·Filter/Legend·후보 탐색·퍼센트/Raw·선택·Overlay | ResultContext / ResultExplorer / ResultPresentation |
-| TD-06 ROI UX | 생성·편집·관리·분석 범위 | RoiContext / 기존 RoiEditor |
+| TD-06 ROI UX | 별도 분석 영역/ImageJ 기록, 실제 Drawing·Editing·Import 상태, 고정 요약/독립 목록 | RoiContext / RoiFlowState / 기존 RoiEditor·공통 Action |
 | TD-07 TIFF Loading | 초기 준비·진행률·취소·메모리 | 기존 Loader/Viewer Overlay, 이번 변경 없음 |
 | TD-08 Visual Density | 정보 위계의 실제 시각 디자인 | informationPriority + 현행 Theme |
 | TD-09 Menu / Advanced | 전문 기능 메뉴·고급 진입점 | AppMenuBar / AdvancedToolGroup |
