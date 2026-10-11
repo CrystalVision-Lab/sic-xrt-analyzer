@@ -51,6 +51,7 @@ def analyzed(w, adapter=None):
     spin(w.app, lambda: w.bridge.analysis['hasResult'])
     QTest.qWait(40)
     assert w.panel.property('requestedContext') == 'result'
+    w.click('resultListToggle')
     return w.bridge.research
 
 
@@ -66,7 +67,7 @@ def test_summary_filter_navigation_and_overlay_share_state(workbench, kind, tota
     w = workbench
     r = analyzed(w)
     original = w.bridge.pipeline.result
-    assert w.item('resultTotal').property('text') == '총 후보 2,946개'
+    assert w.item('resultTotal').property('text') == '분류 후보 2,946개'
     assert r.state['counts'] == {'BPD': 245, 'TED': 1398, 'TSD': 1303}
     for name, color in [('BPD', '#ffad42'), ('TED', '#50e0ee'), ('TSD', '#ff78c4')]:
         assert evaluate(w, f'resultPresentation.colorFor("{name}")') == color
@@ -85,10 +86,10 @@ def test_summary_filter_navigation_and_overlay_share_state(workbench, kind, tota
     assert evaluate(w, 'research.filteredPoints.length') == total
     overlay = w.item('analysisOverlay')
     assert overlay.property('selected')['id'] == selected['id']
-    assert len(overlay.property('points')) == total
+    assert len(overlay.property('points')) == 2946
+    assert w.state.property('bpdLayerVisible') and w.state.property('tedLayerVisible') and w.state.property('tsdLayerVisible')
     assert overlay.property('selectedOpacity') > overlay.property('candidateOpacity')
-    if kind != 'ALL':
-        assert all(p['type'] == kind for p in overlay.property('points'))
+    assert {p['type'] for p in overlay.property('points')} == {'BPD', 'TED', 'TSD'}
     w.click('nextCandidate')
     assert r.state['selectedIndex'] == 1
     w.click('previousCandidate')
@@ -194,7 +195,8 @@ def test_detail_raw_score_export_and_research_controls_preserved(workbench, tmp_
     QTest.qWait(40)
     assert w.state.property('candidateRoiSize') == 256
     w.click('resultLayerVisibility')
-    assert not w.item('analysisOverlay').property('visible')
+    assert not w.state.property('analysisLayerVisible')
+    assert w.item('analysisOverlay').property('visible')  # Independent selected highlight.
     w.click('resultLayerVisibility')
     search = w.item('candidateSearch')
     search.forceActiveFocus()
