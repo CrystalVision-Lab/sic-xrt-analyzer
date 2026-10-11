@@ -38,7 +38,7 @@ Fiji/ImageJ2는 다음 명령으로 Java 라이브러리를 설치하고, 작업
 
 선택한 ROI를 Fiji Overlay로 전달하여 선택 영역을 사용하는 명령을 실행합니다. 사각형·타원·다각형·자유영역·선·점을 원본 좌표로 연결하며, Dataset만 처리하는 명령은 ROI를 무시할 수 있습니다. 실제 3D XRT TIFF 4개에서 첫·중간·마지막 페이지, 밝기·대비, 연속 탐색, 확대·이동, Fiji ROI 처리와 재열기·캐시 정리를 확인했습니다. [시간·메모리·제약과 검증 재현](docs/stack-validation.md).
 
-**현재 검증:** 회귀 검사 **258개**, Windows AWT/Swing/ImageJ 창 검사 **4개**, 총 **262개**가 통과했습니다. [TD-08 시각 위계·검증·제약](docs/ux/XRT-UX-TD-08-VISUAL-DENSITY.md) · [TD-07 로딩 검증·제약](docs/ux/XRT-UX-TD-07-TIFF-LOADING.md). 아래 이전 단계의 테스트 수는 당시 기록입니다.
+**현재 RC 판정: FAIL / NOT RC READY.** 실제 TIFF 4개와 RGB 모델 분석을 검증했지만 Windows 파일 선택창 반복 열기·취소에서 접근 위반 종료가 재현됐습니다. [TD-09 검증 결과·재현·제약](docs/ux/XRT-UX-TD-09-RC-VALIDATION.md). 신규 검사 3개를 포함한 회귀 검사 수는 **261개**, Windows AWT/Swing/ImageJ 창 검사 **4개**, 총 **265개**입니다. 최종 HEAD의 검사·CI 완료 결과는 TD-09 PR에 기록합니다. [TD-08 시각 위계](docs/ux/XRT-UX-TD-08-VISUAL-DENSITY.md) · [TD-07 로딩 검증](docs/ux/XRT-UX-TD-07-TIFF-LOADING.md). 아래 이전 단계의 테스트 수는 당시 기록입니다.
 
 ## 화면과 조작
 
