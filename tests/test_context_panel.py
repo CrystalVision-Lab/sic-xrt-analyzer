@@ -19,6 +19,9 @@ pytest_plugins = ('test_toolbar',)
 
 
 def choose(w, key):
+    # Context content can change implicit width before the next rendered frame.
+    # Read click coordinates only after Qt has polished the actual layout.
+    w.window.grabWindow()
     if w.window.property('inspectorCollapsed'):
         w.select('toolbarContextTools', 'toolbarContext' + key)
     else:

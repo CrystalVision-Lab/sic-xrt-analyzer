@@ -220,6 +220,21 @@ RGB 실제 Qt에서 TD02 ROI3 sato 번들(선형 11, 분기형 23)을 로드했�
 이 회귀 도구의 저장소 검수 테스트는 합성 UNCERTAIN event이며 실제 연구원 판정이 아니다.
 GUI는 해당 합성 이력을 실제 사람 검수로 가져오지 않았다.
 
+## TIFF 범위 정정 / Viewer-only Regression
+
+사용자는 TIFF가 결함 분석 대상이 아닌 3D·스택용 데이터임을 추가로 명시했다. 따라서 GUI의 실험 bundle 불러오기는 TIFF에서 숨기고 backend controller도 reader 실행 전에 거부한다.
+TIFF의 기존 Viewer·Stack·ImageJ를 유지하며 공간 Z/간격을 추정하거나 3D 재구성을 실행하지 않는다. 도메인/TD02 CLI 계약은 변경하지 않았다.
+처음에는 기존 TD02의 TIFF bundle 표시 호환성을 검사했으나 이는 새 ONNX 추론이나 detector 실행이 아니었다. 범위 정정 후 해당 GUI 동작을 제거하고 아래 viewer-only 검사로 대체했다.
+
+| 실제 원본 | 확인 페이지 (1-based) | 모델 실행 | 실험 불러오기 차단 | 원본 SHA |
+|---|---|---:|---|---|
+| N119_220_Section_stack_flipped.tif | 1 / 80 / 158 | 0 | PASS | 동일 |
+| No107_SectionTopo-afterAnnealing .tif | 1 / 79 / 156 | 0 | PASS | 동일 |
+| No107_SectionTopo-beforeAnnealing.tif | 1 / 79 / 156 | 0 | PASS | 동일 |
+| No22_220_Section_stack_flipped.tif | 1 / 79 / 156 | 0 | PASS | 동일 |
+
+네 파일 모두 uint16 원본 dtype·Viewer가 유지되며 QML warnings 0. TIFF 화면은 ignored `artifacts/result100-tiff-viewer-only/`에만 보관한다. 파일 원본을 수정·복사 변환·새 분석하지 않는다.
+
 ## Screenshots
 
 Git에는 [result100 합성 화면](../screenshots/result100/)만 포함한다. 원본과 후보는 명시적 SYNTHETIC UI QA JPG.
@@ -248,14 +263,18 @@ TIFF 용도 정정 후 JPG fixture로 native 캡처를 다시 만들었고 같�
   - 한 건: 분석 완료 직후 Qt polish 전 Context 버튼 좌표로 QTest가 클릭했다.
     진단 x=1170,width=222 → 렌더 후 x=1072,width=320. 실제 렌더 뒤 버튼 좌표를 사용하도록 했다.
     임의 sleep 증가/Native 코드 변경은 하지 않았다.
+- 중간 재실행: **483 PASS / 1 FAIL / 5 SKIP / 1 ERROR**, 750.80s. TIFF 용도 변경 중의 기존 안내 문구 기대값 불일치와 ignored 임시 진단 파일 `test_result100_polish.py`의 잘못된 수집이었다. 문구 기대값만 수정하고 임시 파일을 `result100_polish_diagnostic.py`로 이름 변경했다. 기존 product 테스트를 제거하거나 skip하지 않았다.
+- TIFF 범위 수정 커밋 CI에서 ROI Context 조작 1 FAIL / 485 PASS / 4 SKIP (279.67s), Linux X11 native 4 PASS (20.06s). Windows 동일 ROI 검사를 개별 재실행해 같은 미렌더 좌표 오류를 재현했다. 공통 Context 선택 helper가 렌더 후 좌표를 쓰도록 보완한 뒤 Context 전체 **11 PASS (31.95s)**. assertion/ROI 동작/Native 코드를 변경하지 않았다.
 - 최종 전체 Windows/CI는 이후 기록. 기존 검사를 삭제/skip하지 않았다.
-- QML warnings: 합성 Windows Qt/실제 RGB offscreen QA에서 0. 최종 native 계측에 별도 기록.
+- QML warnings: 최종 합성 JPG Windows/실제 RGB native 세 DPI/TIFF viewer-only에서 모두 0.
+- Ruff/compileall 및 desktop wheel build PASS.
+- 최종 runtime code HEAD: `ea810714ea3fcf83d1d11e0fcfc9e7b17d811e63`; 이후 Context 테스트 helper 보완 및 검증 결과 기록 커밋은 runtime을 변경하지 않는다. 최종 test HEAD/CI는 PR 본문을 기준으로 확인한다.
 
 ## Native Swing Retest
 
 기존 TD02 최초 Swing 1 FAIL → 동일 코드 재실행 4 PASS 이력의 원인은 미확정이다.
 이번 작업은 Native Dialog/AWT/Swing 안정화 코드를 변경하지 않았다.
-Windows native 반복 검증 결과는 이후 기록하며 재실행 PASS를 원인 해결로 주장하지 않는다.
+Windows native 기존 4개 × 3회 = **12 PASS / 0 FAIL**, 각 32.85 / 26.08 / 25.32s. 관측된 실패 빈도 0/12이며 이전 간헐 실패의 원인 해결을 의미하지 않는다. 로그 `artifacts/result100-native-swing-{1,2,3}.log`를 모두 보존한다. 물리적 mouse Acceptance는 여전히 PENDING이다.
 
 ## Known Limitations / Next TD
 
