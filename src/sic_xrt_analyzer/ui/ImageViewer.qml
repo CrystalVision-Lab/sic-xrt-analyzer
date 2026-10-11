@@ -14,6 +14,7 @@ Rectangle {
     property real pressY: 0
     property real pressPanX: 0
     property real pressPanY: 0
+    property bool draggingVertex: false
     readonly property real fitScale: Math.max(0, Math.min((viewport.width - 16) / Math.max(1, uiState.contentWidth), (viewport.height - 16) / Math.max(1, uiState.contentHeight)))
     readonly property real viewportWidth: viewport.width
     readonly property real displayScale: uiState.fitMode ? fitScale : uiState.zoom / uiState.displayPixelRatio
@@ -110,6 +111,8 @@ Rectangle {
                 anchors.fill: parent; enabled: uiState.canNavigateImage; hoverEnabled: true
                 focus: true
                 Keys.onPressed: function(event) {
+                    if (uiState.roiEditMode && event.key === Qt.Key_Delete) { fileBridge.deleteRoiVertex(); event.accepted = true; return }
+                    if (uiState.roiEditMode && event.key === Qt.Key_Z && (event.modifiers & Qt.ControlModifier)) { fileBridge.roiHistory(!!(event.modifiers & Qt.ShiftModifier)); event.accepted = true; return }
                     if (uiState.pageCount > 1 && [Qt.Key_Left, Qt.Key_Right, Qt.Key_Up, Qt.Key_Down, Qt.Key_PageUp, Qt.Key_PageDown, Qt.Key_Home, Qt.Key_End].indexOf(event.key) >= 0) {
                         if (event.key === Qt.Key_Home) fileBridge.requestPage(0)
                         else if (event.key === Qt.Key_End) fileBridge.requestPage(uiState.pageCount - 1)
@@ -117,10 +120,15 @@ Rectangle {
                         event.accepted = true
                     }
                 }
-                cursorShape: uiState.activeTool === "Pan" ? (pressed ? Qt.ClosedHandCursor : Qt.OpenHandCursor) : Qt.CrossCursor
+                cursorShape: uiState.roiEditMode ? Qt.CrossCursor : uiState.activeTool === "Pan" ? (pressed ? Qt.ClosedHandCursor : Qt.OpenHandCursor) : Qt.CrossCursor
                 onPressed: function(mouse) {
                     forceActiveFocus()
                     root.pressX = mouse.x; root.pressY = mouse.y; root.pressPanX = root.panX; root.pressPanY = root.panY
+                    if (uiState.roiEditMode) {
+                        var editPoint = root.imagePoint(mouse.x, mouse.y)
+                        root.draggingVertex = fileBridge.beginRoiDrag(editPoint.x * uiState.contentWidth, editPoint.y * uiState.contentHeight, 8 / root.displayScale)
+                        return
+                    }
                     if (uiState.activeTool !== "Pan") {
                         uiState.selectingRoi = true
                         var p = root.imagePoint(mouse.x, mouse.y)
@@ -134,6 +142,11 @@ Rectangle {
                     uiState.cursorX = inside ? Math.min(uiState.contentWidth - 1, Math.floor(p.x * uiState.contentWidth)) : -1
                     uiState.cursorY = inside ? Math.min(uiState.contentHeight - 1, Math.floor(p.y * uiState.contentHeight)) : -1
                     if (!pressed) return
+                    if (uiState.roiEditMode) {
+                        if (root.draggingVertex) fileBridge.dragRoiVertex(p.x * uiState.contentWidth, p.y * uiState.contentHeight)
+                        else { root.panX = root.pressPanX + mouse.x - root.pressX; root.panY = root.pressPanY + mouse.y - root.pressY }
+                        return
+                    }
                     if (uiState.activeTool === "Pan") {
                         root.panX = root.pressPanX + mouse.x - root.pressX
                         root.panY = root.pressPanY + mouse.y - root.pressY
@@ -143,8 +156,15 @@ Rectangle {
                     }
                 }
                 onExited: { uiState.cursorX = -1; uiState.cursorY = -1 }
-                onReleased: uiState.selectingRoi = false
-                onCanceled: uiState.selectingRoi = false
+                onDoubleClicked: function(mouse) {
+                    if (uiState.roiEditMode) {
+                        var p = root.imagePoint(mouse.x, mouse.y)
+                        fileBridge.finishRoiDrag(true); root.draggingVertex = false
+                        fileBridge.addRoiVertex(p.x * uiState.contentWidth, p.y * uiState.contentHeight)
+                    }
+                }
+                onReleased: { uiState.selectingRoi = false; if (root.draggingVertex) fileBridge.finishRoiDrag(false); root.draggingVertex = false }
+                onCanceled: { uiState.selectingRoi = false; if (root.draggingVertex) fileBridge.finishRoiDrag(true); root.draggingVertex = false }
                 onWheel: function(wheel) {
                     var delta = wheel.angleDelta.y || wheel.pixelDelta.y
                     if (delta === 0) return
@@ -159,6 +179,7 @@ Rectangle {
                 rois: uiState.importedRois.items
                 imageX: imageFrame.x; imageY: imageFrame.y; imageScale: root.displayScale
                 layerVisible: uiState.roiLayerVisible && uiState.hasLoadedImage
+                editMode: uiState.roiEditMode; selectedVertex: uiState.importedRois.vertex
             }
             ColumnLayout {
                 anchors.centerIn: parent; spacing: 10
@@ -177,6 +198,7 @@ Rectangle {
                         objectName: "initialLoadingText"; Layout.fillWidth: true; wrapMode: Text.Wrap
                         horizontalAlignment: Text.AlignHCenter; color: uiState.stack.preloadError ? theme.error : theme.text
                         text: uiState.stack.preloadError ? "전체 페이지 로딩 실패\n" + uiState.stack.preloadError
+                              : uiState.stack.preparing.label && uiState.opening ? uiState.stack.preparing.label
                               : uiState.stack.preload.total > 0 ? "전체 페이지 불러오는 중 · " + uiState.stack.preload.prepared + " / " + uiState.stack.preload.total
                               : "이미지 정보를 읽는 중…"
                     }
@@ -184,8 +206,8 @@ Rectangle {
                         id: preloadProgress
                         objectName: "initialLoadingProgress"; Layout.fillWidth: true
                         implicitHeight: 6; padding: 0
-                        visible: uiState.stack.preload.total > 0
-                        from: 0; to: Math.max(1, uiState.stack.preload.total); value: uiState.stack.preload.prepared
+                        visible: uiState.stack.preload.total > 0 || uiState.stack.preparing.total > 0
+                        from: 0; to: Math.max(1, uiState.opening ? uiState.stack.preparing.total || 1 : uiState.stack.preload.total); value: uiState.opening ? uiState.stack.preparing.done || 0 : uiState.stack.preload.prepared
                         background: Rectangle { color: theme.border; radius: 2 }
                         contentItem: Item {
                             Rectangle { width: parent.width * preloadProgress.visualPosition; height: parent.height; color: theme.accent; radius: 2 }

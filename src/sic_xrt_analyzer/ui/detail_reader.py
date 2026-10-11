@@ -17,7 +17,7 @@ class DetailReader(QObject):
         self.reader.ready.connect(self._ready)
         self.timer = QTimer(self)
         self.timer.setSingleShot(True)
-        self.timer.setInterval(70)
+        self.timer.setInterval(0)
         self.timer.timeout.connect(self._read)
         self.requested = self.result = None
         self.error = ''

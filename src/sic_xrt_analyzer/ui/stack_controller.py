@@ -24,6 +24,7 @@ class _Request:
 
 class _Signals(QObject):
     done = Signal(object, object, str)
+    progress = Signal(int, int, int, str)
 
 
 class _Reader:
@@ -31,7 +32,7 @@ class _Reader:
         self.stack = None
         self.preload_enabled = preload_enabled
 
-    def read(self, request, token):
+    def read(self, request, token, progress=lambda *args: None):
         if token.is_set():
             return None
         if request.closing:
@@ -40,6 +41,9 @@ class _Reader:
         if request.opening or self.stack is None or self.stack.path != request.path:
             self.close()
             self.stack = open_stack(request.path, browse_enabled=self.preload_enabled)
+        if request.opening and isinstance(self.stack, SampledImageStack) and not self.stack.prepare_native(token.is_set, progress):
+            self.close()
+            return None
         if request.browse:
             self.stack.prepare_browse(request.page, request.window, canceled=token.is_set)
             return None
@@ -61,9 +65,12 @@ class _Task(QRunnable):
     def run(self):
         frame, error = None, ""
         try:
-            frame = self.reader.read(self.request, self.token)
+            frame = self.reader.read(self.request, self.token,
+                                     lambda done, total, label: self.signals.progress.emit(self.request.serial, done, total, label))
         except Exception as exc:  # noqa: BLE001
             error = str(exc)
+            if self.request.opening:
+                self.reader.close()
         self.signals.done.emit(self.request, frame, error)
 
 
@@ -89,6 +96,7 @@ class StackController(QObject):
         self._preload_enabled = preload_enabled
         self.preload_error = ""
         self.initial_loading = False
+        self.preparing = {}
         self.detail_busy = False
         self.scrubbing = False
         self._detail_timer = QTimer(self)
@@ -124,6 +132,7 @@ class StackController(QObject):
         request, self._pending = self._pending, None
         self._task = _Task(self._reader, request)
         self._task.signals.done.connect(self._done)
+        self._task.signals.progress.connect(self._progress)
         self._pool.start(self._task)
 
     def open(self, path):
@@ -132,7 +141,14 @@ class StackController(QObject):
         self.initial_loading = True
         self.scrubbing = False
         self.window = None
+        self.preparing = {}
         self._submit(path, 0, None, opening=True)
+
+    @Slot(int, int, int, str)
+    def _progress(self, serial, done, total, label):
+        if serial == self._serial and not self._closed:
+            self.preparing = {'done': done, 'total': total, 'label': label}
+            self.changed.emit()
 
     def page(self, index):
         if self._closed or self.initial_loading or self.frame is None or type(index) is not int or not 0 <= index < self.frame.source.metadata.page_count:
@@ -210,7 +226,13 @@ class StackController(QObject):
         self.changed.emit()
 
     def _publish(self, frame, opening):
+        if self.frame is not None and self.frame.source is not frame.source:
+            self._close_prepared_frame()
         self.frame = frame
+        if isinstance(self._reader.stack, SampledImageStack) and self._reader.stack.first_source is frame.source:
+            # A failed next open must retain this frame's native cache. The
+            # displayed-frame owner releases it on successful replacement/close.
+            self._reader.stack.retain_prepared = True
         self.window = (frame.low, frame.high)
         self.frameReady.emit(frame, opening)
         stack = self._reader.stack
@@ -314,9 +336,11 @@ class StackController(QObject):
         self.detail_busy = False
         self.preload_error = ""
         self.initial_loading = False
+        self.preparing = {}
         self._prefetch_timer.stop()
         self._neighbors.clear()
         self._serial += 1
+        self._close_prepared_frame()
         self.frame = self.window = self._pending = None
         self.busy, self.error = False, ""
         if self._task:
@@ -338,4 +362,10 @@ class StackController(QObject):
             self._task.token.set()
         self._pool.waitForDone()
         self._reader.close()
+        self._close_prepared_frame()
         self.frame = None
+
+    def _close_prepared_frame(self):
+        cache = getattr(self.frame.source, 'prepared', None) if self.frame else None
+        if cache is not None:
+            cache.close()

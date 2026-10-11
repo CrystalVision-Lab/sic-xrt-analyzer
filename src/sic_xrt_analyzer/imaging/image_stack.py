@@ -14,6 +14,7 @@ from .original_source import (
     SourceError,
     SourceIdentity,
 )
+from .prepared_image import PreparedPixels, warm_tiff
 from .tiff_stack import (
     StackFrame,
     TiffStack,
@@ -39,6 +40,7 @@ class JpegImageSource:
     metadata: OriginalMetadata
     identity: SourceIdentity
     max_read_bytes: int = 128 * 1024**2
+    prepared: object = None
 
     def __init__(self, path):
         canonical = str(Path(path).resolve(strict=True))
@@ -84,6 +86,8 @@ class JpegImageSource:
         self.validate_region(x, y, width, height)
         if width * height * 4 > self.max_read_bytes:
             raise SourceError("READ_LIMIT_EXCEEDED", "Requested JPEG region exceeds the read budget")
+        if self.prepared is not None:
+            return self.prepared.region(self, x, y, width, height)
         reader = self._reader()
         if not reader.supportsOption(QImageIOHandler.ClipRect):
             raise SourceError("UNSUPPORTED_FORMAT", "JPEG 부분 읽기 디코더가 없습니다")
@@ -113,10 +117,34 @@ class SampledImageStack:
         self.default_window = None
         self.initial_window = None
         self.invert = False
+        self.native_ready = False
+        self.retain_prepared = False
         if source.metadata.format == 'TIFF':
             with tifffile.TiffFile(source.path) as tif:
                 self.initial_window = imagej_window(tif.imagej_metadata or {})
                 self.invert = tif.pages[0].photometric == tifffile.PHOTOMETRIC.MINISWHITE
+
+    def prepare_native(self, canceled=lambda: False, progress=lambda *args: None):
+        if self.native_ready:
+            return True
+        source = self.first_source
+        if source.metadata.format == 'JPEG':
+            # Small JPEG already has its complete native grid in frame.pixels.
+            if max(source.metadata.width, source.metadata.height) <= 2048:
+                self.native_ready = True
+                return True
+            cache = PreparedPixels()
+            if not cache.jpeg(source, canceled, progress):
+                return False
+            object.__setattr__(source, 'prepared', cache)
+            # Use the same decoded grid for preview and exact pixels.
+            step = max(1, math.ceil(max(source.metadata.width, source.metadata.height) / 2048))
+            self.samples = cache.pixels[::step, ::step].copy()
+            self.samples.setflags(write=False)
+        elif not warm_tiff(source, canceled, progress):
+            return False
+        self.native_ready = True
+        return True
 
     def frame(self, index, window=None, *, automatic=False, canceled=lambda: False):
         if self.closed or index != 0:
@@ -160,6 +188,8 @@ class SampledImageStack:
     def close(self):
         self.closed = True
         self.samples = self._frame = None
+        if not self.retain_prepared and isinstance(self.first_source, JpegImageSource) and self.first_source.prepared is not None:
+            self.first_source.prepared.close()
 
 
 def open_stack(path, *, browse_enabled=False):

@@ -10,6 +10,7 @@ Rectangle {
     property int tabIndex: 0
     signal importRequested()
     signal boundsRequested()
+    signal saveRequested()
     color: theme.panel; border.color: theme.border
     ColumnLayout {
         anchors.fill: parent; anchors.margins: 12; spacing: 12
@@ -33,6 +34,7 @@ Rectangle {
                     Text { text: "대응하는 이미지를 먼저 열고 .roi 또는 RoiSet.zip을 가져오세요. 원본 좌표를 그대로 표시합니다."; color: theme.muted; font.pixelSize: 11; wrapMode: Text.Wrap; Layout.fillWidth: true }
                     AppButton { objectName: "importRoisButton"; theme: root.theme; text: "ROI / ZIP 가져오기…"; iconName: "roi"; Layout.fillWidth: true; enabled: uiState.hasLoadedImage && !uiState.loading && !uiState.importedRois.busy; onClicked: root.importRequested() }
                     Text { visible: uiState.importedRois.busy; text: "ROI 불러오는 중…"; color: theme.accent; font.pixelSize: 11 }
+                    RoiEditor { theme: root.theme; uiState: root.uiState; Layout.fillWidth: true; onSaveRequested: root.saveRequested() }
                     RowLayout {
                         Layout.fillWidth: true
                         Text { text: "가져온 ROI " + uiState.importedRois.items.length + "개"; color: theme.text; font.pixelSize: 12; Layout.fillWidth: true }

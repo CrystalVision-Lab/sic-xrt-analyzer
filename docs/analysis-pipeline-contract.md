@@ -239,6 +239,8 @@ RGB/페이지/MINISWHITE, 8000×6000 원본과 4000×3000 preview 분리, full-r
 
 ## 2D 이미지와 ImageJ ROI 확장 (Issue #25)
 
+후속 Issue #27에서 ROI 형상 편집과 새 ZIP 복사본 저장을 추가했습니다. 분석 계약 1.0과 사각형 Region은 유지하며 다각형 mask 분석은 미구현입니다. 자세한 [사전 준비·편집 범위](prepared-viewer-roi-editor.md)를 참고하세요. 아래의 편집/내보내기 미지원 설명은 Issue #25 구현 시점의 기록입니다.
+
 계약 버전 1.0과 입출력 스키마·좌표·호환성을 유지합니다. JPEG는 디코딩된 RGB 8-bit의 보기 전용 소스이며 분석 pipeline에 전달하지 않습니다. TIFF는 기존 OriginalImageSource와 원본 읽기 한도를 그대로 사용합니다.
 
 ImageJ ROI 가져오기는 사용자 형상 표시이며 모델 결과가 아닙니다. 명시적 **외접 사각형으로 선택**으로만 기존 직사각형 Region에 연결합니다. 점·다각형 mask 분석이나 ROI 파일 편집·내보내기는 구현하지 않았습니다. [사용법과 원본 읽기·검증 범위](2d-image-roi-viewer.md)를 참고하세요. 기존 80개와 새 회귀 15개로 전체 95개 테스트를 사용합니다.

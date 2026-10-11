@@ -1,7 +1,7 @@
 # 내부 XRT TIFF 스택 뷰어
 
 Issue #13 · PR #12의 원본 소스/분석 계약 기반 위에 구현했습니다.
-외부 ImageJ/Fiji를 실행하지 않습니다. 이번 범위는 **2D 페이지 탐색**입니다. JPG·대형 단일 TIFF·ImageJ ROI는 [2D 이미지·ROI 문서](2d-image-roi-viewer.md)를 참고하세요. 현재 전체 자동 검사는 95개이며 아래 80개 수치는 이전 스택 구현 당시의 기록입니다.
+외부 ImageJ/Fiji를 실행하지 않습니다. 이번 범위는 **2D 페이지 탐색**입니다. JPG·대형 단일 TIFF·ImageJ ROI는 [2D 이미지·ROI 문서](2d-image-roi-viewer.md), 사전 준비·ROI 편집은 [후속 문서](prepared-viewer-roi-editor.md)를 참고하세요. 현재 전체 자동 검사는 104개이며 아래 80개 수치는 이전 스택 구현 당시의 기록입니다.
 
 ## 구조와 선택 근거
 
