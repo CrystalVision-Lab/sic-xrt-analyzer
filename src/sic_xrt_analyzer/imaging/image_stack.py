@@ -8,6 +8,7 @@ import tifffile
 from PySide6.QtCore import QRect, QSize, Qt
 from PySide6.QtGui import QImage, QImageIOHandler, QImageReader
 
+from .display_pyramid import DisplayPyramid
 from .original_source import (
     OriginalImageSource,
     OriginalMetadata,
@@ -143,6 +144,16 @@ class SampledImageStack:
             self.samples.setflags(write=False)
         elif not warm_tiff(source, canceled, progress):
             return False
+        pyramid = DisplayPyramid(source, source.prepared.pixels if isinstance(source, JpegImageSource) else None)
+        object.__setattr__(source, 'display_pyramid', pyramid)
+        pyramid.invert = self.invert
+        try:
+            if not pyramid.prepare(canceled, progress):
+                pyramid.close()
+                return False
+        except Exception:
+            pyramid.close()
+            raise
         self.native_ready = True
         return True
 
@@ -188,6 +199,10 @@ class SampledImageStack:
     def close(self):
         self.closed = True
         self.samples = self._frame = None
+        if not self.retain_prepared:
+            pyramid = getattr(self.first_source, 'display_pyramid', None)
+            if pyramid is not None:
+                pyramid.close()
         if not self.retain_prepared and isinstance(self.first_source, JpegImageSource) and self.first_source.prepared is not None:
             self.first_source.prepared.close()
 

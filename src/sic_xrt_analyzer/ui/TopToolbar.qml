@@ -6,12 +6,14 @@ Rectangle {
     property QtObject theme
     property QtObject uiState
     property var actions
+    property var hostWindow
     color: theme.toolbar
+    ToolPalette { anchors.left: parent.left; anchors.right: parent.right; anchors.top: parent.top; anchors.margins: 8; height: 30; theme: root.theme; uiState: root.uiState; hostWindow: root.hostWindow }
     RowLayout {
-        anchors.fill: parent; anchors.leftMargin: 10; anchors.rightMargin: 10
+        anchors.left: parent.left; anchors.right: parent.right; anchors.bottom: parent.bottom; height: 40; anchors.leftMargin: 10; anchors.rightMargin: 10
         spacing: 5
         AppButton { theme: root.theme; action: root.actions.open; text: "열기"; iconName: "open"; tip: "TIFF/JPG 열기 · Ctrl+O" }
-        AppButton { theme: root.theme; action: root.actions.save; text: ""; iconName: "save"; tip: "프로젝트 저장 형식이 연결되지 않았습니다" }
+        AppButton { theme: root.theme; action: root.actions.save; text: ""; iconName: "save"; tip: "이미지 파일의 새 복사본 저장 · Ctrl+S" }
         Rectangle { width: 1; height: 22; color: theme.border; Layout.leftMargin: 6; Layout.rightMargin: 6 }
         AppButton { theme: root.theme; action: root.actions.pan; text: "Pan"; iconName: "pan"; checked: uiState.activeTool === "Pan" && !uiState.roiEditMode; tip: "Pan · H" }
         AppButton { theme: root.theme; action: root.actions.roi; text: "ROI"; iconName: "roi"; checked: uiState.activeTool === "ROI" && !uiState.roiEditMode; tip: "ROI · R" }

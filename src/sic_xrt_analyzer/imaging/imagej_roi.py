@@ -6,7 +6,7 @@ from pathlib import Path
 from zipfile import ZipFile
 
 import numpy as np
-from roifile import ROI_TYPE, ImagejRoi
+from roifile import ROI_SUBTYPE, ROI_TYPE, ImagejRoi
 
 MAX_FILE_BYTES = 4 * 1024**2
 MAX_TOTAL_BYTES = 32 * 1024**2
@@ -23,6 +23,9 @@ class ImportedRoi:
     color: str
     bbox: tuple
     page_index: int | None
+    tool: str = ''
+    text: str = ''
+    stroke_width: float = 1
 
 
 def decode_roi(data, filename, metadata, *, frames=0, slices=0):
@@ -31,7 +34,9 @@ def decode_roi(data, filename, metadata, *, frames=0, slices=0):
     if len(data) > MAX_FILE_BYTES:
         raise ValueError('ROI 파일 크기 한도 초과')
     roi = ImagejRoi.frombytes(data)
-    if roi.subtype.value != 0 or getattr(roi, 'rounded_rect_arc_size', 0):
+    if (roi.subtype == ROI_SUBTYPE.TEXT and roi.roitype != ROI_TYPE.RECT) or (roi.subtype == ROI_SUBTYPE.ARROW and roi.roitype != ROI_TYPE.LINE):
+        raise ValueError('ROI 하위 형식과 도형이 일치하지 않습니다')
+    if roi.subtype not in (ROI_SUBTYPE.UNDEFINED, ROI_SUBTYPE.TEXT, ROI_SUBTYPE.ARROW) or getattr(roi, 'rounded_rect_arc_size', 0):
         raise ValueError('텍스트/화살표/회전 도형 등 이 ROI 하위 형식은 아직 지원하지 않습니다')
     closed = {ROI_TYPE.POLYGON, ROI_TYPE.RECT, ROI_TYPE.OVAL, ROI_TYPE.FREEHAND, ROI_TYPE.TRACED}
     opened = {ROI_TYPE.LINE, ROI_TYPE.POLYLINE, ROI_TYPE.FREELINE, ROI_TYPE.ANGLE}
@@ -45,7 +50,10 @@ def decode_roi(data, filename, metadata, *, frames=0, slices=0):
         kind = 'line'
     else:
         raise ValueError('지원하지 않는 ROI 도형')
-    paths = [np.asarray(p, dtype=np.float64) for p in roi.coordinates(multi=True)]
+    if roi.subtype == ROI_SUBTYPE.TEXT:
+        paths = [np.array([[roi.left, roi.top], [roi.right, roi.top], [roi.right, roi.bottom], [roi.left, roi.bottom]], dtype=np.float64)]
+    else:
+        paths = [np.asarray(p, dtype=np.float64) for p in roi.coordinates(multi=True)]
     if not paths or any(p.ndim != 2 or p.shape[1] != 2 or not len(p) for p in paths):
         raise ValueError('ROI 좌표가 없습니다')
     count = sum(len(p) for p in paths)
@@ -80,7 +88,10 @@ def decode_roi(data, filename, metadata, *, frames=0, slices=0):
     return ImportedRoi(sha256(filename.encode('utf-8') + data).hexdigest(),
                        (roi.name or Path(filename).stem)[:160], kind,
                        tuple(tuple((float(x), float(y)) for x, y in p) for p in paths),
-                       color, (left, top, right - left, bottom - top), position - 1 if position else None)
+                       color, (left, top, right - left, bottom - top), position - 1 if position else None,
+                       'Text' if roi.subtype == ROI_SUBTYPE.TEXT else 'Arrow' if roi.subtype == ROI_SUBTYPE.ARROW else
+                       {ROI_TYPE.RECT: 'Rectangle', ROI_TYPE.OVAL: 'Oval', ROI_TYPE.LINE: 'Line', ROI_TYPE.ANGLE: 'Angle', ROI_TYPE.FREEHAND: 'Freehand', ROI_TYPE.FREELINE: 'FreeLine'}.get(roi.roitype, ''),
+                       roi.text or '', roi.text_size or roi.float_stroke_width or roi.stroke_width or 1)
 
 
 def load_rois(paths, metadata, *, frames=0, slices=0):

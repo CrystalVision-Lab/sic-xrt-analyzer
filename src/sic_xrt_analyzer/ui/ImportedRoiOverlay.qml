@@ -46,6 +46,16 @@ Canvas {
                 if (roi.kind === "polygon") c.closePath()
             }
             c.stroke()
+            if (roi.tool === "Text") {
+                c.fillStyle = roi.color; c.font = roi.strokeWidth + "px sans-serif"
+                c.fillText(roi.text, roi.bbox[0], roi.bbox[1] + roi.strokeWidth)
+            }
+            if (roi.tool === "Arrow") {
+                var a = roi.paths[0][0], b = roi.paths[0][roi.paths[0].length - 1]
+                var angle = Math.atan2(b[1] - a[1], b[0] - a[0]), len = 12 / imageScale
+                c.beginPath(); c.moveTo(b[0] - len * Math.cos(angle - 0.5), b[1] - len * Math.sin(angle - 0.5))
+                c.lineTo(b[0], b[1]); c.lineTo(b[0] - len * Math.cos(angle + 0.5), b[1] - len * Math.sin(angle + 0.5)); c.stroke()
+            }
             if (editMode && roi.selected) {
                 var handle = 4 / imageScale
                 for (var v = 0; v < roi.paths[0].length; ++v) {

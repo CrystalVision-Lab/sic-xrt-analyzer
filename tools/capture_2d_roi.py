@@ -1,5 +1,6 @@
 """Native Qt captures of generated JPEG and ImageJ ROI data only."""
 import argparse
+import os
 import time
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -17,12 +18,14 @@ from sic_xrt_analyzer.ui.bridge import FileBridge, TiffImageProvider
 
 
 def main():
+    os.environ.setdefault('QSG_RENDER_LOOP', 'basic')
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--editor', action='store_true', help='Capture the ROI editor with generated data')
+    parser.add_argument('--imagej', action='store_true', help='Capture the current ImageJ toolbar and prepared display')
     args = parser.parse_args()
     app = QGuiApplication([])
     QQuickStyle.setStyle('Basic')
-    output = Path(__file__).resolve().parents[1] / ('docs/screenshots/roi-editor' if args.editor else 'docs/screenshots/2d-roi')
+    output = Path(__file__).resolve().parents[1] / ('docs/screenshots/imagej-workbench' if args.imagej else 'docs/screenshots/roi-editor' if args.editor else 'docs/screenshots/2d-roi')
     output.mkdir(parents=True, exist_ok=True)
     with TemporaryDirectory() as directory:
         folder = Path(directory)
@@ -77,7 +80,7 @@ def main():
                 bridge.moveRoiVertex(1490, 1495)
             capture('jpeg-roi-fit')
             invoke(window.findChild(QObject, 'actualSizeAction'), 'trigger')
-            wait(lambda: bridge.detailState['ready'])
+            wait(lambda: bridge.stackState['preparedDisplay'])
             viewport = window.findChild(QObject, 'viewerViewport')
             origin = viewport.mapToScene(QPoint(0, 0))
             QTest.mouseMove(window, QPoint(int(origin.x() + viewport.width() / 2), int(origin.y() + viewport.height() / 2)))
@@ -93,7 +96,7 @@ def main():
             window.close()
             engine.deleteLater()
             app.processEvents()
-    print('Synthetic JPEG/ROI and native-detail screenshots captured; no QML warnings.')
+    print('Synthetic JPEG/ROI and prepared-display screenshots captured; no QML warnings.')
 
 
 if __name__ == '__main__':

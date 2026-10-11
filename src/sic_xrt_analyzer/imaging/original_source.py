@@ -62,7 +62,16 @@ class OriginalImageSource:
             except ValueError as exc:
                 raise SourceError("INVALID_INPUT", str(exc)) from exc
             shape = page.shape
-            gray = len(shape) == 2 and page.photometric.name in ("MINISBLACK", "MINISWHITE")
+            gray = len(shape) == 2 and page.photometric.name in ("MINISBLACK", "MINISWHITE", "PALETTE")
+            palette = page.colormap.copy() if page.photometric.name == 'PALETTE' else None
+            if palette is None:
+                luts = (tif.imagej_metadata or {}).get('LUTs')
+                if luts is not None:
+                    lut = np.asarray(luts)
+                    if lut.ndim == 3:
+                        lut = lut[0]
+                    if lut.shape == (3,256) and lut.dtype == np.uint8:
+                        palette = lut.astype(np.uint16) * 257
             rgb = (len(shape) == 3 and shape[-1] in (3, 4) and page.photometric.name == "RGB"
                    and page.planarconfig == tifffile.PLANARCONFIG.CONTIG)
             if not (gray or rgb) or np.dtype(page.dtype).kind not in "buif":
@@ -78,6 +87,9 @@ class OriginalImageSource:
                             "identity": identity, "max_read_bytes": max_read_bytes,
                             "max_decode_bytes": max_decode_bytes}.items():
             object.__setattr__(self, name, value)
+        if palette is not None:
+            palette.setflags(write=False)
+            object.__setattr__(self, 'display_palette', palette)
         self.validate_identity()
 
     def validate_identity(self):

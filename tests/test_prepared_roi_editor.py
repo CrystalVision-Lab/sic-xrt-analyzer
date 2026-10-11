@@ -305,7 +305,9 @@ def test_large_tiff_native_preparation_reads_without_full_copy(tmp_path, monkeyp
     progress = []
     try:
         assert stack.prepare_native(progress=lambda *args: progress.append(args))
-        assert progress[0][0] < progress[-1][0] == 7000
+        native = [p for p in progress if p[1] == 7000]
+        assert native[0][0] < native[-1][0] == 7000
+        assert stack.first_source.display_pyramid.levels[-1].shape[:2] == (438, 438)
         assert stack.native_ready
         assert stack.frame(0).pixels is None
         assert stack.first_source.read_region(6999, 6999, 1, 1)[0, 0].tolist() == [1, 2, 3]

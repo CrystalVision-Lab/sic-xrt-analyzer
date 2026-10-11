@@ -28,7 +28,9 @@ from sic_xrt_analyzer.analysis.pipeline import AnalysisPipeline
 from sic_xrt_analyzer.imaging.image_stack import open_stack
 from sic_xrt_analyzer.imaging.original_source import OriginalImageSource
 from sic_xrt_analyzer.imaging.roi_edit import export_copy
+from sic_xrt_analyzer.ui import prepared_view  # noqa: F401  (register QML type)
 from sic_xrt_analyzer.ui.detail_reader import DetailReader
+from sic_xrt_analyzer.ui.imagej_workbench import ImageJWorkbench
 from sic_xrt_analyzer.ui.latest_reader import LatestReader
 from sic_xrt_analyzer.ui.pixel_reader import PixelReader
 from sic_xrt_analyzer.ui.roi_manager import RoiManager
@@ -70,6 +72,7 @@ class FileBridge(QObject):
         super().__init__(parent)
         self.provider = provider or TiffImageProvider()
         self.revision = 0
+        self._working_path = ''
         self.stack_viewer = StackController(self)
         self.stack_viewer.changed.connect(self.stackChanged)
         self.stack_viewer.frameReady.connect(self._on_frame)
@@ -85,6 +88,7 @@ class FileBridge(QObject):
         self.roi_exporter = LatestReader(self)
         self.roi_exporter.ready.connect(self._on_roi_saved)
         self.pipeline = AnalysisPipeline(parent=self)
+        self.workbench = ImageJWorkbench(self)
         self.pipeline.changed.connect(self.analysisChanged)
         self._settings = settings or QSettings("CrystalVision-Lab", "sic-xrt-analyzer")
         stored = self._settings.value("preferences", {})
@@ -144,6 +148,7 @@ class FileBridge(QObject):
             "browsePreview": f is not None and f.pixels is None and f.source.metadata.page_count > 1,
             "cursorRevision": self.pixel_reader.revision, "pixelError": self.pixel_reader.error,
             "format": f.source.metadata.format if f else "",
+            "preparedDisplay": bool(f and getattr(f.source, 'display_pyramid', None)),
             "requestedPage": s.requested_page, "currentPage": f.source.page_index if f else 0,
             "pageCount": f.source.metadata.page_count if f else 0,
             "dtype": f.source.metadata.dtype if f else "",
@@ -464,6 +469,7 @@ class FileBridge(QObject):
 
     @Slot(str, result="QVariantMap")
     def openImage(self, url):
+        self.workbench.runtime.session += 1
         self.pipeline.invalidate()
         path = self.localPath(url)
         if not path or not self.isAccessible(path):
@@ -487,6 +493,13 @@ class FileBridge(QObject):
 
     @Slot(str)
     def requestImage(self, url):
+        self.workbench.runtime.session += 1
+        self._request_image(url)
+
+    def _request_image(self, url):
+        if self.workbench.busy:
+            self.workbench.cancel()
+        self._working_path = ''
         self.pipeline.invalidate()
         self.pixel_reader.clear()
         self.detail_reader.clear()
@@ -495,9 +508,18 @@ class FileBridge(QObject):
         # Filesystem/header/decode errors occur in the worker, with latest-request semantics.
         self.stack_viewer.open(path)
 
+    @Slot(str)
+    def requestWorkingCopy(self, path):
+        self._request_image(self.localUrl(path))
+        self._working_path = path
+
     @Slot(object, bool)
     def _on_frame(self, frame, opening):
-        result = self._publish(frame.source.path, frame.preview, frame.source, record_recent=opening)
+        working = frame.source.path == self._working_path
+        if working and self.original_source and (frame.source.metadata.width, frame.source.metadata.height) != (self.original_source.metadata.width, self.original_source.metadata.height):
+            self.roi_manager.clear()
+        result = self._publish(frame.source.path, frame.preview, frame.source, record_recent=opening and not working)
+        result['workingCopy'] = working
         result["browsePreview"] = frame.pixels is None and frame.source.metadata.page_count > 1
         (self.imageOpened if opening else self.pageChanged).emit(result)
         self.roisChanged.emit()
@@ -546,12 +568,20 @@ class FileBridge(QObject):
     @Slot()
     def waitForLoads(self):
         # Keep worker signal objects alive until decoding ends during shutdown.
+        if self.workbench.busy:
+            self.workbench.cancel()
+        self.workbench.reader.shutdown()
         self.stack_viewer.shutdown()
         self.pixel_reader.shutdown()
         self.detail_reader.shutdown()
         self.roi_manager.shutdown()
         self.roi_exporter.shutdown()
         self.pipeline.shutdown()
+        self.workbench.shutdown()
+
+    @Property(QObject, constant=True)
+    def imagej(self):
+        return self.workbench
 
     @Slot(str)
     def copyText(self, value):

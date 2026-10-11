@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import XrtViewer 1.0
 
 Rectangle {
     id: root
@@ -15,6 +16,16 @@ Rectangle {
     property real pressPanX: 0
     property real pressPanY: 0
     property bool draggingVertex: false
+    property var toolPoints: []
+    property bool drawingTool: false
+    function finishTool() {
+        if (toolPoints.length) fileBridge.imagej.gesture(uiState.activeTool, toolPoints)
+        toolPoints = []; drawingTool = false; toolPreview.requestPaint()
+    }
+    function toolPoint(mouse) {
+        return [Math.max(0, Math.min(uiState.contentWidth - 1, (mouse.x - imageFrame.x) / displayScale)),
+                Math.max(0, Math.min(uiState.contentHeight - 1, (mouse.y - imageFrame.y) / displayScale))]
+    }
     readonly property real fitScale: Math.max(0, Math.min((viewport.width - 16) / Math.max(1, uiState.contentWidth), (viewport.height - 16) / Math.max(1, uiState.contentHeight)))
     readonly property real viewportWidth: viewport.width
     readonly property real displayScale: uiState.fitMode ? fitScale : uiState.zoom / uiState.displayPixelRatio
@@ -24,7 +35,7 @@ Rectangle {
     function resetPan() { panX = 0; panY = 0 }
     function focusView() { viewerMouse.forceActiveFocus() }
     function syncDetailView() {
-        if (!uiState.hasLoadedImage || uiState.loading || !uiState.sampledPreview || uiState.pageCount !== 1 || displayScale <= 0) { fileBridge.clearDetail(); return }
+        if (uiState.stack.preparedDisplay || !uiState.hasLoadedImage || uiState.loading || !uiState.sampledPreview || uiState.pageCount !== 1 || displayScale <= 0) { fileBridge.clearDetail(); return }
         var left = Math.max(0, Math.floor(-imageFrame.x / displayScale))
         var top = Math.max(0, Math.floor(-imageFrame.y / displayScale))
         var right = Math.min(uiState.imageWidth, Math.ceil((viewport.width - imageFrame.x) / displayScale))
@@ -67,7 +78,7 @@ Rectangle {
                     Text { text: uiState.demoMode ? "합성 데모 · 실제 XRT 데이터 아님" : uiState.fileName || "XRT 이미지 없음"; color: theme.text; font.family: theme.fontFamily; font.pixelSize: 12; elide: Text.ElideMiddle; Layout.fillWidth: true }
                 }
                 Text { text: uiState.hasImage ? uiState.contentWidth + " × " + uiState.contentHeight + (uiState.demoMode ? " · 데모" : " · " + uiState.dtype + " · " + (uiState.pageIndex + 1) + "/" + uiState.pageCount) : "TIFF / JPG"; color: theme.muted; font.family: theme.monoFontFamily; font.pixelSize: 11 }
-                StatusIndicator { theme: root.theme; text: uiState.activeTool === "Pan" ? "PAN" : "ROI"; ink: theme.accent; visible: uiState.canNavigateImage }
+                StatusIndicator { theme: root.theme; text: uiState.roiEditMode ? "ROI 편집" : uiState.activeTool.toUpperCase(); ink: theme.accent; visible: uiState.canNavigateImage }
             }
         }
         Rectangle {
@@ -79,6 +90,7 @@ Rectangle {
             clip: true; color: uiState.viewerBackground
             Item {
                 id: imageFrame
+                z: 1
                 objectName: "imageFrame"
                 visible: uiState.hasImage
                 width: uiState.contentWidth * root.displayScale
@@ -88,7 +100,7 @@ Rectangle {
                 onXChanged: Qt.callLater(root.syncDetailView)
                 onYChanged: Qt.callLater(root.syncDetailView)
                 DemoImage { theme: root.theme; anchors.fill: parent; visible: uiState.demoMode }
-                Image { objectName: "tiffImage"; anchors.fill: parent; source: uiState.imageSource; visible: uiState.hasLoadedImage && !uiState.demoMode; smooth: uiState.smoothImages; cache: false }
+                Image { objectName: "tiffImage"; anchors.fill: parent; source: uiState.imageSource; visible: uiState.hasLoadedImage && !uiState.demoMode && !uiState.stack.preparedDisplay; smooth: uiState.smoothImages; cache: false }
                 Image {
                     objectName: "detailImage"; visible: uiState.detail.ready
                     x: uiState.detail.x * root.displayScale; y: uiState.detail.y * root.displayScale
@@ -105,12 +117,21 @@ Rectangle {
                     color: uiState.selectingRoi ? "#1445c3cf" : "#0a45c3cf"; border.color: theme.accent; border.width: uiState.selectingRoi ? 2 : 1
                 }
             }
+            PreparedView {
+                objectName: "preparedImageView"; anchors.fill: parent
+                visible: uiState.hasLoadedImage && uiState.stack.preparedDisplay
+                bridge: fileBridge; viewTransform: [imageFrame.x, imageFrame.y, root.displayScale]
+                revision: uiState.stack.revision
+            }
             MouseArea {
                 id: viewerMouse
+                z: 2
                 objectName: "viewerMouseArea"
                 anchors.fill: parent; enabled: uiState.canNavigateImage; hoverEnabled: true
                 focus: true
                 Keys.onPressed: function(event) {
+                    if (event.key === Qt.Key_Escape) { root.toolPoints = []; root.drawingTool = false; toolPreview.requestPaint(); event.accepted = true; return }
+                    if ((event.key === Qt.Key_Return || event.key === Qt.Key_Enter) && root.toolPoints.length) { root.finishTool(); event.accepted = true; return }
                     if (uiState.roiEditMode && event.key === Qt.Key_Delete) { fileBridge.deleteRoiVertex(); event.accepted = true; return }
                     if (uiState.roiEditMode && event.key === Qt.Key_Z && (event.modifiers & Qt.ControlModifier)) { fileBridge.roiHistory(!!(event.modifiers & Qt.ShiftModifier)); event.accepted = true; return }
                     if (uiState.pageCount > 1 && [Qt.Key_Left, Qt.Key_Right, Qt.Key_Up, Qt.Key_Down, Qt.Key_PageUp, Qt.Key_PageDown, Qt.Key_Home, Qt.Key_End].indexOf(event.key) >= 0) {
@@ -129,6 +150,17 @@ Rectangle {
                         root.draggingVertex = fileBridge.beginRoiDrag(editPoint.x * uiState.contentWidth, editPoint.y * uiState.contentHeight, 8 / root.displayScale)
                         return
                     }
+                    if (uiState.activeTool === "Zoom") { if (mouse.modifiers & Qt.AltModifier) root.zoomOut(); else root.zoomIn(); return }
+                    if (["Pan", "ROI"].indexOf(uiState.activeTool) < 0) {
+                        var t = root.toolPoint(mouse)
+                        if (["Polygon", "Polyline", "Angle"].indexOf(uiState.activeTool) >= 0) {
+                            root.toolPoints = root.toolPoints.concat([t])
+                            if (uiState.activeTool === "Angle" && root.toolPoints.length === 3) root.finishTool()
+                        } else if (["Point", "Wand", "Picker", "Fill", "Text"].indexOf(uiState.activeTool) >= 0) {
+                            fileBridge.imagej.gesture(uiState.activeTool, [t])
+                        } else { root.toolPoints = [t]; root.drawingTool = true }
+                        toolPreview.requestPaint(); return
+                    }
                     if (uiState.activeTool !== "Pan") {
                         uiState.selectingRoi = true
                         var p = root.imagePoint(mouse.x, mouse.y)
@@ -142,6 +174,13 @@ Rectangle {
                     uiState.cursorX = inside ? Math.min(uiState.contentWidth - 1, Math.floor(p.x * uiState.contentWidth)) : -1
                     uiState.cursorY = inside ? Math.min(uiState.contentHeight - 1, Math.floor(p.y * uiState.contentHeight)) : -1
                     if (!pressed) return
+                    if (root.drawingTool) {
+                        var t = root.toolPoint(mouse)
+                        if (["Rectangle", "Oval", "Line", "Arrow"].indexOf(uiState.activeTool) >= 0) root.toolPoints = [root.toolPoints[0], t]
+                        else if (root.toolPoints.length < 10000) root.toolPoints = root.toolPoints.concat([t])
+                        toolPreview.requestPaint(); return
+                    }
+                    if (["Pan", "ROI"].indexOf(uiState.activeTool) < 0 && !uiState.roiEditMode) return
                     if (uiState.roiEditMode) {
                         if (root.draggingVertex) fileBridge.dragRoiVertex(p.x * uiState.contentWidth, p.y * uiState.contentHeight)
                         else { root.panX = root.pressPanX + mouse.x - root.pressX; root.panY = root.pressPanY + mouse.y - root.pressY }
@@ -157,14 +196,15 @@ Rectangle {
                 }
                 onExited: { uiState.cursorX = -1; uiState.cursorY = -1 }
                 onDoubleClicked: function(mouse) {
+                    if (["Polygon", "Polyline"].indexOf(uiState.activeTool) >= 0) { root.finishTool(); return }
                     if (uiState.roiEditMode) {
                         var p = root.imagePoint(mouse.x, mouse.y)
                         fileBridge.finishRoiDrag(true); root.draggingVertex = false
                         fileBridge.addRoiVertex(p.x * uiState.contentWidth, p.y * uiState.contentHeight)
                     }
                 }
-                onReleased: { uiState.selectingRoi = false; if (root.draggingVertex) fileBridge.finishRoiDrag(false); root.draggingVertex = false }
-                onCanceled: { uiState.selectingRoi = false; if (root.draggingVertex) fileBridge.finishRoiDrag(true); root.draggingVertex = false }
+                onReleased: { if (root.drawingTool) root.finishTool(); uiState.selectingRoi = false; if (root.draggingVertex) fileBridge.finishRoiDrag(false); root.draggingVertex = false }
+                onCanceled: { root.toolPoints = []; root.drawingTool = false; toolPreview.requestPaint(); uiState.selectingRoi = false; if (root.draggingVertex) fileBridge.finishRoiDrag(true); root.draggingVertex = false }
                 onWheel: function(wheel) {
                     var delta = wheel.angleDelta.y || wheel.pixelDelta.y
                     if (delta === 0) return
@@ -175,11 +215,28 @@ Rectangle {
                 }
             }
             ImportedRoiOverlay {
+                z: 3
                 anchors.fill: parent
                 rois: uiState.importedRois.items
                 imageX: imageFrame.x; imageY: imageFrame.y; imageScale: root.displayScale
                 layerVisible: uiState.roiLayerVisible && uiState.hasLoadedImage
                 editMode: uiState.roiEditMode; selectedVertex: uiState.importedRois.vertex
+            }
+            Canvas {
+                id: toolPreview; anchors.fill: parent
+                z: 3
+                onPaint: {
+                    var c = getContext("2d"); c.reset(); var p = root.toolPoints
+                    if (!p.length) return
+                    c.strokeStyle = fileBridge.imagej.state.color; c.lineWidth = 2
+                    c.translate(imageFrame.x, imageFrame.y); c.scale(root.displayScale, root.displayScale)
+                    c.lineWidth = 2 / root.displayScale; c.beginPath()
+                    var a = p[0], b = p[p.length - 1]
+                    if (uiState.activeTool === "Rectangle") c.rect(a[0], a[1], b[0]-a[0], b[1]-a[1])
+                    else if (uiState.activeTool === "Oval") c.ellipse(Math.min(a[0],b[0]), Math.min(a[1],b[1]), Math.abs(b[0]-a[0]), Math.abs(b[1]-a[1]))
+                    else { c.moveTo(a[0],a[1]); for (var i=1;i<p.length;++i) c.lineTo(p[i][0],p[i][1]) }
+                    c.stroke()
+                }
             }
             ColumnLayout {
                 anchors.centerIn: parent; spacing: 10
@@ -191,6 +248,7 @@ Rectangle {
             }
             Rectangle {
                 objectName: "initialLoadingOverlay"
+                z: 10
                 anchors.fill: parent; visible: uiState.loading; color: "#db111518"
                 ColumnLayout { anchors.centerIn: parent; width: Math.min(380, parent.width - 40); spacing: 12
                     BusyIndicator { running: uiState.loading && !uiState.stack.preloadError; Layout.alignment: Qt.AlignHCenter }
