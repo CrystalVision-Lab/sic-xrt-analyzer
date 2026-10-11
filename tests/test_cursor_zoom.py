@@ -16,6 +16,7 @@ from PySide6.QtCore import (
     Qt,
     QUrl,
 )
+from PySide6.QtGui import QWheelEvent
 from PySide6.QtQml import QQmlApplicationEngine, QQmlExpression
 from PySide6.QtQuickControls2 import QQuickStyle
 from PySide6.QtTest import QTest
@@ -81,7 +82,12 @@ class Viewer:
         return ((p.x() - self.frame.x()) / s, (p.y() - self.frame.y()) / s)
 
     def wheel(self, scene, delta=120, modifiers=Qt.ControlModifier):
-        QTest.wheelEvent(self.window, scene, QPoint(0, delta), stateKey=modifiers)
+        # Inject a Qt logical-coordinate wheel event. Qt 6.11's QTest helper
+        # misplaces wheel events at fractional DPI; mouse QTest events are logical.
+        event = QWheelEvent(QPointF(scene), self.window.mapToGlobal(QPointF(scene)),
+                            QPoint(), QPoint(0, delta), Qt.NoButton, modifiers,
+                            Qt.NoScrollPhase, False)
+        self.app.sendEvent(self.window, event)
         self.settle()
 
     def close(self):
@@ -235,3 +241,113 @@ def test_source_point_agrees_with_prepared_transform_and_roi(viewer):
     source = v.source(local)
     assert p.x() == pytest.approx(max(0, min(1, source[0] / v.ui.property("contentWidth"))))
     assert p.y() == pytest.approx(max(0, min(1, source[1] / v.ui.property("contentHeight"))))
+
+
+def test_pan_pixel_inspection_uses_the_visible_source_coordinate(viewer):
+    v = viewer
+    v.ui.setProperty("activeTool", "Pan")
+    scene, _ = v.local_anchor(.4, .6)
+    QTest.mousePress(v.window, Qt.LeftButton, Qt.NoModifier, scene)
+    QTest.mouseMove(v.window, scene + QPoint(43, -31))
+    v.settle()
+    local = v.viewport.mapFromScene(QPointF(scene + QPoint(43, -31)))
+    expected = v.source(local)
+    assert (v.ui.property("cursorX"), v.ui.property("cursorY")) == tuple(math.floor(x) for x in expected)
+    QTest.mouseRelease(v.window, Qt.LeftButton, Qt.NoModifier, scene + QPoint(43, -31))
+
+
+def test_zoom_limits_and_outside_image_do_not_drift(viewer):
+    v = viewer
+    invoke(v.viewer, "setActualZoom", .01)
+    scene, local = v.local_anchor(.1, .9)
+    before = v.source(local)
+    v.wheel(scene, -120)
+    assert v.ui.property("effectiveZoom") == .01
+    assert_anchor(before, v.source(local))
+    invoke(v.viewer, "setActualZoom", 16.)
+    before = v.source(local)
+    v.wheel(scene)
+    assert v.ui.property("effectiveZoom") == 16
+    assert_anchor(before, v.source(local))
+
+
+def test_rapid_zoom_cancels_focus_and_file_switch_keeps_latest_transform(viewer, tmp_path):
+    v = viewer
+    v.viewer.setProperty("focusZoom", 4.)
+    v.viewer.setProperty("focusPanX", 500.)
+    v.viewer.setProperty("focusPanY", -500.)
+    invoke(v.item("candidateFocusAnimation"), "start")
+    scene, local = v.local_anchor(.3, .7)
+    for _ in range(8):
+        before = v.source(local)
+        v.wheel(scene)
+        assert_anchor(before, v.source(local))
+    assert not v.item("candidateFocusAnimation").property("running")
+    snapshot = [v.viewer.property(n) for n in ("panX", "panY", "displayScale")]
+    QTest.qWait(500)
+    assert snapshot == [v.viewer.property(n) for n in ("panX", "panY", "displayScale")]
+    path = tmp_path / "other.tif"
+    tifffile.imwrite(path, np.zeros((240,320), np.uint16))
+    v.bridge.requestImage(QUrl.fromLocalFile(str(path)).toString())
+    v.wait(lambda: v.ui.property("filePath") == str(path) and not v.ui.property("loading"))
+    assert v.ui.property("fitMode")
+    assert v.viewer.property("panX") == v.viewer.property("panY") == 0
+    transform=v.item("preparedImageView").viewTransform
+    assert list(transform)==pytest.approx([v.frame.x(),v.frame.y(),v.viewer.property("displayScale")])
+
+
+def test_pointer_coordinates_after_header_and_sidebar_layout_changes(viewer):
+    v = viewer
+    for name in ("inspectorPanelAction", "navigationPanelAction"):
+        action = v.window.findChild(QObject, name)
+        if action is not None:
+            invoke(action, "trigger")
+            v.settle()
+        scene, local = v.local_anchor(.2, .8)
+        before = v.source(local)
+        v.wheel(scene)
+        assert_anchor(before, v.source(local))
+
+
+def test_candidate_hit_testing_and_imported_roi_share_zoom_transform(viewer, tmp_path):
+    from test_result_explorer import ManyCandidates
+
+    v = viewer
+    path = tmp_path / "rgb.tif"
+    tifffile.imwrite(path, np.zeros((480, 640, 3), np.uint8), photometric="rgb")
+    v.bridge.pipeline.adapter = ManyCandidates()
+    v.bridge.requestImage(QUrl.fromLocalFile(str(path)).toString())
+    v.wait(lambda: v.ui.property("filePath") == str(path) and not v.ui.property("loading"))
+    assert v.bridge.requestAnalysis("FULL_IMAGE", 0, 0, 0, 0, {})
+    v.wait(lambda: v.bridge.analysis["hasResult"])
+    v.ui.setProperty("autoCandidateRoi", False)
+    original = v.bridge.pipeline.result
+    overlay = v.item("analysisOverlay")
+    imported = v.item("importedRoiOverlay")
+    rois = [{"kind": "point", "paths": [[[80,80]]], "visible": True, "active": True, "selected": False, "color": "#45c3cf", "tool": "Point"},
+            {"kind": "polygon", "paths": [[[80,80],[120,80],[120,120],[80,120]]], "visible": True, "active": True, "selected": False, "color": "#45c3cf", "tool": "Polygon"}]
+    imported.setProperty("rois", rois)
+    for i in range(3):  # BPD, TED and TSD selection/hit-test after cursor zoom.
+        chosen = v.bridge.research.rows[i]
+        v.bridge.research.selectCandidate(chosen["id"])
+        v.wait(lambda: not v.item("candidateFocusAnimation").property("running"))
+        scene, _local = v.local_anchor(.5,.5)
+        v.wheel(scene)
+        scale = v.viewer.property("displayScale")
+        for layer in [overlay, imported]:
+            assert layer.property("imageX") == v.frame.x()
+            assert layer.property("imageY") == v.frame.y()
+            assert layer.property("imageScale") == scale
+        visual = v.viewport.mapToScene(QPointF(v.frame.x()+chosen["x"]*scale, v.frame.y()+chosen["y"]*scale))
+        QTest.mouseClick(v.window, Qt.LeftButton, Qt.NoModifier, QPoint(round(visual.x()),round(visual.y())))
+        v.settle()
+        assert v.bridge.research.selected_id == chosen["id"]
+        v.wait(lambda: not v.item("candidateFocusAnimation").property("running"))
+        assert v.bridge.pipeline.result is original
+    actual = imported.property("rois")
+    if hasattr(actual, "toVariant"):
+        actual = actual.toVariant()
+    assert actual == rois
+    v.ui.setProperty("analysisLayerVisible", False)
+    v.settle()
+    assert not overlay.isVisible()

@@ -107,11 +107,18 @@ Rectangle {
         uiState.fitMode = false
         panX = nextPanX
         panY = nextPanY
+        if (viewerMouse.containsMouse) updateCursor(viewerMouse.mouseX, viewerMouse.mouseY)
     }
     function zoomIn() { zoomAt(uiState.effectiveZoom * 1.25, viewport.width / 2, viewport.height / 2) }
     function zoomOut() { zoomAt(uiState.effectiveZoom / 1.25, viewport.width / 2, viewport.height / 2) }
     function imagePoint(x, y) {
         return Qt.point(Math.max(0, Math.min(1, (x - imageFrame.x) / imageFrame.width)), Math.max(0, Math.min(1, (y - imageFrame.y) / imageFrame.height)))
+    }
+    function updateCursor(x, y) {
+        var inside = x >= imageFrame.x && x < imageFrame.x + imageFrame.width && y >= imageFrame.y && y < imageFrame.y + imageFrame.height
+        var p = imagePoint(x, y)
+        uiState.cursorX = inside ? Math.min(uiState.contentWidth - 1, Math.floor(p.x * uiState.contentWidth)) : -1
+        uiState.cursorY = inside ? Math.min(uiState.contentHeight - 1, Math.floor(p.y * uiState.contentHeight)) : -1
     }
     ColumnLayout {
         anchors.fill: parent
@@ -204,6 +211,7 @@ Rectangle {
                     if (uiState.activeTool === "Zoom") {
                         var click = mapToItem(viewport, mouse.x, mouse.y)
                         root.zoomAt(uiState.effectiveZoom * ((mouse.modifiers & Qt.AltModifier) ? 1 / 1.25 : 1.25), click.x, click.y)
+                        root.updateCursor(click.x, click.y)
                         return
                     }
                     if (["Pan", "ROI"].indexOf(uiState.activeTool) < 0) {
@@ -225,10 +233,8 @@ Rectangle {
                     }
                 }
                 onPositionChanged: function(mouse) {
-                    var inside = mouse.x >= imageFrame.x && mouse.x < imageFrame.x + imageFrame.width && mouse.y >= imageFrame.y && mouse.y < imageFrame.y + imageFrame.height
+                    root.updateCursor(mouse.x, mouse.y)
                     var p = root.imagePoint(mouse.x, mouse.y)
-                    uiState.cursorX = inside ? Math.min(uiState.contentWidth - 1, Math.floor(p.x * uiState.contentWidth)) : -1
-                    uiState.cursorY = inside ? Math.min(uiState.contentHeight - 1, Math.floor(p.y * uiState.contentHeight)) : -1
                     if (!pressed || (uiState.analysisRunning && uiState.activeTool === "ROI" && !uiState.roiEditMode)) return
                     if (root.drawingTool) {
                         var t = root.toolPoint(mouse)
@@ -239,12 +245,13 @@ Rectangle {
                     if (["Pan", "ROI"].indexOf(uiState.activeTool) < 0 && !uiState.roiEditMode) return
                     if (uiState.roiEditMode) {
                         if (root.draggingVertex) fileBridge.dragRoiVertex(p.x * uiState.contentWidth, p.y * uiState.contentHeight)
-                        else { root.panX = root.pressPanX + mouse.x - root.pressX; root.panY = root.pressPanY + mouse.y - root.pressY }
+                        else { root.panX = root.pressPanX + mouse.x - root.pressX; root.panY = root.pressPanY + mouse.y - root.pressY; root.updateCursor(mouse.x, mouse.y) }
                         return
                     }
                     if (uiState.activeTool === "Pan") {
                         root.panX = root.pressPanX + mouse.x - root.pressX
                         root.panY = root.pressPanY + mouse.y - root.pressY
+                        root.updateCursor(mouse.x, mouse.y)
                     } else {
                         uiState.roiEndX = p.x; uiState.roiEndY = p.y
                         uiState.hasRoi = uiState.roiWidth > 0 && uiState.roiHeight > 0
@@ -278,6 +285,7 @@ Rectangle {
                     else {
                         var anchor = mapToItem(viewport, wheel.x, wheel.y)
                         root.zoomAt(uiState.effectiveZoom * (delta > 0 ? 1.25 : 1 / 1.25), anchor.x, anchor.y)
+                        root.updateCursor(anchor.x, anchor.y)
                     }
                     wheel.accepted = true
                 }
