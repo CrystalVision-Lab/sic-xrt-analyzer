@@ -179,6 +179,8 @@ scene readback 128×96. TIFF ImageJ 표시 범위/inversion을 적용하며, 분
 4. ROI 테스트 한 곳은 worker 상태 완료와 Qt layout 완료를 구별하여 실제 버튼 위치를
    기다린다. 클릭/화면 경계 assertion은 유지한다. ROI 제품 코드와 Geometry는 변경하지 않는다.
 5. 재현용 `tools/benchmark_viewer.py`를 추가했다. Native Dialog 코드는 변경하지 않았다.
+6. CI의 Qt만 TD-12에서 검증된 `PySide6==6.11.2`로 고정했다. 제품 dependency 범위와
+   사용자 Windows Qt 설치는 변경하지 않았다. 아래 종료 오류를 skip/무시하지 않는다.
 
 ## 대규모 개선 필요 여부
 
@@ -202,6 +204,14 @@ scene readback 128×96. TIFF ImageJ 표시 범위/inversion을 적용하며, 분
 - 원본 JPEG/TIFF, bit depth, ROI, 분석 입력/ONNX/분류/Candidate, ImageJ/Fiji,
   Export, Native Dialog 제품 코드를 수정하지 않았다.
 - offscreen에서 외부 플러그인 창 embedding 검사 4개는 skip한다. Native 실사용 Acceptance로 대체하지 않는다.
+- 최초 Linux CI는 새 Qt 6.12.0 / Python 3.11.17에서 **298 passed, 4 skipped**를 출력한 뒤
+  interpreter finalization 중 `bool_dealloc: deallocating True or False`로 exit 134였다.
+  [실패 로그](https://github.com/CrystalVision-Lab/sic-xrt-analyzer/actions/runs/38138146729)를 보존했다.
+  같은 run의 별도 Linux X11 plugin GUI 검사는 **4 passed**로 정상 종료했다.
+  격리 Linux 6.12의 단순 QQmlExpression 반복 및 새 캐시/Loader 검사 **5 passed**는 정상 종료했다.
+  따라서 어떤 C extension/전체 조합에서 생긴 문제인지 확정하지 못했다.
+  [Issue #83](https://github.com/CrystalVision-Lab/sic-xrt-analyzer/issues/83)에서 조사 범위를 기록했다.
+  CI는 기준과 같은 6.11.2에서 전체 회귀/정상 종료를 다시 확인하며, 6.12 전체 호환은 보류한다.
 
 ## 실제 XRT 검증
 
@@ -262,7 +272,8 @@ JSON의 CPU %, RSS, 단계별 호출 수, median/p95/max/n, warnings, SHA 결과
 - Push: `origin/perf/81-viewer-render-investigation` 게시 완료.
 - Draft PR: [#82](https://github.com/CrystalVision-Lab/sic-xrt-analyzer/pull/82),
   base `fix/78-windows-ui-rc-stabilization` / head `perf/81-viewer-render-investigation`.
-- GitHub Actions CI: 실행 결과는 PR Checks에서 확인한다. 로컬 회귀와 별도로 판정한다.
+- GitHub Actions CI: TD-12 Qt 6.11.2에 맞춘 최종 실행 결과는 PR Checks에서 확인한다.
+  최초 6.12 종료 실패는 #83으로 별도 추적하며 로컬 회귀와 구분한다.
 - 기존 stacked PR은 merge/rebase/retarget하지 않았다.
 
 ## 후속 TD
