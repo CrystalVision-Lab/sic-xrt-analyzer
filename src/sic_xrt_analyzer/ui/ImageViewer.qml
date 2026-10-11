@@ -419,6 +419,10 @@ Rectangle {
                 AppButton { theme: root.theme; action: root.actions.open; text: "XRT 이미지 열기"; iconName: "open"; Layout.alignment: Qt.AlignHCenter }
                 Text { text: "또는 TIFF/JPG 파일을 이 영역에 놓으세요"; color: theme.muted; font.pixelSize: theme.smallSize; Layout.alignment: Qt.AlignHCenter }
             }
+            StackPreparationOverlay {
+                anchors.centerIn: parent; z: 8
+                theme: root.theme; loadFlow: uiState.loadFlow; closeAction: root.actions.closeImage
+            }
             Rectangle {
                 objectName: "initialLoadingOverlay"
                 z: 10
