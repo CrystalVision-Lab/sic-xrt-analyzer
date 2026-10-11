@@ -245,3 +245,8 @@ Windows 전체 293개 검사 × 3회, native plugin4개, native Open100/Save100/
 ## 분석 프로젝트 도메인·로컬 저장 기반 (RESULT-TD-01)
 
 `results/` Python 서비스는 기존 AnalysisResult를 후보·모델 예측·결함 객체·검수 이력으로 구분하고, 버전이 있는 프로젝트 JSON을 원자적으로 저장·재불러옵니다. 후보를 실제 결함으로 자동 확정하지 않으며 기존 JSON/CSV Export와 별도 계약입니다. 프로젝트 저장 UI와 서버 동기화는 후속 단계입니다. [설계·API·실행 방법](docs/result/XRT-RESULT-TD-01-DOMAIN.md), [검증 결과와 제약](docs/result/XRT-RESULT-TD-01-RESULT.md).
+
+
+## BPD 선형·분기 구조 실험 (RESULT-TD-02)
+
+원본 ROI에서 국소 대비/Sato/Frangi를 비교하고 중심선·분기 Graph·영역 mask와 기존 BPD 후보 연결을 별도 실험 bundle로 저장합니다. 명시적 CLI만 제공하며 기본 분석은 기존 모델을 사용합니다. 새 구조는 미분류 RULE_BASED 제안이고 실제 정확도는 정답 데이터가 없어 PRELIMINARY입니다. [실행 방법·비교 결과·보존 검사·제약](docs/result/XRT-RESULT-TD-02-BPD-DETECTION.md).
