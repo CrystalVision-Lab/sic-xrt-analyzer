@@ -169,6 +169,7 @@ def test_single_images_have_no_stack_progress_or_lingering_indicator(workbench, 
         tifffile.imwrite(path, pixels, photometric='rgb')
     w.open(path)
     assert phase(w) == 'READY'
+    assert not w.item('stackPreparationOverlay').property('visible')
     assert w.item('tiffLoadState').property('stackLabel') == ''
     assert not w.item('preloadStatus').property('visible')
     assert not w.item('initialLoadingOverlay').property('visible')
@@ -183,6 +184,7 @@ def test_partial_prepare_error_retains_frame_and_can_retry(load_case):
     c.tail.set()
     spin(w.app, lambda: bool(w.bridge.stack_viewer.preload_error))
     assert phase(w) == 'ERROR' and w.bridge.stack_viewer.frame is first_frame
+    assert not w.item('stackPreparationOverlay').property('visible')
     assert w.state.property('canNavigateImage') and not w.item('pageSlider').property('enabled')
     assert 'synthetic' not in w.item('loadingStatus').property('text')
     assert 'synthetic private' in w.item('tiffLoadState').property('errorDetails')
@@ -299,3 +301,46 @@ def test_shutdown_cancels_active_tiff_worker(load_case):
         assert controller.frame is None
     finally:
         release.join()
+
+
+@pytest.mark.parametrize('size', [(1100, 700), (1440, 900)])
+def test_stack_loading_is_visible_in_wide_viewer_until_ready(load_case, size):
+    c, w = load_case, load_case.w
+    c.tail_index = 4
+    w.window.resize(*size)
+    c.start()
+    c.first_frame()
+    QTest.qWait(40)
+    assert not w.panel.property('visible') and w.window.property('inspectorCollapsed')
+    overlay, viewport = w.item('stackPreparationOverlay'), w.item('viewerViewport')
+    assert overlay.property('visible') and w.item('stackPreparationSpinner').property('running')
+    assert w.item('stackPreparationProgress').property('value') == 4
+    assert w.item('stackPreparationProgress').property('to') == 8
+    assert w.item('stackPreparationText').property('text') == '4 / 8 페이지 · 50%'
+    center = overlay.mapToScene(QPointF(overlay.property('width')/2, overlay.property('height')/2))
+    view_center = viewport.mapToScene(QPointF(viewport.property('width')/2, viewport.property('height')/2))
+    assert center.x() == pytest.approx(view_center.x(), abs=1)
+    assert center.y() == pytest.approx(view_center.y(), abs=1)
+    assert w.item('viewerMouseArea').property('enabled')  # Existing progressive interaction stays available.
+    assert w.item('workspaceViewerLabel').property('text') == '이미지 뷰어'
+    assert w.item('workspaceViewerMenu').property('text') == '이미지 뷰어'
+    invoke(w.window, 'selectWorkspace', 0)
+    assert w.state.property('statusText') == '이미지 뷰어 화면'
+    c.finish()
+    assert not overlay.property('visible') and not w.item('stackPreparationSpinner').property('running')
+    assert not w.panel.property('visible')
+    choose(w, 'viewer')
+    assert w.item('pageSlider').property('visible') and w.item('pageSlider').property('enabled')
+
+
+def test_stack_loading_cancel_from_viewer_clears_state(load_case):
+    c, w = load_case, load_case.w
+    c.start()
+    c.first_frame()
+    assert w.item('stackPreparationOverlay').property('visible') and not w.panel.property('visible')
+    w.click('cancelStackOverlay')
+    assert phase(w) == 'EMPTY' and not w.state.property('hasLoadedImage')
+    assert not w.item('stackPreparationOverlay').property('visible')
+    c.tail.set()
+    QTest.qWait(100)
+    assert phase(w) == 'EMPTY' and w.bridge.original_source is None

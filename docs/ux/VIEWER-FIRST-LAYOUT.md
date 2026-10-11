@@ -4,7 +4,7 @@ Issue: [#90](https://github.com/CrystalVision-Lab/sic-xrt-analyzer/issues/90)
 
 ## 동작
 
-- 시작, JPG/JPEG 열기 완료, 데모 열기, 닫기, 화면 배치 초기화에서는 오른쪽 정보 패널을 접는다. TIFF 열기 완료는 후속 [Issue #92](FILE-CONTEXT-ROUTING.md)에서 뷰어·스택 패널을 자동으로 열도록 변경했다.
+- 시작, JPG/JPEG/TIFF 열기 완료, 데모 열기, 닫기, 화면 배치 초기화에서는 오른쪽 정보 패널을 접는다. TIFF는 [Issue #92](FILE-CONTEXT-ROUTING.md)의 뷰어 Context 선택을 유지하고, [Issue #94](VIEWER-STACK-LOADING.md)에서 중앙 준비 표시와 넓은 기본 배치를 적용했다.
 - 상단 오른쪽 **분석하기**는 기존 분석 준비 화면을 연다. 자동 추론하지 않으며 기존 모델·입력·범위 점검과 **분석 실행** 버튼을 유지한다.
 - 상단 **패널 ▾**에서 이미지 정보, 뷰어·스택, ROI 관리, 분석, 결과, 검수를 연다. ROI 표시도 같은 메뉴에서 켜고 끈다.
 - 패널 헤더 **×**로 닫고 Viewer에 포커스를 돌려준다. 메뉴로 다시 열어도 분석 결과와 ROI 기록은 유지한다.

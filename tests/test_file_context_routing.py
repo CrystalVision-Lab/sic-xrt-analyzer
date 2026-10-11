@@ -34,7 +34,8 @@ def test_actual_format_routes_after_successful_open(workbench, suffix, format_, 
     assert w.state.property('imageFormat') == format_ and w.state.property('pageCount') == pages
     if format_ == 'TIFF':
         assert w.panel.property('requestedContext') == 'viewer'
-        assert w.panel.property('lastReason') == 'OPEN_TIFF' and w.panel.property('visible')
+        assert w.panel.property('lastReason') == 'OPEN_TIFF' and not w.panel.property('visible')
+        choose(w, 'viewer')
         assert w.item('displayLowSlider').property('visible')
         assert w.item('pageSlider').property('visible') == (pages > 1)
         assert w.state.property('stackFeaturesVisible') == (pages > 1)
@@ -47,7 +48,7 @@ def test_actual_format_routes_after_successful_open(workbench, suffix, format_, 
 
 def test_page_and_failed_open_do_not_override_manual_context(workbench):
     w = workbench
-    assert w.panel.property('requestedContext') == 'viewer' and w.panel.property('visible')
+    assert w.panel.property('requestedContext') == 'viewer' and not w.panel.property('visible')
     choose(w, 'result')
     w.click('closeContextPanel')
     w.bridge.requestPage(1)

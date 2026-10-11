@@ -79,4 +79,4 @@ def test_stack_and_roi_task_access_when_default_panel_is_hidden(workbench):
     invoke(w.item('roiDiscardDialog'), 'discarded')
     invoke(w.item('roiDiscardDialog'), 'close')
     spin(w.app, lambda: not w.state.property('loading') and not w.bridge.stack_viewer.initial_loading)
-    assert w.panel.property('visible') and w.panel.property('requestedContext') == 'viewer'
+    assert not w.panel.property('visible') and w.panel.property('requestedContext') == 'viewer'

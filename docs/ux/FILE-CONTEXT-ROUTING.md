@@ -4,13 +4,13 @@ Issue: [#92](https://github.com/CrystalVision-Lab/sic-xrt-analyzer/issues/92)
 
 ## 동작
 
-파일 선택, 드롭, 최근 파일 열기가 성공한 뒤 디코더가 확인한 형식으로 전환한다.
+파일 선택, 드롭, 최근 파일 열기가 성공한 뒤 디코더가 확인한 형식으로 Context를 선택한다. 후속 [Issue #94](VIEWER-STACK-LOADING.md)에서 모든 파일의 기본 패널을 접고 TIFF 준비 진행률을 이미지 위로 옮겼다.
 
 | 실제 형식 | 작업 영역 | 우측 패널 | 표시 도구 |
 | --- | --- | --- | --- |
-| JPG/JPEG | 이미지 분석 | 접힘 | 넓은 Viewer, 상단 분석하기/패널 메뉴 |
-| 단일 페이지 TIFF | 이미지 분석 | 뷰어·스택 열림 | 밝기·대비, 기존 Viewer 도구 |
-| 여러 페이지 TIFF | 이미지 분석 | 뷰어·스택 열림 | 페이지 이동, 밝기·대비, 기존 스택 도구 |
+| JPG/JPEG | 이미지 뷰어 | 접힘 | 넓은 Viewer, 상단 분석하기/패널 메뉴 |
+| 단일 페이지 TIFF | 이미지 뷰어 | 접힘 | 밝기·대비, 기존 Viewer 도구 |
+| 여러 페이지 TIFF | 이미지 뷰어 | 접힘 | 페이지 이동, 밝기·대비, 기존 스택 도구 |
 
 `.tif`/`.tiff`/`.jpg`/`.jpeg`의 대소문자를 지원한다. 이름과 내용이 다르면
 디코더의 실제 형식을 우선한다. 왼쪽 3D 작업 영역으로 이동하지 않으며,
@@ -23,7 +23,7 @@ Issue: [#92](https://github.com/CrystalVision-Lab/sic-xrt-analyzer/issues/92)
 
 ## 변경 범위
 
-파일 열기 성공 이벤트에서 `OPEN_TIFF`를 `viewer`에 연결했다. 표시 데이터,
+파일 열기 성공 이벤트에서 `OPEN_TIFF`를 `viewer`에 연결했다. 이 Context는 기본적으로 접혀 있고 사용자가 패널 메뉴에서 연다. 표시 데이터,
 원본 좌표/ROI, 분석 입력, 모델/ONNX 결과, ImageJ/Fiji, Export, Native Dialog는
 변경하지 않았다. 원본 이미지와 `sources/`, 사용자 AGENTS.md는 수정하지 않았다.
 
