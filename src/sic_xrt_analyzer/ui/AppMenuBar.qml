@@ -61,7 +61,7 @@ MenuBar {
         id: editMenu; objectName: "editMenu"; title: "편집"
         AppMenuItem { text: "ROI 실행 취소"; shortcutLabel: "Ctrl+Z"; enabled: root.uiState.importedRois.canUndo; onTriggered: root.fileBridge.roiHistory(false) }
         AppMenuItem { text: "ROI 다시 실행"; shortcutLabel: "Ctrl+Y"; enabled: root.uiState.importedRois.canRedo; onTriggered: root.fileBridge.roiHistory(true) }
-        AppMenuItem { visible: root.uiState.stackFeaturesVisible; text: "픽셀 그리기 실행 취소"; onTriggered: root.fileBridge.imagej.execute("command", "Undo", "", false) }
+        AppMenuItem { visible: root.uiState.stackFeaturesVisible; text: "픽셀 그리기 실행 취소"; enabled: root.uiState.loadFlow.recordReady; onTriggered: root.fileBridge.imagej.execute("command", "Undo", "", false) }
         AppMenuItem { visible: root.uiState.stackFeaturesVisible; text: "선택을 그리기"; onTriggered: root.hostWindow.imagejCommand("Draw", "") }
         AppMenuItem { visible: root.uiState.stackFeaturesVisible; text: "선택을 채우기"; onTriggered: root.hostWindow.imagejCommand("Fill", "") }
         AppMenuItem { visible: root.uiState.stackFeaturesVisible; text: "선택을 지우기"; onTriggered: root.hostWindow.imagejCommand("Clear", "") }
@@ -146,10 +146,10 @@ MenuBar {
     }
     AppMenu {
         id: analysisMenu; objectName: "analysisMenu"; title: "분석 (Analyze)"
-        AppMenuItem { visible: root.uiState.stackFeaturesVisible; text: "측정 (Measure)"; onTriggered: root.fileBridge.imagej.execute("command", "Measure", "", false) }
+        AppMenuItem { visible: root.uiState.stackFeaturesVisible; text: "측정 (Measure)"; enabled: root.uiState.loadFlow.recordReady; onTriggered: root.fileBridge.imagej.execute("command", "Measure", "", false) }
         AppMenuItem { visible: root.uiState.stackFeaturesVisible; text: "측정 항목…"; onTriggered: root.hostWindow.imagejCommand("Set Measurements...", "area mean standard min centroid perimeter shape redirect=None decimal=3") }
-        AppMenuItem { visible: root.uiState.stackFeaturesVisible; text: "히스토그램"; onTriggered: root.hostWindow.imagejStatistics("Histogram") }
-        AppMenuItem { visible: root.uiState.stackFeaturesVisible; text: "선 프로파일"; onTriggered: root.hostWindow.imagejStatistics("Profile") }
+        AppMenuItem { visible: root.uiState.stackFeaturesVisible; text: "히스토그램"; enabled: root.uiState.loadFlow.recordReady; onTriggered: root.hostWindow.imagejStatistics("Histogram") }
+        AppMenuItem { visible: root.uiState.stackFeaturesVisible; text: "선 프로파일"; enabled: root.uiState.loadFlow.recordReady; onTriggered: root.hostWindow.imagejStatistics("Profile") }
         AppMenuItem { visible: root.uiState.stackFeaturesVisible; text: "입자 분석…"; onTriggered: root.hostWindow.imagejCommand("Analyze Particles...", "size=0-Infinity circularity=0.00-1.00 show=Nothing display clear") }
         AppMenuItem { objectName: "stackMeasurementMenuItem"; visible: root.uiState.stackFeaturesVisible; text: "스케일 · 길이 / 면적 / 개수 측정…"; action: root.actions.advanced.measurement }
         AppMenuItem { text: "ROI 관리자"; action: root.actions.advanced.roiManager }

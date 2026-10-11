@@ -264,7 +264,7 @@ def test_qml_pressed_drag_updates_each_page_before_release(qt_app, browse_file, 
         assert QMetaObject.invokeMethod(window.findChild(QObject, "viewerSettingsAction"), "trigger")
         QTest.qWait(35)
         status = window.findChild(QObject, "preloadStatus")
-        assert "전체 탐색 준비 완료" in status.property("text")
+        assert "Stack 준비 완료" in status.property("text")
         slider = window.findChild(QObject, "pageSlider")
         slider_origin = slider.mapToScene(QPoint(0, 0))
         def position(fraction):
@@ -304,7 +304,7 @@ def test_qml_pressed_drag_updates_each_page_before_release(qt_app, browse_file, 
 
 
 @pytest.mark.parametrize("outcome", ["complete", "cancel", "retry"])
-def test_qml_initial_loading_blocks_navigation_until_whole_stack_ready(qt_app, browse_file, tmp_path, monkeypatch, outcome):
+def test_qml_first_frame_usable_while_navigation_waits_for_whole_stack(qt_app, browse_file, tmp_path, monkeypatch, outcome):
     path, _ = browse_file
     gate, entered = Event(), Event()
     fail = outcome == "retry"
@@ -334,15 +334,14 @@ def test_qml_initial_loading_blocks_navigation_until_whole_stack_ready(qt_app, b
         spin(qt_app, entered.is_set)
         old_stack = controller._reader.stack
         overlay = window.findChild(QObject, "initialLoadingOverlay")
-        label = window.findChild(QObject, "initialLoadingText")
         slider = window.findChild(QObject, "pageSlider")
         assert controller.preload_state["prepared"] == 4
-        assert state.property("loading") and overlay.property("visible")
-        assert "4 / 20" in label.property("text")
+        assert not state.property("loading") and not overlay.property("visible")
+        assert "4 / 20" in window.findChild(QObject, "preloadStatus").property("text")
         assert not slider.property("enabled")
-        assert not window.findChild(QObject, "viewerMouseArea").property("enabled")
+        assert window.findChild(QObject, "viewerMouseArea").property("enabled")
         assert not window.findChild(QObject, "displayLowSlider").property("enabled")
-        assert not window.findChild(QObject, "zoomInAction").property("enabled")
+        assert window.findChild(QObject, "zoomInAction").property("enabled")
         assert window.findChild(QObject, "closeImageAction").property("enabled")
         assert not bridge.requestPage(2)  # Already cached, but the whole stack is not ready.
         assert not bridge.setDisplayRange(0, 50000)
@@ -356,7 +355,9 @@ def test_qml_initial_loading_blocks_navigation_until_whole_stack_ready(qt_app, b
         qt_app.sendEvent(window, wheel)
         assert controller.requested_page == state.property("pageIndex") == 0
         if outcome == "cancel":
-            cancel = window.findChild(QObject, "cancelInitialLoading")
+            assert QMetaObject.invokeMethod(window.findChild(QObject, "viewerSettingsAction"), "trigger")
+            QTest.qWait(30)
+            cancel = window.findChild(QObject, "cancelStackPreparation")
             cancel_pos = cancel.mapToScene(QPointF(cancel.property("width") / 2, cancel.property("height") / 2))
             QTest.mouseClick(window, Qt.LeftButton, Qt.NoModifier, cancel_pos.toPoint())
             assert not state.property("loading") and not overlay.property("visible")
@@ -368,11 +369,11 @@ def test_qml_initial_loading_blocks_navigation_until_whole_stack_ready(qt_app, b
             gate.set()
             if outcome == "retry":
                 spin(qt_app, lambda: bool(controller.preload_error))
-                assert state.property("loading") and not slider.property("enabled")
-                assert "실패" in label.property("text")
+                assert not state.property("loading") and not slider.property("enabled")
+                assert "실패" in window.findChild(QObject, "preloadStatus").property("text")
                 fail = False
                 bridge.retryPreload()
-            spin(qt_app, lambda: not state.property("loading"))
+            spin(qt_app, lambda: controller.preload_state["ready"] and not controller.initial_loading)
             assert controller.preload_state["ready"] and not controller.initial_loading
             assert not overlay.property("visible") and slider.property("enabled")
             qt_app.sendEvent(window, wheel)

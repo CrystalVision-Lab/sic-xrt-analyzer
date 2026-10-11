@@ -22,7 +22,7 @@ QtObject {
     readonly property var recordTools: ["Rectangle", "Oval", "Polygon", "Freehand", "Point", "Wand", "Line", "Polyline", "FreeLine", "Angle", "Arrow", "Text"]
     readonly property bool recordToolActive: !uiState.roiEditMode && recordTools.indexOf(uiState.activeTool) >= 0
     readonly property bool isDrawing: recordToolActive && ((!!uiState.roiInteraction && (uiState.roiInteraction.drawingTool || uiState.roiInteraction.toolPoints.length > 0)) || (uiState.activeTool === "Wand" && fileBridge.imagej.state.busy))
-    readonly property bool canEdit: !!selected && selected.active && selected.visible && selected.paths.length === 1 && uiState.hasLoadedImage && !uiState.loading && !uiState.importedRois.busy
+    readonly property bool canEdit: !!selected && selected.active && selected.visible && selected.paths.length === 1 && uiState.loadFlow.recordReady && !uiState.loading && !uiState.importedRois.busy
     readonly property string imagejPhase: uiState.importedRois.busy ? "IMPORTING"
         : uiState.importedRois.errors.length || uiState.importedRois.editError ? "ERROR"
         : uiState.roiEditMode ? "EDITING" : isDrawing ? "DRAWING"

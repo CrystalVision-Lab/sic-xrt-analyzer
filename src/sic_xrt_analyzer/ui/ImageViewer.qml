@@ -309,7 +309,7 @@ Rectangle {
             }
             ColumnLayout {
                 anchors.centerIn: parent; spacing: 10
-                visible: !uiState.hasImage && !uiState.loading
+                visible: !uiState.hasImage && uiState.loadFlow.phase === "EMPTY"
                 Text { text: "XRT 이미지 없음"; color: theme.text; font.family: theme.fontFamily; font.pixelSize: 17 }
                 Text { text: "TIFF / JPG · 16-bit TIFF 및 RGB 지원"; color: theme.muted; font.family: theme.fontFamily; font.pixelSize: 12 }
                 AppButton { theme: root.theme; action: root.actions.open; text: "XRT 이미지 열기"; iconName: "open"; Layout.alignment: Qt.AlignHCenter }
@@ -318,40 +318,27 @@ Rectangle {
             Rectangle {
                 objectName: "initialLoadingOverlay"
                 z: 10
-                anchors.fill: parent; visible: uiState.loading; color: "#db111518"
+                anchors.fill: parent; visible: uiState.loadFlow.blocking && (!uiState.loadFlow.isOpening || uiState.loadFlow.indicatorElapsed); color: "#db111518"
                 ColumnLayout { anchors.centerIn: parent; width: Math.min(380, parent.width - 40); spacing: 12
-                    BusyIndicator { running: uiState.loading && !uiState.stack.preloadError; Layout.alignment: Qt.AlignHCenter }
+                    BusyIndicator { visible: uiState.loadFlow.isOpening; running: visible && parent.parent.visible; Layout.alignment: Qt.AlignHCenter }
                     Text {
                         objectName: "initialLoadingText"; Layout.fillWidth: true; wrapMode: Text.Wrap
-                        horizontalAlignment: Text.AlignHCenter; color: uiState.stack.preloadError ? theme.error : theme.text
-                        text: uiState.stack.preloadError ? "전체 페이지 로딩 실패\n" + uiState.stack.preloadError
-                              : uiState.stack.preparing.label && uiState.opening ? uiState.stack.preparing.label
-                              : uiState.stack.preload.total > 0 ? "전체 페이지 불러오는 중 · " + uiState.stack.preload.prepared + " / " + uiState.stack.preload.total
-                              : "이미지 정보를 읽는 중…"
+                        horizontalAlignment: Text.AlignHCenter; color: uiState.loadFlow.hasError ? theme.error : theme.text
+                        text: uiState.loadFlow.message; Accessible.name: text
                     }
-                    ProgressBar {
-                        id: preloadProgress
-                        objectName: "initialLoadingProgress"; Layout.fillWidth: true
-                        implicitHeight: 6; padding: 0
-                        visible: uiState.stack.preload.total > 0 || uiState.stack.preparing.total > 0
-                        from: 0; to: Math.max(1, uiState.opening ? uiState.stack.preparing.total || 1 : uiState.stack.preload.total); value: uiState.opening ? uiState.stack.preparing.done || 0 : uiState.stack.preload.prepared
-                        background: Rectangle { color: theme.border; radius: 2 }
-                        contentItem: Item {
-                            Rectangle { width: parent.width * preloadProgress.visualPosition; height: parent.height; color: theme.accent; radius: 2 }
-                        }
-                    }
-                    Text { Layout.fillWidth: true; horizontalAlignment: Text.AlignHCenter; wrapMode: Text.Wrap; color: theme.muted; text: "전체 로딩이 완료되면 스크롤과 드래그가 활성화됩니다." }
+                    Text { Layout.fillWidth: true; horizontalAlignment: Text.AlignHCenter; wrapMode: Text.Wrap; color: theme.muted; text: uiState.loadFlow.isOpening ? uiState.loadFlow.openingHint : "다른 파일을 열거나 오류 상세를 확인하세요." }
                     RowLayout { Layout.alignment: Qt.AlignHCenter
-                        AppButton { theme: root.theme; text: "다시 준비"; visible: !!uiState.stack.preloadError; onClicked: fileBridge.retryPreload() }
-                        AppButton { objectName: "cancelInitialLoading"; theme: root.theme; text: "취소"; onClicked: root.actions.closeImage.trigger() }
+                        AppButton { theme: root.theme; action: root.actions.open; text: "다시 열기…"; visible: uiState.loadFlow.hasError }
+                        AppButton { objectName: "openingErrorDetails"; theme: root.theme; text: "상세 정보…"; visible: uiState.loadFlow.hasError; onClicked: loadErrorDialog.open() }
+                        AppButton { objectName: "cancelInitialLoading"; theme: root.theme; text: "취소·닫기"; visible: uiState.loadFlow.isOpening; onClicked: root.actions.closeImage.trigger() }
                     }
                 }
             }
             DropArea { anchors.fill: parent; onDropped: function(drop) { if (drop.hasUrls && drop.urls.length > 0) root.fileDropped(drop.urls[0].toString()) } }
             Rectangle {
                 visible: uiState.pageLoading; anchors.right: parent.right; anchors.top: parent.top; anchors.margins: 12
-                width: 178; height: 30; color: theme.panel; border.color: theme.border; radius: 3
-                Text { anchors.centerIn: parent; text: "페이지 " + (uiState.stack.requestedPage + 1) + " 읽는 중…"; color: theme.text; font.pixelSize: 11 }
+                width: Math.min(parent.width - 24, 320); height: 30; color: theme.panel; border.color: theme.border; radius: 3
+                Text { objectName: "pageRequestStatus"; anchors.centerIn: parent; text: uiState.loadFlow.pageRequestLabel; color: theme.text; font.pixelSize: 11; Accessible.name: text }
             }
             Rectangle {
                 visible: uiState.detail.busy || uiState.detail.error.length > 0
@@ -362,10 +349,26 @@ Rectangle {
             }
         }
         Rectangle {
-            visible: uiState.loadError.length > 0 || uiState.stack.error.length > 0
-            Layout.fillWidth: true; Layout.preferredHeight: errorText.implicitHeight + 18
+            objectName: "loadingErrorNotice"; visible: uiState.loadFlow.hasError && uiState.loadFlow.hasViewableFrame
+            Layout.fillWidth: true; Layout.preferredHeight: errorNotice.implicitHeight + 12
             color: "#332427"
-            Text { id: errorText; anchors.fill: parent; anchors.margins: 9; text:  "파일 오류 · " + (uiState.loadError || uiState.stack.error) + (uiState.hasImage ? "\n이전 이미지를 유지했습니다." : ""); color: theme.error; font.pixelSize: 11; wrapMode: Text.Wrap }
+            RowLayout {
+                id: errorNotice; anchors.fill: parent; anchors.margins: 6
+                Text { text: uiState.loadFlow.message; color: theme.error; font.pixelSize: 11; wrapMode: Text.Wrap; Layout.fillWidth: true }
+                AppButton { objectName: "retryPreparationNotice"; theme: root.theme; text: "다시 준비"; visible: !!uiState.stack.preloadError; onClicked: fileBridge.retryPreload() }
+                AppButton { theme: root.theme; action: root.actions.open; text: "다시 열기…"; visible: !uiState.stack.preloadError }
+                AppButton { objectName: "loadingErrorDetails"; theme: root.theme; text: "상세 정보…"; onClicked: loadErrorDialog.open() }
+            }
+        }
+    }
+    Dialog {
+        id: loadErrorDialog; objectName: "loadingErrorDialog"; parent: Overlay.overlay; title: "이미지 준비 오류 상세"
+        modal: true; width: Math.min(600, parent.width - 40); height: Math.min(420, parent.height - 60)
+        x: (parent.width - width)/2; y: (parent.height - height)/2; standardButtons: Dialog.Close
+        onClosed: Qt.callLater(root.focusView)
+        contentItem: ScrollView {
+            id: loadErrorScroll; clip: true; contentWidth: availableWidth
+            TextArea { objectName: "loadingErrorText"; width: loadErrorScroll.availableWidth; readOnly: true; selectByMouse: true; wrapMode: TextEdit.Wrap; text: uiState.loadFlow.errorDetails }
         }
     }
 }

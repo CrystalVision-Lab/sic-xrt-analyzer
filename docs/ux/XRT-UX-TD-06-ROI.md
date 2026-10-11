@@ -154,6 +154,6 @@ Python RoiManager/ROI loader·serializer/geometry/분석 pipeline/원본·TIFF �
 
 분석 영역 Esc 취소와 새로운 multi-shape 분석·mask·snapping·undo system은 제공하지 않는다. 별도 Manager Window도 기존에 없었다. 임의 record 종류·복합 경로 편집 한계는 기존 backend 그대로다. 사용자 이해 시간/실제 대형 XRT 성능/실제 모델 inference는 이번 UX TD에서 새로 측정하지 않았다.
 
-- TD-07: TIFF Loading·progress·취소·메모리.
+- [TD-07](XRT-UX-TD-07-TIFF-LOADING.md): 첫 정밀 frame의 Pan·Zoom·분석 영역을 전체 스택 준비와 분리한다. ImageJ 도형 생성·편집·가져오기는 기존 backend 전체 준비 조건을 유지하며 ROI 좌표/geometry 정책은 동일하다.
 - TD-08: 전체 Visual Density.
 - 추후 통합 검증: Windows native dialog cleanup / TD-05의 engine teardown `0x80010108` 진단 재확인. 이번 TD에서는 해당 platform/backend 경로를 수정하거나 해결됐다고 보고하지 않는다.

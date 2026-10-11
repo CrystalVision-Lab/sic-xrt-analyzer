@@ -59,10 +59,11 @@ Dialog {
                     AppButton { theme: root.theme; text: "기록 → 편집기"; onClicked: { root.mode = "macro"; macroText.text = root.runtimeState.recorded } }
                     Item { Layout.fillWidth: true }
                     AppButton { theme: root.theme; text: "취소"; enabled: root.runtimeState.busy; onClicked: backend.cancel() }
-                    AppButton { objectName: "imagejRunButton"; theme: root.theme; text: root.runtimeState.busy ? "처리 중…" : "실행"; enabled: !root.runtimeState.busy; primary: true
+                    AppButton { objectName: "imagejRunButton"; theme: root.theme; text: root.runtimeState.busy ? "처리 중…" : "실행"; enabled: !root.runtimeState.busy && fileBridge.stackState.frameViewable && !fileBridge.stackState.initialLoading; primary: true
                         onClicked: backend.execute(root.mode, root.mode === "macro" ? macroText.text : commandField.text, optionsField.text, stackInput.checked)
                     }
                 }
+                Text { visible: fileBridge.stackState.initialLoading; Layout.fillWidth: true; wrapMode: Text.Wrap; color: theme.muted; text: "전체 페이지 준비 후 ImageJ 작업을 실행할 수 있습니다." }
             }
             ColumnLayout {
                 TextField { id: search; Layout.fillWidth: true; placeholderText: "ImageJ 명령 검색" }

@@ -2,7 +2,7 @@
 
 작업 기준: `feat/52-candidate-roi`, `e49e4be59ea8c16fa27750fa46940dd57829ee2e`. Issue #55.
 
-현재 Analysis 내부 위계와 준비 조건은 [TD-04 단일 화면 분석](XRT-UX-TD-04-ANALYSIS-FLOW.md), Result 내부 구조는 [TD-05 후보 검토](XRT-UX-TD-05-RESULT.md), ROI 상태·생성·편집·관리는 [TD-06 ROI](XRT-UX-TD-06-ROI.md)를 따른다. 이 문서의 이전 구조·테스트 수는 단계별 기록이며 아래 기능 Inventory는 후속 진입점을 반영한다.
+현재 Analysis 내부 위계와 준비 조건은 [TD-04 단일 화면 분석](XRT-UX-TD-04-ANALYSIS-FLOW.md), Result 내부 구조는 [TD-05 후보 검토](XRT-UX-TD-05-RESULT.md), ROI 상태·생성·편집·관리는 [TD-06 ROI](XRT-UX-TD-06-ROI.md), 현재 페이지와 전체 스택의 단계별 준비는 [TD-07 로딩 UX](XRT-UX-TD-07-TIFF-LOADING.md)를 따른다. 이 문서의 이전 구조·테스트 수는 단계별 기록이며 아래 기능 Inventory는 후속 진입점을 반영한다.
 
 ## 1. 기존 구조 조사
 

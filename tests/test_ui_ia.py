@@ -52,7 +52,7 @@ def test_shell_context_layout_and_shared_analysis_command(qt_app, tmp_path, brid
         assert not item('contextRunAnalysis').property('enabled')
         source = create_source(tmp_path)
         invoke(window, 'selectImagePath', source.path)
-        spin(qt_app, lambda: state.property('hasLoadedImage') and not state.property('loading'))
+        spin(qt_app, lambda: state.property('hasLoadedImage') and not state.property('loading') and not bridge.stack_viewer.initial_loading)
         assert panel.property('activeContext') == 'image'  # TD-03: new files begin with image information.
         assert item('currentFileName').property('text') == Path(source.path).name
         for index, context in enumerate(('image', 'analysis', 'result', 'viewer', 'roi')):
