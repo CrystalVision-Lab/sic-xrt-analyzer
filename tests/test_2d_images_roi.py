@@ -283,8 +283,9 @@ def test_qml_jpeg_imported_roi_overlay_pan_zoom_visibility_and_file_switch(qt_ap
         assert bridge.analysis['inputSource'] == 'Original TIFF'
         assert not warnings, '\n'.join(warnings)
     finally:
-        bridge.waitForLoads()
+        window.setProperty('allowQuit', True)
         window.close()
+        bridge.waitForLoads()
         engine.deleteLater()
         qt_app.processEvents()
 

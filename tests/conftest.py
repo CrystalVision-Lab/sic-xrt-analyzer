@@ -24,3 +24,18 @@ def dispose_deferred_qml_windows(qt_app):
     # otherwise survive into later tests with already closed mmap owners.
     QCoreApplication.sendPostedEvents(None, QEvent.DeferredDelete)
     qt_app.processEvents()
+
+
+@pytest.fixture
+def bridge_factory(qt_app):
+    """Own even temporary preference-only bridges until their timers are stopped."""
+    from sic_xrt_analyzer.ui.bridge import FileBridge
+    bridges = []
+    def create(**kwargs):
+        bridge = FileBridge(**kwargs)
+        bridges.append(bridge)
+        return bridge
+    yield create
+    for bridge in bridges:
+        bridge.waitForLoads()
+        bridge.deleteLater()

@@ -18,34 +18,42 @@ Dialog {
     function showCommand(command, options) { mode = "command"; stackInput.checked = false; commandField.text = command; optionsField.text = options || ""; tabs.currentIndex = 0; open() }
     function showMacro() { mode = "macro"; tabs.currentIndex = 0; open() }
     function showPlugin() { mode = "plugin"; tabs.currentIndex = 0; open() }
+    function showModern(command) { mode = "modern"; commandField.text = command; optionsField.text = "{}"; tabs.currentIndex = 0; open() }
     background: Rectangle { color: theme.panel; border.color: theme.border; radius: 4 }
     contentItem: ColumnLayout {
         spacing: 10
+        RowLayout {
+            AppCheckBox { objectName: "imagejGuiMode"; theme: root.theme; text: "플러그인 설정창 사용 (AWT/Swing)"; checked: root.runtimeState.gui; enabled: !root.runtimeState.busy && root.runtimeState.nativeWindowsAvailable; onClicked: backend.configureRuntime(checked, root.runtimeState.fijiPath) }
+            AppButton { theme: root.theme; text: "Fiji 라이브러리…"; enabled: !root.runtimeState.busy; onClicked: fijiFolder.open() }
+            AppButton { theme: root.theme; text: "Fiji 해제"; visible: root.runtimeState.fijiPath.length > 0; enabled: !root.runtimeState.busy; onClicked: backend.configureRuntime(root.runtimeState.gui, "") }
+        }
+        Text { Layout.fillWidth: true; color: theme.muted; font.pixelSize: 11; elide: Text.ElideMiddle; text: root.runtimeState.fijiPath ? "Fiji: " + root.runtimeState.fijiPath : "ImageJ 1 엔진 · Fiji/ImageJ2는 tools/setup_fiji.py 설치 후 라이브러리 폴더를 선택하세요" }
         TabBar { id: tabs; Layout.fillWidth: true
             TabButton { text: "실행" }
             TabButton { text: "모든 명령"; onClicked: if (!root.runtimeState.commands.length) backend.loadCommands() }
             TabButton { text: "결과표 / 로그" }
             TabButton { text: "도구 옵션" }
+            TabButton { text: "Fiji / ImageJ2" }
         }
         StackLayout { currentIndex: tabs.currentIndex; Layout.fillWidth: true; Layout.fillHeight: true
             ColumnLayout {
                 RowLayout {
-                    AppComboBox { theme: root.theme; model: ["명령", "매크로 (IJM)", "Java 플러그인"]
-                        currentIndex: root.mode === "macro" ? 1 : root.mode === "plugin" ? 2 : 0
-                        onActivated: root.mode = currentIndex === 1 ? "macro" : currentIndex === 2 ? "plugin" : "command"
+                    AppComboBox { theme: root.theme; model: ["명령", "매크로 (IJM)", "Java 플러그인", "Fiji / ImageJ2"]
+                        currentIndex: root.mode === "macro" ? 1 : root.mode === "plugin" ? 2 : root.mode === "modern" ? 3 : 0
+                        onActivated: { root.mode = currentIndex === 1 ? "macro" : currentIndex === 2 ? "plugin" : currentIndex === 3 ? "modern" : "command"; if (root.mode === "modern") optionsField.text = "{}" }
                     }
                     AppButton { theme: root.theme; text: "매크로 열기…"; onClicked: macroFile.open() }
                     AppButton { theme: root.theme; text: "플러그인 경로 등록…"; enabled: !root.runtimeState.busy; onClicked: pluginFile.open() }
                 }
-                TextField { id: commandField; objectName: "imagejCommand"; Layout.fillWidth: true; visible: root.mode !== "macro"; placeholderText: root.mode === "plugin" ? "Java 클래스 전체 이름 (예: my.package.My_Filter)" : "ImageJ 명령 이름"; text: "Invert" }
-                TextField { id: optionsField; objectName: "imagejOptions"; Layout.fillWidth: true; visible: root.mode !== "macro"; placeholderText: "매크로 옵션 (예: sigma=2) / 플러그인 인수" }
+                TextField { id: commandField; objectName: "imagejCommand"; Layout.fillWidth: true; visible: root.mode !== "macro"; placeholderText: root.mode === "plugin" || root.mode === "modern" ? "Java 클래스 전체 이름" : "ImageJ 명령 이름"; text: "Invert" }
+                TextField { id: optionsField; objectName: "imagejOptions"; Layout.fillWidth: true; visible: root.mode !== "macro"; placeholderText: root.mode === "modern" ? 'JSON 인수 (예: {"sigma": 2})' : "매크로 옵션 (예: sigma=2) / 플러그인 인수" }
                 ScrollView { Layout.fillWidth: true; Layout.fillHeight: true; visible: root.mode === "macro"
                     TextArea { id: macroText; objectName: "imagejMacro"; font.family: "Consolas"; text: 'run("Invert");\nrun("Gaussian Blur...", "sigma=1");\nrun("Measure");'; wrapMode: TextEdit.NoWrap; selectByMouse: true }
                 }
                 Text { visible: root.mode !== "macro"; Layout.fillWidth: true; Layout.fillHeight: true; wrapMode: Text.Wrap; color: theme.muted
-                    text: "현재 페이지와 선택 ROI를 작업 복사본으로 처리합니다. 매크로 옵션으로 대화상자 값을 전달하세요.\nJava AWT 창을 직접 요구하는 플러그인과 Fiji/ImageJ2 전용 플러그인은 이 실행 모드에서 지원되지 않습니다."
+                    text: (root.mode === "modern" ? "현재 페이지를 Fiji 작업 복사본으로 처리합니다. 선택 ROI의 Fiji Overlay 변환은 아직 지원하지 않습니다.\n" : "현재 페이지와 선택 ROI를 작업 복사본으로 처리합니다.\n") + "설정창 사용을 켜면 AWT/Swing 플러그인 창을 프로그램 내부에 연결합니다.\nFiji/ImageJ2는 SciJava Command를 실행하며, 이미지 입력은 자동 연결하고 추가 인수는 JSON으로 전달합니다. 모든 외부 플러그인의 호환성을 보장하지는 않습니다."
                 }
-                AppCheckBox { id: stackInput; theme: root.theme; text: "전체 TIFF 스택을 ImageJ 가상 스택으로 전달 (페이지 순서, 공간 Z 미확정)" }
+                AppCheckBox { id: stackInput; theme: root.theme; text: "전체 TIFF 스택 전달 (페이지 순서, 공간 Z 미확정)"; enabled: fileBridge.stackState.pageCount > 1; onEnabledChanged: if (!enabled) checked = false }
                 RowLayout {
                     AppCheckBox { theme: root.theme; text: "명령 기록"; checked: root.runtimeState.recording; onClicked: backend.record(checked) }
                     AppButton { theme: root.theme; text: "기록 → 편집기"; onClicked: { root.mode = "macro"; macroText.text = root.runtimeState.recorded } }
@@ -95,10 +103,24 @@ Dialog {
                 Text { Layout.fillWidth: true; wrapMode: Text.Wrap; color: theme.muted; text: "다각형·분할선은 클릭으로 점을 추가하고 더블클릭/Enter로 완료합니다. 각도는 세 번 클릭합니다. 점 도구는 선택한 점 ROI에 점을 추가합니다. Esc는 진행 중인 선택을 취소합니다. 브러시·채우기는 원본을 보존하고 작업 복사본을 표시합니다." }
                 Item { Layout.fillHeight: true }
             }
+            ColumnLayout {
+                RowLayout {
+                    AppButton { theme: root.theme; text: "Fiji 명령 읽기"; enabled: !root.runtimeState.busy && root.runtimeState.fijiPath.length > 0; onClicked: backend.loadModernCommands() }
+                    TextField { id: modernSearch; Layout.fillWidth: true; placeholderText: "이름 / Java 클래스 검색" }
+                }
+                Text { Layout.fillWidth: true; wrapMode: Text.Wrap; color: theme.muted; text: "목록에서 명령을 선택하면 필요한 입력 이름·타입을 볼 수 있습니다. 다른 이미지, ImgLib2 객체, 특정 장치가 필요한 명령은 별도 연결이 필요합니다." }
+                ListView { Layout.fillWidth: true; Layout.fillHeight: true; clip: true
+                    model: root.runtimeState.modernCommands.filter(function(c) { return (c.label + c.class).toLowerCase().indexOf(modernSearch.text.toLowerCase()) >= 0 })
+                    delegate: ItemDelegate { required property var modelData; width: ListView.view.width; text: modelData.label + " — " + modelData.class; onClicked: { root.showModern(modelData.class); modernInputs.text = modelData.inputs } }
+                    ScrollBar.vertical: ScrollBar {}
+                }
+            }
         }
+        Text { id: modernInputs; Layout.fillWidth: true; visible: root.mode === "modern" && tabs.currentIndex === 0; wrapMode: Text.Wrap; color: theme.muted; font.pixelSize: 11 }
         Text { Layout.fillWidth: true; visible: root.runtimeState.error.length > 0; text: root.runtimeState.error; wrapMode: Text.Wrap; color: theme.error }
         ProgressBar { Layout.fillWidth: true; visible: root.runtimeState.busy; indeterminate: true }
     }
     FileDialog { id: macroFile; nameFilters: ["ImageJ macro (*.ijm *.txt)"]; onAccepted: { var code = backend.readMacro(selectedFile.toString()); if (code) { root.mode = "macro"; macroText.text = code } } }
     FileDialog { id: pluginFile; nameFilters: ["Java plugin (*.jar *.class)"]; onAccepted: backend.installPlugin(selectedFile.toString()) }
+    FolderDialog { id: fijiFolder; title: "Fiji 라이브러리 폴더 (jars/ 및 plugins/)"; onAccepted: backend.configureRuntime(root.runtimeState.gui, selectedFolder.toString()) }
 }

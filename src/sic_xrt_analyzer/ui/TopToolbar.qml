@@ -8,7 +8,7 @@ Rectangle {
     property var actions
     property var hostWindow
     color: theme.toolbar
-    ToolPalette { anchors.left: parent.left; anchors.right: parent.right; anchors.top: parent.top; anchors.margins: 8; height: 30; theme: root.theme; uiState: root.uiState; hostWindow: root.hostWindow }
+    ToolPalette { visible: uiState.stackFeaturesVisible; anchors.left: parent.left; anchors.right: parent.right; anchors.top: parent.top; anchors.margins: 8; height: 30; theme: root.theme; uiState: root.uiState; hostWindow: root.hostWindow }
     RowLayout {
         anchors.left: parent.left; anchors.right: parent.right; anchors.bottom: parent.bottom; height: 40; anchors.leftMargin: 10; anchors.rightMargin: 10
         spacing: 5

@@ -288,9 +288,9 @@ def test_qml_mouse_roi_edit_numeric_apply_save_and_discard_guard(qt_app, tmp_pat
         assert bridge.stack_viewer.frame is None and not state.property('roiEditMode')
         assert not warnings, '\n'.join(warnings)
     finally:
-        bridge.waitForLoads()
         window.setProperty('allowQuit', True)
         window.close()
+        bridge.waitForLoads()
         engine.deleteLater()
         qt_app.processEvents()
 

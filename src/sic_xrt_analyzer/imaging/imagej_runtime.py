@@ -1,11 +1,12 @@
 """ImageJ 1.x embedded JVM; pixels belong to a working copy, never a source file."""
 import hashlib
+import json
 import os
 import shutil
 import subprocess
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from threading import RLock
+from threading import Event, RLock, Thread
 
 import numpy as np
 import tifffile
@@ -17,6 +18,7 @@ JARS = {
     'ij1-patcher-2.0.0.jar': ('net/imagej/ij1-patcher/2.0.0', 'b68810263f9521ddb34bac272816613ebb71607775c1fc337079a0476c2b581a'),
     'javassist-3.30.2-GA.jar': ('org/javassist/javassist/3.30.2-GA', 'eba37290994b5e4868f3af98ff113f6244a6b099385d9ad46881307d3cb01aaf'),
     'classgraph-4.8.162.jar': ('io/github/classgraph/classgraph/4.8.162', 'ea30b2d5e29e89d52706bcecf7a6ae3b44682d4a1566a5f22b9453f9be2a970c'),
+    'jna-5.16.0.jar': ('net/java/dev/jna/jna/5.16.0', '3f5233589a799eb66dc2969afa3433fb56859d3d787c58b9bc7dd9e86f0a250c'),
 }
 
 
@@ -38,17 +40,24 @@ def initialize():
         home = next((line.split('=', 1)[1].strip() for line in result.stderr.splitlines() if 'java.home =' in line), '')
         if not home:
             raise RuntimeError('Java 17 이상 설치 및 PATH/JAVA_HOME 설정이 필요합니다')
+        if os.environ.get('SIC_XRT_FIJI_HOME'):
+            version = next((line.split('=', 1)[1].strip() for line in result.stderr.splitlines() if 'java.specification.version =' in line), '0')
+            if int(version) < 21:
+                raise RuntimeError('이 Fiji 라이브러리에는 Java 21 이상이 필요합니다')
         candidates = [Path(home) / 'bin/server/jvm.dll', Path(home) / 'lib/server/libjvm.so', Path(home) / 'lib/server/libjvm.dylib']
         jvm = next((p for p in candidates if p.is_file()), None)
-        jpype.startJVM('-Xmx3g', '-Djava.awt.headless=true', '--add-opens=java.base/java.lang=ALL-UNNAMED',
-                      jvmpath=str(jvm) if jvm else None, classpath=[str(p) for p in files], convertStrings=True)
+        extra = json.loads(os.environ.get('SIC_XRT_IMAGEJ_EXTRA_PATHS', '[]'))
+        gui = os.environ.get('SIC_XRT_IMAGEJ_GUI') == '1'
+        jpype.startJVM('-Xmx3g', f'-Djava.awt.headless={str(not gui).lower()}', '--add-opens=java.base/java.lang=ALL-UNNAMED',
+                      '-Dimagej.updater.disableAutocheck=true',
+                      jvmpath=str(jvm) if jvm else None, classpath=[str(p) for p in files] + extra, convertStrings=True)
         jpype.JClass('net.imagej.patcher.LegacyInjector').preinit()
     return jpype
 
 
 class ImageJRuntime:
     """One serialized embedded ImageJ session; arbitrary plugins have normal user privileges."""
-    def __init__(self):
+    def __init__(self, window_sink=None):
         self.directory = TemporaryDirectory(prefix='sic-xrt-imagej-', dir=os.environ.get('SIC_XRT_IMAGEJ_TMP'))
         self.lock = ENGINE_LOCK
         self.jp = None
@@ -57,6 +66,11 @@ class ImageJRuntime:
         self.outputs = set()
         self.active_output = None
         self.sequence = 0
+        self.gui = os.environ.get('SIC_XRT_IMAGEJ_GUI') == '1'
+        self.window_sink = window_sink
+        self.window_stop = Event()
+        self.window_thread = None
+        self.modern = None
 
     def start(self):
         if self.jp is None:
@@ -65,7 +79,34 @@ class ImageJRuntime:
             self.WM = self.jp.JClass('ij.WindowManager')
             self.Interpreter = self.jp.JClass('ij.macro.Interpreter')
             self.IJ.runMacro('setBatchMode(true);')
+            if self.gui and self.window_sink:
+                self.window_thread = Thread(target=self.watch_windows, daemon=True)
+                self.window_thread.start()
         return self.jp
+
+    def watch_windows(self):
+        """Publish native AWT/Swing handles while a modal plugin blocks its execution thread."""
+        window_class = self.jp.JClass('java.awt.Window')
+        native = self.jp.JClass('com.sun.jna.Native')
+        previous = None
+        initial_sizes = {}
+        while not self.window_stop.wait(.08):
+            windows = []
+            for window in window_class.getWindows():
+                if window.isVisible() and window.isDisplayable():
+                    try:
+                        handle = int(native.getWindowID(window))
+                        size = initial_sizes.setdefault(handle, (int(window.getWidth()), int(window.getHeight())))
+                        windows.append({'id': handle,
+                                        'title': str(window.getTitle()) if hasattr(window, 'getTitle') else window.getClass().getSimpleName(),
+                                        'width': size[0], 'height': size[1]})
+                    except (self.jp.JException, OSError):
+                        # A window may disappear between enumeration and handle lookup.
+                        continue
+            if windows != previous:
+                self.window_sink({'windows': windows})
+                previous = windows
+            initial_sizes = {w['id']: initial_sizes[w['id']] for w in windows}
 
     def load(self, frame, whole_stack=False):
         jp = self.start()
@@ -75,6 +116,7 @@ class ImageJRuntime:
             if self.image.getStackSize() == source.metadata.page_count:
                 self.image.setSlice(source.page_index + 1)
             self.WM.setTempCurrentImage(self.image)
+            self.apply_calibration(frame)
             return
         if self.image is not None:
             self.image.changes = False
@@ -122,7 +164,16 @@ class ImageJRuntime:
         self.Interpreter.addBatchModeImage(self.image)
         self.WM.setTempCurrentImage(self.image)
         self.identity = source.identity
+        self.apply_calibration(frame)
         source.validate_identity()
+
+    def apply_calibration(self, frame):
+        calibration = getattr(frame, 'calibration', {})
+        if calibration:
+            native = self.image.getCalibration()
+            native.pixelWidth = float(calibration.get('pixelWidth',1))
+            native.pixelHeight = float(calibration.get('pixelHeight',1))
+            native.setUnit(str(calibration.get('unit','pixel')))
 
     def virtual_path(self, source):
         """ImageJ 1's TIFF decoder needs classic TIFF; normalize BigTIFF in private storage."""
@@ -162,13 +213,16 @@ class ImageJRuntime:
         roi = self.jp.JClass('ij.io.RoiDecoder')(raw, record.name).getRoi()
         self.image.setRoi(roi)
 
-    def run(self, frame, *, macro='', command='', options='', plugin='', record=None, whole_stack=False, edit=None):
+    def run(self, frame, *, macro='', command='', options='', plugin='', modern='', record=None, whole_stack=False, edit=None):
         with self.lock:
             self.load(frame, whole_stack)
             self.roi(record)
             before_images = set(self.Interpreter.getBatchModeImageIDs())
             before_log = self.IJ.getLog() or ''
-            if edit:
+            modern_outputs = {}
+            if modern:
+                modern_outputs = self.run_modern(modern, options)
+            elif edit:
                 self.edit(*edit)
             elif plugin:
                 instance = self.jp.JClass(plugin)()
@@ -185,7 +239,10 @@ class ImageJRuntime:
                     self.image = wrapper
                     self.Interpreter.addBatchModeImage(wrapper)
                     self.WM.setTempCurrentImage(wrapper)
-                self.IJ.run(self.image, command, options)
+                if self.gui and not options:
+                    self.IJ.run(self.image, command, None)
+                else:
+                    self.IJ.run(self.image, command, options)
             else:
                 interpreter = self.Interpreter()
                 self.WM.setTempCurrentImage(None)
@@ -223,7 +280,7 @@ class ImageJRuntime:
                     except OSError:
                         pass  # A still displayed mmap will be released by the Qt owner.
             return {'path': str(path), 'version': self.IJ.getVersion(), 'headings': rt.getColumnHeadings(), 'rows': rows,
-                    'log': log.removeprefix(before_log),
+                    'log': log.removeprefix(before_log) + (json.dumps(modern_outputs, ensure_ascii=False) + '\n' if modern_outputs else ''),
                     'pages': self.image.getStackSize(), 'publish': command not in ('Measure', 'Set Scale...', 'Set Measurements...', 'Properties...')}
 
     def edit(self, tool, points, color, size, text, tolerance):
@@ -320,13 +377,134 @@ class ImageJRuntime:
             return sorted(str(x) for x in self.jp.JClass('ij.Menus').getCommands().keySet())
 
     def close(self):
+        self.window_stop.set()
+        if self.window_thread:
+            self.window_thread.join(timeout=2)
         with self.lock:
             if self.image is not None:
                 self.image.changes = False
                 self.Interpreter.removeBatchModeImage(self.image)
                 self.WM.setTempCurrentImage(None)
                 self.image = None
+            if self.jp and self.gui:
+                for window in self.jp.JClass('java.awt.Window').getWindows():
+                    window.dispose()
+            if self.modern is not None:
+                self.modern.context().dispose()
             self.directory.cleanup()
+
+    def modern_engine(self):
+        self.start()
+        if self.modern is None:
+            try:
+                self.modern = self.jp.JClass('net.imagej.ImageJ')()
+            except Exception as exc:
+                raise ValueError('Fiji/ImageJ2 라이브러리를 등록하세요. tools/setup_fiji.py로 설치할 수 있습니다: ' + str(exc)) from exc
+        return self.modern
+
+    def modern_commands(self):
+        with self.lock:
+            engine = self.modern_engine()
+            return sorted([{'class': str(info.getClassName()), 'label': str(info.getLabel() or info.getClassName()),
+                            'inputs': ', '.join(f'{item.getName()}: {item.getType().getSimpleName()}' for item in info.inputs())}
+                           for info in engine.command().getCommands()], key=lambda c:c['label'].lower())
+
+    def run_modern(self, class_name, options):
+        engine = self.modern_engine()
+        args = json.loads(options or '{}')
+        if not isinstance(args, dict):
+            raise TypeError('ImageJ2 인수는 JSON 객체 형식으로 입력하세요')
+        info = engine.command().getCommand(self.jp.JClass(class_name))
+        if info is None:
+            raise ValueError('등록된 SciJava Command 클래스를 지정하세요')
+        unknown = set(args) - {str(item.getName()) for item in info.inputs()}
+        if unknown:
+            raise ValueError('알 수 없는 ImageJ2 인수: ' + ', '.join(sorted(unknown)))
+        values = self.jp.JClass('java.util.HashMap')()
+        dataset_type = self.jp.JClass('net.imagej.Dataset')
+        dataset = None
+        display = None
+        if self.image.getStackSize() > 1:
+            # ImageJ needs C/Z/T dimensions. Use frames solely as a page-order
+            # interoperability axis, without assigning physical Z or time spacing.
+            self.image.setDimensions(1, 1, self.image.getStackSize())
+        try:
+            for item in info.inputs():
+                name, type_name = str(item.getName()), str(item.getType().getName())
+                if type_name == 'ij.ImagePlus':
+                    values.put(name, self.image)
+                elif type_name in ('net.imagej.Dataset', 'net.imagej.display.ImageDisplay'):
+                    if dataset is None:
+                        dataset = engine.convert().convert(self.image, dataset_type.class_)
+                        if dataset is not None and self.image.getStack().isVirtual():
+                            size = self.image.getWidth()*self.image.getHeight()*self.image.getStackSize()*max(1,self.image.getBitDepth()//8)
+                            if size > 512*1024**2:
+                                raise ValueError('Fiji 전체 스택 작업 복사본은 512 MiB까지 지원합니다. 큰 XRT 스택은 현재 페이지를 처리하세요')
+                            # A virtual ImagePlus reloads pages; writes through its adapter
+                            # would disappear. Materialize an explicit bounded working copy.
+                            dataset = dataset.duplicate()
+                    if dataset is None:
+                        raise ValueError('ImagePlus를 ImageJ2 Dataset으로 변환할 수 없습니다')
+                    if type_name == 'net.imagej.display.ImageDisplay':
+                        if display is None:
+                            display = engine.imageDisplay().createImageDisplay(dataset)
+                        values.put(name, display)
+                    else:
+                        values.put(name, dataset)
+                elif name in args:
+                    value = args[name]
+                    if type_name in ('boolean','java.lang.Boolean') and type(value) is not bool:
+                        raise TypeError(name + ': JSON true/false를 입력하세요')
+                    if type_name in ('int','java.lang.Integer','long','java.lang.Long') and type(value) is not int:
+                        raise TypeError(name + ': JSON 정수를 입력하세요')
+                    if type_name in ('double','java.lang.Double','float','java.lang.Float') and (type(value) not in (int,float) or not np.isfinite(value)):
+                        raise ValueError(name + ': 유한한 JSON 숫자를 입력하세요')
+                    if type_name in ('double','java.lang.Double'):
+                        value = self.jp.JDouble(value)
+                    elif type_name in ('float','java.lang.Float'):
+                        value = self.jp.JFloat(value)
+                    elif type_name in ('int','java.lang.Integer'):
+                        value = self.jp.JInt(value)
+                    elif type_name in ('long','java.lang.Long'):
+                        value = self.jp.JLong(value)
+                    elif type_name in ('boolean','java.lang.Boolean'):
+                        value = self.jp.JBoolean(value)
+                    elif type_name == 'java.io.File':
+                        value = self.jp.JClass('java.io.File')(str(value))
+                    values.put(name, value)
+            # Inject services, initialize defaults and validate typed inputs. Output display
+            # is handled by Qt, so SciJava's display postprocessors are not invoked.
+            pre_type = self.jp.JClass('org.scijava.module.process.PreprocessorPlugin')
+            preprocessors = engine.plugin().createInstancesOfType(pre_type.class_)
+            postprocessors = self.jp.JClass('java.util.ArrayList')()
+            module = engine.module().run(info, preprocessors, postprocessors, values).get()
+        finally:
+            if display is not None:
+                display.close()
+        if module.isCanceled():
+            raise ValueError('ImageJ2 명령이 취소되었습니다: ' + str(module.getCancelReason()))
+        outputs = {}
+        image_output = False
+        for name in module.getOutputs().keySet():
+            output = module.getOutput(name)
+            if isinstance(output, self.jp.JClass('ij.ImagePlus')):
+                self.image = output
+                image_output = True
+            elif isinstance(output, dataset_type):
+                converted = engine.convert().convert(output, self.jp.JClass('ij.ImagePlus').class_)
+                if converted is not None:
+                    self.image = converted
+                    image_output = True
+                else:
+                    raise ValueError('ImageJ2 출력 Dataset을 내부 뷰어 이미지로 변환하지 못했습니다')
+            elif output is not None:
+                outputs[str(name)] = str(output)
+        if dataset is not None and not image_output:
+            converted = engine.convert().convert(dataset, self.jp.JClass('ij.ImagePlus').class_)
+            if converted is None:
+                raise ValueError('수정된 ImageJ2 Dataset을 내부 뷰어로 반환할 수 없습니다')
+            self.image = converted
+        return outputs
 
     def invalidate(self):
         """An exception cannot leave hidden partial edits active for the next command."""

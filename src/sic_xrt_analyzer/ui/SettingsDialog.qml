@@ -15,7 +15,7 @@ AppDialog {
     property string draftView: "fit"
     property string draftBackground: "#111518"
     readonly property var categories: ["일반", "뷰어", "이미지", "분석", "AI / 모델", "보정", "성능", "내보내기", "단축키", "진단"]
-    signal applied(var preferences)
+    signal preferencesApplied(var preferences)
     title: "설정"
     width: 760; height: 550
     function loadDraft(p) {
@@ -25,7 +25,7 @@ AppDialog {
     function openPreferences() { loadDraft(fileBridge.preferences()); category = 0; open() }
     function applyDraft() {
         var p = fileBridge.applyPreferences({smoothImages: draftSmooth, roiVisible: draftRoi, rememberRecentFiles: draftRemember, startupDemo: draftStartup, recentFileLimit: draftLimit, defaultView: draftView, viewerBackground: draftBackground})
-        loadDraft(p); applied(p)
+        loadDraft(p); preferencesApplied(p)
     }
     contentItem: RowLayout {
         spacing: 18
