@@ -161,11 +161,12 @@ def test_long_filename_is_elided_without_changing_panel_width(workbench):
     Image.fromarray(np.full((48,64,3),120,np.uint8)).save(path)
     w.open(path); w.window.resize(1100,700); QTest.qWait(50)
     title = in_window(w, 'viewerFileName')
-    assert title.property('text') == path.name and title.property('truncated')
+    assert title.property('text') == path.name
     assert w.item('currentFileName').property('text') == path.name
     assert not w.panel.property('visible')
     choose(w, 'image')
     QTest.qWait(35)
+    assert title.property('truncated')  # The expanded default may fit Linux's narrower glyphs.
     assert w.panel.property('width') == 282
     assert w.bridge.original_source.metadata.width == 64
 
