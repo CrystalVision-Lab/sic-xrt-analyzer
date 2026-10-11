@@ -167,7 +167,7 @@ def test_analysis_terminal_milestones_and_empty_states(workbench, mode):
             assert w.panel.property('resultPhase') == ('list' if mode == 'success' else 'zero')
             assert w.item('resultLifecycleMessage').property('text') == (
                 '후보 231개 · 검토할 후보를 선택하세요.' if mode == 'success'
-                else '분석이 완료되었지만 후보가 없습니다.')
+                else '후보가 발견되지 않았습니다.')
             choose(w, 'roi')
             w.click('contextSwitcher')
             assert w.item('contextChoice4').property('checked')

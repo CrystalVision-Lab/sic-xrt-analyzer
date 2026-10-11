@@ -2,7 +2,7 @@
 
 작업 기준: `feat/52-candidate-roi`, `e49e4be59ea8c16fa27750fa46940dd57829ee2e`. Issue #55.
 
-현재 Analysis 내부 위계와 준비 조건은 [TD-04 단일 화면 분석](XRT-UX-TD-04-ANALYSIS-FLOW.md)을 따른다. 이 문서의 이전 구조·테스트 수는 단계별 기록이며 아래 기능 Inventory는 후속 진입점을 반영한다.
+현재 Analysis 내부 위계와 준비 조건은 [TD-04 단일 화면 분석](XRT-UX-TD-04-ANALYSIS-FLOW.md), Result 내부 구조는 [TD-05 후보 검토](XRT-UX-TD-05-RESULT.md)를 따른다. 이 문서의 이전 구조·테스트 수는 단계별 기록이며 아래 기능 Inventory는 후속 진입점을 반영한다.
 
 ## 1. 기존 구조 조사
 
@@ -149,7 +149,7 @@ TD-01/02에서는 새 자동 전환을 추가하지 않았다. **TD-03 현재 �
 | TD-02 Toolbar 단순화 | 버튼 통합·우선순위·중복 노출 | PrimaryToolbar의 File/Viewer/Analysis/Advanced 그룹 |
 | TD-03 Right Context Panel | 자동 전환 규칙·후보 Context·탭 UX | ContextState / 5개 Context |
 | TD-04 분석 Flow | 준비→실행→상태→결과 흐름 | AnalysisContext + 공통 Action |
-| TD-05 결과 UX | BPD/TED/TSD 후보·Score·Card·검토 | ResultContext / 기존 ResultExplorer |
+| TD-05 결과 UX | Summary·Filter/Legend·후보 탐색·퍼센트/Raw·선택·Overlay | ResultContext / ResultExplorer / ResultPresentation |
 | TD-06 ROI UX | 생성·편집·관리·분석 범위 | RoiContext / 기존 RoiEditor |
 | TD-07 TIFF Loading | 초기 준비·진행률·취소·메모리 | 기존 Loader/Viewer Overlay, 이번 변경 없음 |
 | TD-08 Visual Density | 정보 위계의 실제 시각 디자인 | informationPriority + 현행 Theme |

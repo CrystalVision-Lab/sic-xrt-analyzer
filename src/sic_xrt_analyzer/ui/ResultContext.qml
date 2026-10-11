@@ -2,7 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 
-ScrollView {
+ColumnLayout {
     id: root
     objectName: "resultContext"
     property QtObject theme
@@ -12,10 +12,17 @@ ScrollView {
     readonly property string informationPriority: "primary"
     signal exportRequested()
     signal overviewRequested()
-    clip: true; contentWidth: availableWidth; contentHeight: Math.max(780, availableHeight)
-    ColumnLayout {
-        width: root.availableWidth; spacing: 10
-        Text { objectName: "resultLifecycleMessage"; text: root.message; color: root.theme.muted; font.pixelSize: 12; wrapMode: Text.Wrap; Layout.fillWidth: true }
-        ResultExplorer { visible: root.uiState.hasResult; theme: root.theme; uiState: root.uiState; Layout.fillWidth: true; Layout.preferredHeight: Math.max(780, root.availableHeight); onExportRequested: root.exportRequested(); onOverviewRequested: root.overviewRequested() }
+    spacing: 8
+    Text {
+        objectName: "resultLifecycleMessage"
+        visible: !root.uiState.hasResult || !root.uiState.research.total
+        text: root.message; color: root.theme.muted; font.pixelSize: 12
+        wrapMode: Text.Wrap; Layout.fillWidth: true
     }
+    ResultExplorer {
+        visible: root.uiState.hasResult; theme: root.theme; uiState: root.uiState
+        Layout.fillWidth: true; Layout.fillHeight: true
+        onExportRequested: root.exportRequested(); onOverviewRequested: root.overviewRequested()
+    }
+    Item { visible: !root.uiState.hasResult; Layout.fillHeight: true }
 }
