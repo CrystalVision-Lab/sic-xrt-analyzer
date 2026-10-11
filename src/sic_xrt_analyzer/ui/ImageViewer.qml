@@ -283,7 +283,9 @@ Rectangle {
                 onImageScaleChanged: requestPaint()
                 onVisibleChanged: requestPaint()
                 onPaint: {
-                    var c = getContext("2d"); c.reset(); c.lineWidth = 1.5; c.globalAlpha = candidateOpacity
+                    var c = getContext("2d"); c.reset()
+                    if (!visible) return
+                    c.lineWidth = 1.5; c.globalAlpha = candidateOpacity
                     for (var i = 0; i < points.length; i++) {
                         var p = points[i], x = imageX + p.x * imageScale, y = imageY + p.y * imageScale
                         if (x < -6 || y < -6 || x > width + 6 || y > height + 6) continue
