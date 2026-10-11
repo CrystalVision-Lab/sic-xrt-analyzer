@@ -13,6 +13,7 @@ ApplicationWindow {
     property alias viewer: workspace.viewer
     property alias inspector: workspace.contextPanel // Existing command callers keep their handle.
     property alias contextPanel: workspace.contextPanel
+    signal projectRequested()
     signal workspaceRequested(int index)
     signal recentRequested(string path)
     signal fileDropped(string url)
@@ -51,6 +52,7 @@ ApplicationWindow {
     }
     MainWorkspace {
         id: workspace; anchors.fill: parent
+        onProjectRequested: shell.projectRequested()
         theme: shell.shellTheme; uiState: shell.shellState; actions: shell.shellActions
         recentFiles: shell.shellBridge.recentFiles
         navigationCollapsed: shell.navigationCollapsed; contextCollapsed: shell.inspectorCollapsed

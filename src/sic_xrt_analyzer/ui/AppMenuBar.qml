@@ -43,11 +43,26 @@ MenuBar {
         AppMenuItem { action: root.actions.demo }
         AppMenuItem { action: root.actions.importRois; iconName: "roi" }
         MenuSeparator {}
-        AppMenuItem { text: "새 분석 프로젝트"; enabled: false }
-        AppMenuItem { text: "프로젝트 열기…"; enabled: false }
+        AppMenuItem { objectName: "menuProjectNew"; action: root.actions.projectNew }
+        AppMenuItem { objectName: "menuProjectOpen"; action: root.actions.projectOpen }
+        AppMenu {
+            id: recentProjects; title: "최근 프로젝트"; width: 440
+            Instantiator {
+                model: root.uiState.project.recent
+                delegate: AppMenuItem { required property var modelData; text: modelData.name + " — " + modelData.path; onTriggered: root.hostWindow.openRecentProject(modelData.path) }
+                onObjectAdded: function(index, object) { recentProjects.insertItem(index,object) }
+                onObjectRemoved: function(index, object) { recentProjects.removeItem(object) }
+            }
+            AppMenuItem { text: "최근 프로젝트 관리…"; onTriggered: root.hostWindow.openRecentManager() }
+            AppMenuItem { text: "최근 프로젝트 없음"; enabled: false; rowAvailable: !root.uiState.project.recent.length }
+        }
+        AppMenuItem { objectName: "menuProjectSave"; action: root.actions.projectSave; shortcutLabel: "Ctrl+Alt+S" }
+        AppMenuItem { objectName: "menuProjectSaveAs"; action: root.actions.projectSaveAs }
+        AppMenuItem { action: root.actions.projectWorkspace }
+        MenuSeparator {}
         AppMenuItem { action: root.actions.save; shortcutLabel: "Ctrl+S" }
         AppMenuItem { text: "측정 결과 TSV 저장…"; rowAvailable: root.uiState.stackFeaturesVisible; action: root.actions.advanced.saveMeasurements }
-        AppMenuItem { text: "다른 이름으로 저장…"; enabled: false }
+        AppMenuItem { text: "결과 내보내기…"; enabled: root.uiState.hasResult; onTriggered: root.hostWindow.exportResearchResult() }
         AppMenu { title: "내보내기…"; enabled: false
             AppMenuItem { text: "분석 결과 CSV…"; enabled: false }
             AppMenuItem { text: "현재 화면 PNG…"; enabled: false }

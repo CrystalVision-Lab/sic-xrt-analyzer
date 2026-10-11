@@ -8,6 +8,7 @@ Rectangle {
     property QtObject uiState
     property var recentFiles: []
     property bool collapsed: false
+    signal projectRequested()
     signal collapseRequested()
     signal workspaceRequested(int index)
     signal recentRequested(string path)
@@ -57,6 +58,12 @@ Rectangle {
                     ToolTip.text: modelData; ToolTip.visible: recentHover.containsMouse
                 }
             }
+        }
+        ColumnLayout {
+            visible: !root.collapsed && root.uiState.project.active; Layout.fillWidth: true; Layout.margins: 12; spacing: theme.spacingXs
+            Text { objectName: "activeProjectName"; textFormat: Text.PlainText; text: root.uiState.project.name; color: theme.text; elide: Text.ElideRight; Layout.fillWidth: true; font.pixelSize: theme.smallSize }
+            Text { objectName: "activeProjectStatus"; text: (root.uiState.project.readOnly ? "읽기 전용" : root.uiState.project.dirty ? "저장하지 않은 변경" : "저장됨") + (root.uiState.project.needsSource ? " · 원본 연결 필요" : "") + " · 원본 " + root.uiState.project.sourceCount + " · Run " + root.uiState.project.runCount; color: root.uiState.project.dirty ? theme.warning : theme.muted; font.pixelSize: theme.captionSize; Layout.fillWidth: true; wrapMode: Text.Wrap }
+            AppButton { objectName: "projectWorkspaceButton"; theme: root.theme; text: "프로젝트 · 이력…"; quiet: true; Layout.fillWidth: true; onClicked: fileBridge.projects.state.active && root.projectRequested() }
         }
         Item { Layout.fillHeight: true }
         ColumnLayout {

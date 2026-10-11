@@ -12,6 +12,7 @@ RowLayout {
     property bool contextCollapsed: false
     property alias viewer: viewer
     property alias contextPanel: contextPanel
+    signal projectRequested()
     signal navigationToggleRequested()
     signal workspaceRequested(int index)
     signal recentRequested(string path)
@@ -24,6 +25,7 @@ RowLayout {
     signal resultExportRequested()
     spacing: 0
     NavigationPanel {
+        onProjectRequested: root.projectRequested()
         theme: root.theme; uiState: root.uiState
         collapsed: root.navigationCollapsed; recentFiles: root.recentFiles
         Layout.preferredWidth: implicitWidth; Layout.fillHeight: true

@@ -29,10 +29,11 @@ ColumnLayout {
         if (results.selectedIndex >= 0 && Math.floor(results.selectedIndex / 100) === results.page)
             candidates.positionViewAtIndex(results.selectedIndex % 100, ListView.Contain)
     })
+    Text { objectName: "resultOrigin"; visible: results.savedActive; text: "저장된 이력 · " + results.runInfo.runId.slice(0, 8); color: theme.accent; font.pixelSize: theme.captionSize; Layout.fillWidth: true }
     RowLayout {
         Layout.fillWidth: true
         Text { objectName: "resultTotal"; text: "분류 후보 " + presentation.count(results.total) + "개"; color: theme.text; font.pixelSize: theme.titleSize; font.weight: Font.Medium; Layout.fillWidth: true }
-        AppButton { objectName: "resultOverview"; theme: root.theme; quiet: true; text: "전체 보기"; onClicked: root.overviewRequested() }
+        AppButton { objectName: "resultOverview"; theme: root.theme; quiet: true; text: "전체 보기"; enabled: results.pixelsAvailable; onClicked: root.overviewRequested() }
     }
     RowLayout {
         spacing: theme.spacingXs; Layout.fillWidth: true
@@ -89,7 +90,7 @@ ColumnLayout {
         RowLayout {
             Layout.fillWidth: true
             Text { objectName: "selectedCandidateHeader"; text: selected.id ? "후보 #" + selected.number + " · " + selected.type : ""; color: theme.text; font.weight: Font.DemiBold; font.pixelSize: theme.titleSize; Layout.fillWidth: true }
-            AppButton { objectName: "refocusCandidate"; theme: root.theme; quiet: true; implicitHeight: 24; text: "위치로"; onClicked: fileBridge.research.selectCandidate(selected.id) }
+            AppButton { objectName: "refocusCandidate"; theme: root.theme; quiet: true; implicitHeight: 24; text: "위치로"; enabled: results.pixelsAvailable; onClicked: fileBridge.research.selectCandidate(selected.id) }
             AppButton { objectName: "candidateDetails"; theme: root.theme; quiet: true; implicitHeight: 24; text: "상세…"; onClicked: detail.open() }
         }
         RowLayout {
@@ -99,7 +100,7 @@ ColumnLayout {
                 Image { objectName: "candidateThumbnail"; anchors.fill: parent; source: results.thumbnailSource; cache: false; smooth: false }
                 Rectangle { visible: !!results.thumbnailSource; width: 19; height: 1; color: "#ffff40"; x: parent.width * results.thumbnailCenter[0] - width/2; y: parent.height * results.thumbnailCenter[1] }
                 Rectangle { visible: !!results.thumbnailSource; width: 1; height: 19; color: "#ffff40"; x: parent.width * results.thumbnailCenter[0]; y: parent.height * results.thumbnailCenter[1] - height/2 }
-                BusyIndicator { anchors.centerIn: parent; width: 24; height: 24; running: !!selected.id && !results.thumbnailSource && !results.thumbnailError }
+                BusyIndicator { anchors.centerIn: parent; width: 24; height: 24; running: results.pixelsAvailable && !!selected.id && !results.thumbnailSource && !results.thumbnailError }
                 Text { anchors.fill: parent; anchors.margins: 4; visible: !!results.thumbnailError; text: "패치 읽기 실패"; color: theme.warning; wrapMode: Text.Wrap; font.pixelSize: theme.smallSize }
             }
             ColumnLayout {
@@ -130,7 +131,7 @@ ColumnLayout {
         AppButton { objectName: "resultListToggle"; theme: root.theme; quiet: true; implicitHeight: 24; text: root.listExpanded ? "후보 목록 접기 ▴" : "후보 목록 펼치기 ▾"; onClicked: root.listExpanded = !root.listExpanded; Layout.fillWidth: true }
         Text { text: "살펴봄 " + presentation.count(results.viewedCount) + "개"; color: theme.muted; font.pixelSize: theme.captionSize }
     }
-    AppButton { objectName: "reviewSelectedCandidate"; theme: root.theme; text: "선택 후보 검수하기"; Layout.fillWidth: true; visible: !!selected.id; enabled: uiState.feedback.ready; onClicked: root.reviewRequested() }
+    AppButton { objectName: "reviewSelectedCandidate"; theme: root.theme; text: "선택 후보 검수하기"; Layout.fillWidth: true; visible: !!selected.id; enabled: uiState.feedback.ready && !results.savedActive; onClicked: root.reviewRequested() }
     ListView {
         id: candidates; objectName: "candidateList"
         visible: results.total > 0 && root.listExpanded

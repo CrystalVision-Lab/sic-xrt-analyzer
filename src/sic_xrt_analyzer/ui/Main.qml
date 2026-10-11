@@ -9,6 +9,7 @@ AppShell {
     visible: true; width: 1440; height: 900; minimumWidth: 1100; minimumHeight: 700
     title: "SiC XRT Analyzer"
     shellTheme: theme; shellState: uiState; shellActions: window.commands; shellBridge: window.desktopBridge
+    onProjectRequested: projectWorkflow.show()
     onWorkspaceRequested: function(index) { window.selectWorkspace(index) }
     onRecentRequested: function(path) { window.selectImagePath(path) }
     onFileDropped: function(url) { window.selectImageFile(url) }
@@ -37,13 +38,24 @@ AppShell {
         if (!uiState.importedRois.dirty) { callback(); return }
         discardNext = callback; roiDiscardDialog.open()
     }
+    ProjectWorkspace { id: projectWorkflow; objectName: "projectWorkflow"; theme: theme; uiState: uiState; hostWindow: window }
+    function openRecentManager() { projectWorkflow.openRecentManager() }
+    function openRecentProject(path) { projectWorkflow.recentProject(path) }
+    function exportResearchResult() { resultsDialog.open() }
+    function openProjectWorkspace() { projectWorkflow.show() }
     onClosing: function(close) {
+        if (!allowQuit && (uiState.project.dirty || uiState.project.busy)) {
+            close.accepted = false
+            projectWorkflow.guard(function() { window.confirmRoiDiscard(function() { window.allowQuit = true; window.close() }) })
+            return
+        }
         if (uiState.importedRois.dirty && !allowQuit) {
             close.accepted = false
             confirmRoiDiscard(function() { window.allowQuit = true; window.close() })
         }
     }
     property var commands: ({
+        projectNew: projectNewAction, projectOpen: projectOpenAction, projectSave: projectSaveAction, projectSaveAs: projectSaveAsAction, projectWorkspace: projectWorkspaceAction,
         open: openAction, save: saveAction, demo: demoAction, closeImage: closeImageAction, quit: quitAction,
         pan: panAction, roi: roiAction, clearRoi: clearRoiAction, copyRoi: copyRoiAction,
         zoomIn: zoomInAction, zoomOut: zoomOutAction, fit: fitAction, actualSize: actualSizeAction,
@@ -106,7 +118,8 @@ AppShell {
     }
     function selectImagePath(path) { selectImageFile(fileBridge.localUrl(path)) }
     function selectImageFile(url) {
-        confirmRoiDiscard(function() { window.startImageLoad(url) })
+        if (uiState.project.busy) return
+        confirmRoiDiscard(function() { fileBridge.projects.manualImageRequested(); window.startImageLoad(url) })
     }
     function startImageLoad(url) {
         uiState.roiEditMode = false
@@ -190,6 +203,11 @@ AppShell {
         if (uiState.canNavigateImage) viewer.fitView()
     }
     function showInfo(heading, body) { infoDialog.title = heading; infoDialog.bodyText = body; infoDialog.open() }
+    Action { id: projectNewAction; objectName: "projectNewAction"; text: "새 분석 프로젝트…"; onTriggered: projectWorkflow.newProject() }
+    Action { id: projectOpenAction; objectName: "projectOpenAction"; text: "프로젝트 열기…"; onTriggered: projectWorkflow.openProject() }
+    Action { id: projectSaveAction; objectName: "projectSaveAction"; text: "프로젝트 저장"; shortcut: "Ctrl+Alt+S"; enabled: (uiState.project.active || uiState.analysis.hasResult) && !uiState.project.busy; onTriggered: projectWorkflow.saveProject() }
+    Action { id: projectSaveAsAction; objectName: "projectSaveAsAction"; text: "다른 이름으로 프로젝트 저장…"; enabled: uiState.project.active && !uiState.project.busy; onTriggered: projectWorkflow.saveAs() }
+    Action { id: projectWorkspaceAction; objectName: "projectWorkspaceAction"; text: "프로젝트 · 이미지와 이력…"; enabled: uiState.project.active; onTriggered: projectWorkflow.show() }
     Action { id: openAction; objectName: "openAction"; text: "이미지 열기…"; shortcut: StandardKey.Open; onTriggered: window.openImageDialog() }
     Action { id: importRoisAction; objectName: "importRoisAction"; text: "ImageJ ROI 가져오기…"; enabled: uiState.loadFlow.recordReady && !uiState.loading; onTriggered: { window.requestContext("roi", "ROI_IMPORT"); roiDialog.open() } }
     Action { id: viewerSettingsAction; objectName: "viewerSettingsAction"; text: "뷰어 · 스택 표시 설정…"; enabled: uiState.hasImage; onTriggered: { uiState.workspaceIndex = 0; window.requestContext("viewer", "VIEWER_SETTINGS") } }

@@ -21,7 +21,7 @@ ColumnLayout {
         wrapMode: Text.Wrap; Layout.fillWidth: true
     }
     ResultExplorer {
-        visible: root.uiState.hasLoadedImage && (root.uiState.imageFormat !== "TIFF" || root.uiState.hasResult); theme: root.theme; uiState: root.uiState
+        visible: root.uiState.research.savedActive || (root.uiState.hasLoadedImage && (root.uiState.imageFormat !== "TIFF" || root.uiState.hasResult)); theme: root.theme; uiState: root.uiState
         Layout.fillWidth: true; Layout.fillHeight: true
         onExportRequested: root.exportRequested(); onOverviewRequested: root.overviewRequested(); onReviewRequested: root.reviewRequested()
     }
