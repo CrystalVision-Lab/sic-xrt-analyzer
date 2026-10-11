@@ -240,6 +240,14 @@ def test_import_cancel_error_selection_edit_and_copy_serialization(workbench):
     assert flow(w, 'imagejPhase') == 'ERROR'
     assert 'traceback' not in w.item('roiErrorSummary').property('text').lower()
     assert w.bridge.roiState['errors'][0] not in w.item('roiErrorSummary').property('text')
+    # Worker completion changes visibility before Qt polishes the new error
+    # row. Wait for its actual layout, keeping the click/bounds assertions.
+    details = w.item('roiErrorDetails')
+    def details_in_bounds():
+        point = details.mapToScene(QPointF())
+        return (0 <= point.x() <= w.window.width() - details.width() and
+                0 <= point.y() <= w.window.height() - details.height())
+    spin(w.app, details_in_bounds)
     w.click('roiErrorDetails'); assert w.item('roiErrorDialog').property('visible')
     invoke(w.item('roiErrorDialog'), 'reject')
 
