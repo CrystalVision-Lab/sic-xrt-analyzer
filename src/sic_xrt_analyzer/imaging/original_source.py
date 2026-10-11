@@ -5,6 +5,8 @@ from pathlib import Path
 import numpy as np
 import tifffile
 
+from .tiff_pages import page_layout
+
 
 class SourceError(ValueError):
     """A source cannot be safely read under the current policy."""
@@ -55,9 +57,10 @@ class OriginalImageSource:
         canonical = str(Path(path).resolve(strict=True))
         stat = Path(canonical).stat()
         with tifffile.TiffFile(canonical) as tif:
-            if page_index >= len(tif.pages):
-                raise SourceError("INVALID_INPUT", "Page index is outside the TIFF")
-            page = tif.pages[page_index]
+            try:
+                page, count, _ = page_layout(tif, page_index)
+            except ValueError as exc:
+                raise SourceError("INVALID_INPUT", str(exc)) from exc
             shape = page.shape
             gray = len(shape) == 2 and page.photometric.name in ("MINISBLACK", "MINISWHITE")
             rgb = (len(shape) == 3 and shape[-1] in (3, 4) and page.photometric.name == "RGB"
@@ -69,7 +72,7 @@ class OriginalImageSource:
             bits = max(bits) if isinstance(bits, tuple) else bits
             meta = OriginalMetadata(width, height, np.dtype(page.dtype).name, int(bits),
                                     1 if gray else shape[-1], stat.st_size, stat.st_mtime_ns,
-                                    len(tif.pages))
+                                    count)
         identity = SourceIdentity(canonical, stat.st_size, stat.st_mtime_ns, page_index, width, height)
         for name, value in {"path": canonical, "page_index": page_index, "metadata": meta,
                             "identity": identity, "max_read_bytes": max_read_bytes,
@@ -108,11 +111,13 @@ class OriginalImageSource:
         if width * height * meta.channels * itemsize > self.max_read_bytes:
             raise SourceError("READ_LIMIT_EXCEEDED", "Requested array exceeds the read budget; use smaller regions")
         with tifffile.TiffFile(self.path) as tif:
-            page = tif.pages[self.page_index]
-            if page.is_memmappable:
-                mapped = tifffile.memmap(self.path, page=self.page_index, mode="r")
+            page, count, virtual = page_layout(tif, self.page_index)
+            if virtual or page.is_memmappable:
+                mapped = (tifffile.memmap(self.path, series=0, mode="r") if virtual else
+                          tifffile.memmap(self.path, page=self.page_index, mode="r"))
                 try:
-                    output = np.array(mapped[y:y + height, x:x + width], copy=True)
+                    pixels = mapped.reshape(count, meta.height, meta.width)[self.page_index] if virtual else mapped
+                    output = np.array(pixels[y:y + height, x:x + width], copy=True)
                 finally:
                     mapped._mmap.close()
             else:

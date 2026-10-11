@@ -58,6 +58,7 @@ ApplicationWindow {
     function clearImageState() {
         uiState.filePath = ""; uiState.fileName = ""; uiState.imageSource = ""
         uiState.imageWidth = 0; uiState.imageHeight = 0; uiState.bitDepth = 0; uiState.pageCount = 0
+        uiState.pageIndex = 0; uiState.dtype = ""
         uiState.previewWidth = 0; uiState.previewHeight = 0
         uiState.sampledPreview = false; uiState.demoMode = false; uiState.hasRoi = false
         uiState.cursorX = -1; uiState.cursorY = -1; uiState.loadError = ""; uiState.activeTool = "Pan"
@@ -72,7 +73,6 @@ ApplicationWindow {
     }
     function selectImagePath(path) { selectImageFile(fileBridge.localUrl(path)) }
     function selectImageFile(url) {
-        if (uiState.loading) return
         uiState.loading = true; uiState.loadError = ""; uiState.statusText = "TIFF 로딩 중…"
         fileBridge.requestImage(url)
     }
@@ -85,10 +85,25 @@ ApplicationWindow {
             uiState.imageWidth = result.width; uiState.imageHeight = result.height
             uiState.previewWidth = result.previewWidth; uiState.previewHeight = result.previewHeight
             uiState.bitDepth = result.bitDepth; uiState.pageCount = result.pageCount; uiState.sampledPreview = result.sampled
+            uiState.pageIndex = result.pageIndex; uiState.dtype = result.dtype
             uiState.imageSource = result.source; uiState.workspaceIndex = 0; uiState.demoMode = false
             uiState.activeTool = "Pan"; uiState.hasRoi = false; uiState.cursorX = -1; uiState.cursorY = -1
             viewer.defaultView()
-            uiState.statusText = result.sampled ? "TIFF 로드 완료 · 표시용 축소 미리보기 / 원본 좌표" : "TIFF 로드 완료 · 첫 페이지 / 원본 좌표"
+            viewer.focusView()
+            uiState.statusText = "TIFF 로드 완료 · " + result.pageCount + " 페이지 / 원본 좌표"
+        }
+        function onPageChanged(result) {
+            if (!result.ok) { uiState.loadError = result.error; return }
+            var changedPage = uiState.pageIndex !== result.pageIndex
+            var changedSize = uiState.imageWidth !== result.width || uiState.imageHeight !== result.height
+            uiState.imageWidth = result.width; uiState.imageHeight = result.height
+            uiState.previewWidth = result.previewWidth; uiState.previewHeight = result.previewHeight
+            uiState.pageIndex = result.pageIndex; uiState.dtype = result.dtype
+            uiState.bitDepth = result.bitDepth; uiState.sampledPreview = result.sampled
+            uiState.imageSource = result.source; uiState.loadError = ""
+            if (changedPage) { uiState.hasRoi = false; uiState.selectingRoi = false }
+            if (changedSize) viewer.defaultView()
+            uiState.statusText = "페이지 " + (result.pageIndex + 1) + " / " + result.pageCount + " · 원본 픽셀"
         }
     }
     function clearRoi() { uiState.hasRoi = false; uiState.statusText = "ROI를 초기화했습니다" }
@@ -103,7 +118,7 @@ ApplicationWindow {
         if (uiState.canNavigateImage) viewer.fitView()
     }
     function showInfo(heading, body) { infoDialog.title = heading; infoDialog.bodyText = body; infoDialog.open() }
-    Action { id: openAction; objectName: "openAction"; text: "이미지 열기…"; shortcut: StandardKey.Open; enabled: !uiState.loading; onTriggered: window.openImageDialog() }
+    Action { id: openAction; objectName: "openAction"; text: "이미지 열기…"; shortcut: StandardKey.Open; onTriggered: window.openImageDialog() }
     Action { id: saveAction; text: "프로젝트 저장"; enabled: false }
     Action { id: demoAction; text: "합성 데모 이미지 보기"; enabled: !uiState.loading; onTriggered: window.showDemo() }
     Action { id: closeImageAction; objectName: "closeImageAction"; text: "현재 이미지 닫기"; shortcut: StandardKey.Close; enabled: uiState.hasImage && !uiState.loading; onTriggered: window.closeImage() }
@@ -126,7 +141,7 @@ ApplicationWindow {
     Action { id: cancelAnalysisAction; objectName: "cancelAnalysisAction"; text: "분석 취소"; enabled: uiState.analysisRunning; onTriggered: fileBridge.cancelAnalysis() }
     Action { id: settingsAction; objectName: "settingsAction"; text: "설정…"; onTriggered: settingsDialog.openPreferences() }
     Action { id: modelInfoAction; text: "모델 정보"; onTriggered: window.showInfo("모델 정보", uiState.analysisReason + "\n모델: " + (uiState.analysis.modelName || "—") + "\n버전: " + (uiState.analysis.modelVersion || "—") + "\n장치: " + (uiState.analysis.device || "—")) }
-    Action { id: guideAction; text: "사용 안내"; onTriggered: window.showInfo("뷰어 사용 안내", "파일 메뉴에서 TIFF 또는 합성 데모를 여세요.\n도구 모음에서 Pan / ROI를 선택하세요. 휠로 확대·축소합니다.\nFIT은 화면 맞춤, 100%는 원본 픽셀과 화면 픽셀의 1:1 배율입니다.\nTIFF는 첫 페이지만 표시합니다. 모델 분석은 미연결 상태입니다.") }
+    Action { id: guideAction; text: "사용 안내"; onTriggered: window.showInfo("뷰어 사용 안내", "파일 메뉴에서 TIFF 또는 합성 데모를 여세요.\n스택: 슬라이더 · 휠 · 방향키로 페이지 이동, Ctrl+휠로 확대·축소.\nPan / ROI 도구, FIT 화면 맞춤, 100% 원본 픽셀 배율을 지원합니다.\n표시 범위로 밝기·대비를 조정합니다. 원본 값은 유지됩니다.\nImageJ frames는 공간 Z축으로 해석하지 않습니다. 모델 분석은 미연결입니다.") }
     Action { id: shortcutGuideAction; text: "단축키"; onTriggered: window.showInfo("단축키", "파일\n열기  Ctrl+O     닫기  Ctrl+W     종료  Ctrl+Q\n\n보기\n화면 맞춤  Ctrl+0     실제 크기  Ctrl+1\n확대·축소  Ctrl++ / Ctrl+-     전체 화면  F11\n\n도구\nPan  H     ROI  R\n\n메뉴\nAlt+F / E / V / W / A / T / S / H") }
     Action { id: reportIssueAction; text: "문제 보고"; onTriggered: { if (!fileBridge.openIssueTracker()) window.showInfo("문제 보고", "브라우저를 열지 못했습니다. GitHub 저장소의 Issues에서 보고해 주세요.") } }
     Action { id: aboutAction; objectName: "aboutAction"; text: "프로그램 정보"; onTriggered: window.showInfo("SiC XRT Analyzer", "XRT 이미지 검사·분석\n버전 " + fileBridge.appVersion + "\n" + fileBridge.systemInfo + "\n\nTIFF 뷰어 · 모델 분석 미연결\nCrystalVision-Lab") }

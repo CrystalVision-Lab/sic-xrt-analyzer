@@ -21,6 +21,11 @@ Rectangle {
     signal fileDropped(string url)
     color: theme.viewer
     function resetPan() { panX = 0; panY = 0 }
+    function focusView() { viewerMouse.forceActiveFocus() }
+    function stepPage(delta) {
+        if (uiState.hasLoadedImage && uiState.pageCount > 1 && !uiState.loading)
+            fileBridge.requestPage(Math.max(0, Math.min(uiState.pageCount - 1, uiState.stack.requestedPage + delta)))
+    }
     function fitView() { resetPan(); uiState.fitMode = true; uiState.statusText = "화면 맞춤" }
     function setActualZoom(value) { resetPan(); uiState.zoom = value; uiState.fitMode = false }
     function defaultView() {
@@ -45,7 +50,7 @@ Rectangle {
                     Text { text: "XRT VIEWER"; color: theme.muted; font.family: theme.fontFamily; font.pixelSize: 11 }
                     Text { text: uiState.demoMode ? "합성 데모 · 실제 XRT 데이터 아님" : uiState.fileName || "XRT 이미지 없음"; color: theme.text; font.family: theme.fontFamily; font.pixelSize: 12; elide: Text.ElideMiddle; Layout.fillWidth: true }
                 }
-                Text { text: uiState.hasImage ? uiState.contentWidth + " × " + uiState.contentHeight + (uiState.demoMode ? " · 데모" : " · " + uiState.bitDepth + "-bit") : "TIFF / TIF"; color: theme.muted; font.family: theme.monoFontFamily; font.pixelSize: 11 }
+                Text { text: uiState.hasImage ? uiState.contentWidth + " × " + uiState.contentHeight + (uiState.demoMode ? " · 데모" : " · " + uiState.dtype + " · " + (uiState.pageIndex + 1) + "/" + uiState.pageCount) : "TIFF / TIF"; color: theme.muted; font.family: theme.monoFontFamily; font.pixelSize: 11 }
                 StatusIndicator { theme: root.theme; text: uiState.activeTool === "Pan" ? "PAN" : "ROI"; ink: theme.accent; visible: uiState.canNavigateImage }
             }
         }
@@ -75,10 +80,21 @@ Rectangle {
                 }
             }
             MouseArea {
+                id: viewerMouse
                 objectName: "viewerMouseArea"
                 anchors.fill: parent; enabled: uiState.canNavigateImage; hoverEnabled: true
+                focus: true
+                Keys.onPressed: function(event) {
+                    if (uiState.pageCount > 1 && [Qt.Key_Left, Qt.Key_Right, Qt.Key_Up, Qt.Key_Down, Qt.Key_PageUp, Qt.Key_PageDown, Qt.Key_Home, Qt.Key_End].indexOf(event.key) >= 0) {
+                        if (event.key === Qt.Key_Home) fileBridge.requestPage(0)
+                        else if (event.key === Qt.Key_End) fileBridge.requestPage(uiState.pageCount - 1)
+                        else root.stepPage([Qt.Key_Right, Qt.Key_Down, Qt.Key_PageDown].indexOf(event.key) >= 0 ? 1 : -1)
+                        event.accepted = true
+                    }
+                }
                 cursorShape: uiState.activeTool === "Pan" ? (pressed ? Qt.ClosedHandCursor : Qt.OpenHandCursor) : Qt.CrossCursor
                 onPressed: function(mouse) {
+                    forceActiveFocus()
                     root.pressX = mouse.x; root.pressY = mouse.y; root.pressPanX = root.panX; root.pressPanY = root.panY
                     if (uiState.activeTool !== "Pan") {
                         uiState.selectingRoi = true
@@ -104,7 +120,14 @@ Rectangle {
                 onExited: { uiState.cursorX = -1; uiState.cursorY = -1 }
                 onReleased: uiState.selectingRoi = false
                 onCanceled: uiState.selectingRoi = false
-                onWheel: function(wheel) { if (wheel.angleDelta.y > 0) root.actions.zoomIn.trigger(); else root.actions.zoomOut.trigger() }
+                onWheel: function(wheel) {
+                    var delta = wheel.angleDelta.y || wheel.pixelDelta.y
+                    if (delta === 0) return
+                    if (uiState.hasLoadedImage && uiState.pageCount > 1 && !(wheel.modifiers & Qt.ControlModifier)) root.stepPage(delta < 0 ? 1 : -1)
+                    else if (delta > 0) root.actions.zoomIn.trigger()
+                    else root.actions.zoomOut.trigger()
+                    wheel.accepted = true
+                }
             }
             ColumnLayout {
                 anchors.centerIn: parent; spacing: 10
@@ -122,12 +145,18 @@ Rectangle {
                 }
             }
             DropArea { anchors.fill: parent; onDropped: function(drop) { if (drop.hasUrls && drop.urls.length > 0) root.fileDropped(drop.urls[0].toString()) } }
+            Rectangle {
+                visible: uiState.pageLoading; anchors.right: parent.right; anchors.top: parent.top; anchors.margins: 12
+                width: 178; height: 30; color: theme.panel; border.color: theme.border; radius: 3
+                Text { anchors.centerIn: parent; text: "페이지 " + (uiState.stack.requestedPage + 1) + " 읽는 중…"; color: theme.text; font.pixelSize: 11 }
+            }
         }
+        StackControls { theme: root.theme; uiState: root.uiState; Layout.fillWidth: true }
         Rectangle {
-            visible: uiState.loadError.length > 0
+            visible: uiState.loadError.length > 0 || uiState.stack.error.length > 0
             Layout.fillWidth: true; Layout.preferredHeight: errorText.implicitHeight + 18
             color: "#332427"
-            Text { id: errorText; anchors.fill: parent; anchors.margins: 9; text:  "파일 오류 · " + uiState.loadError + (uiState.hasImage ? "\n이전 이미지를 유지했습니다." : ""); color: theme.error; font.pixelSize: 11; wrapMode: Text.Wrap }
+            Text { id: errorText; anchors.fill: parent; anchors.margins: 9; text:  "파일 오류 · " + (uiState.loadError || uiState.stack.error) + (uiState.hasImage ? "\n이전 이미지를 유지했습니다." : ""); color: theme.error; font.pixelSize: 11; wrapMode: Text.Wrap }
         }
     }
 }

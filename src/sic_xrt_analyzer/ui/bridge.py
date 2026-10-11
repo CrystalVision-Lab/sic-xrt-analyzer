@@ -7,10 +7,8 @@ from pathlib import Path
 from PySide6.QtCore import (
     Property,
     QObject,
-    QRunnable,
     QSettings,
     QSize,
-    QThreadPool,
     QUrl,
     Signal,
     Slot,
@@ -27,8 +25,8 @@ from sic_xrt_analyzer.analysis.contracts import (
     Region,
 )
 from sic_xrt_analyzer.analysis.pipeline import AnalysisPipeline
-from sic_xrt_analyzer.imaging.original_source import OriginalImageSource
-from sic_xrt_analyzer.imaging.tiff_preview import load_tiff_preview
+from sic_xrt_analyzer.imaging.tiff_stack import TiffStack
+from sic_xrt_analyzer.ui.stack_controller import StackController
 
 DEFAULTS = {
     "smoothImages": True,
@@ -39,27 +37,6 @@ DEFAULTS = {
     "recentFileLimit": 10,
     "startupDemo": False,
 }
-
-
-class _LoadSignals(QObject):
-    finished = Signal(object)
-
-
-class _LoadTask(QRunnable):
-    def __init__(self, path):
-        super().__init__()
-        self.path = path
-        self.signals = _LoadSignals()
-
-    def run(self):
-        try:
-            original = OriginalImageSource(self.path)
-            preview = load_tiff_preview(self.path)
-            original.validate_identity()
-            payload = (self.path, preview, original, "")
-        except Exception as exc:  # noqa: BLE001
-            payload = (self.path, None, None, str(exc))
-        self.signals.finished.emit(payload)
 
 
 class TiffImageProvider(QQuickImageProvider):
@@ -74,15 +51,18 @@ class TiffImageProvider(QQuickImageProvider):
 class FileBridge(QObject):
     recentFilesChanged = Signal()
     imageOpened = Signal("QVariantMap")
+    pageChanged = Signal("QVariantMap")
+    stackChanged = Signal()
     analysisChanged = Signal()
 
     def __init__(self, provider=None, parent=None, settings=None):
         super().__init__(parent)
         self.provider = provider or TiffImageProvider()
         self.revision = 0
-        self._pool = QThreadPool(self)
-        self._pool.setMaxThreadCount(1)
-        self._task = None
+        self.stack_viewer = StackController(self)
+        self.stack_viewer.changed.connect(self.stackChanged)
+        self.stack_viewer.frameReady.connect(self._on_frame)
+        self.stack_viewer.failed.connect(self._on_stack_error)
         self.original_source = None
         self.pipeline = AnalysisPipeline(parent=self)
         self.pipeline.changed.connect(self.analysisChanged)
@@ -126,6 +106,53 @@ class FileBridge(QObject):
     @Property(str, constant=True)
     def systemInfo(self):
         return f"{platform.system()} {platform.release()} · Python {platform.python_version()} · Qt {qVersion()}"
+
+    @property
+    def _task(self):
+        return self.stack_viewer._task
+
+    @Property("QVariantMap", notify=stackChanged)
+    def stackState(self):
+        s, f = self.stack_viewer, self.stack_viewer.frame
+        low, high = s.window or (0.0, 65535.0)
+        return {
+            "busy": s.busy, "error": s.error, "revision": self.revision,
+            "requestedPage": s.requested_page, "currentPage": f.source.page_index if f else 0,
+            "pageCount": f.source.metadata.page_count if f else 0,
+            "dtype": f.source.metadata.dtype if f else "",
+            "low": low, "high": high,
+            "defaultLow": f.default_low if f else 0.0, "defaultHigh": f.default_high if f else 65535.0,
+            "rangeMin": f.range_min if f else 0.0, "rangeMax": f.range_max if f else 65535.0,
+            "rangeOrigin": f.range_origin if f else "",
+            "frames": f.imagej_frames or 0 if f else 0,
+            "slices": f.imagej_slices or 0 if f else 0,
+        }
+
+    @Slot(int, result=bool)
+    def requestPage(self, page):
+        if self.stack_viewer.frame is None or not 0 <= page < self.stack_viewer.frame.source.metadata.page_count:
+            return False
+        if page != self.stack_viewer.frame.source.page_index:
+            self.pipeline.invalidate()
+        return self.stack_viewer.page(page)
+
+    @Slot(float, float, result=bool)
+    def setDisplayRange(self, low, high):
+        return self.stack_viewer.display_range(low, high)
+
+    @Slot()
+    def autoDisplayRange(self):
+        self.stack_viewer.display_range(0, 1, automatic=True)
+
+    @Slot()
+    def resetDisplayRange(self):
+        f = self.stack_viewer.frame
+        if f:
+            self.stack_viewer.display_range(f.default_low, f.default_high)
+
+    @Slot(int, int, result=str)
+    def pixelValue(self, x, y):
+        return self.stack_viewer.pixel_value(x, y)
 
     @Property("QVariantMap", notify=analysisChanged)
     def analysis(self):
@@ -244,52 +271,59 @@ class FileBridge(QObject):
         if not path or not self.isAccessible(path):
             return {"ok": False, "error": "접근 가능한 로컬 TIFF 파일을 선택하세요"}
         try:
-            original = OriginalImageSource(path)
-            preview = load_tiff_preview(path)
-            original.validate_identity()
+            stack = TiffStack(path)
+            try:
+                frame = stack.frame(0)
+            finally:
+                stack.close()
         except Exception as exc:  # noqa: BLE001
             # A damaged file or an unavailable decoder must not terminate the UI.
             return {"ok": False, "error": str(exc)}
-        return self._publish(path, preview, original)
+        self.stack_viewer.frame = frame
+        self.stack_viewer.window = (frame.low, frame.high)
+        self.stack_viewer.requested_page = 0
+        result = self._publish(path, frame.preview, frame.source)
+        self.stackChanged.emit()
+        return result
 
     @Slot(str)
     def requestImage(self, url):
-        if self._task is not None:
-            return
         self.pipeline.invalidate()
         path = self.localPath(url)
-        if not path or not self.isAccessible(path):
-            self.imageOpened.emit({"ok": False, "error": "접근 가능한 로컬 TIFF 파일을 선택하세요"})
-            return
-        self._task = _LoadTask(path)
-        self._task.signals.finished.connect(self._finish_load)
-        self._pool.start(self._task)
+        # Filesystem/header/decode errors occur in the worker, with latest-request semantics.
+        self.stack_viewer.open(path)
 
-    @Slot(object)
-    def _finish_load(self, payload):
-        path, preview, original, error = payload
-        self._task = None
-        result = {"ok": False, "error": error} if error else self._publish(path, preview, original)
-        self.imageOpened.emit(result)
+    @Slot(object, bool)
+    def _on_frame(self, frame, opening):
+        result = self._publish(frame.source.path, frame.preview, frame.source, record_recent=opening)
+        (self.imageOpened if opening else self.pageChanged).emit(result)
 
-    def _publish(self, path, preview, original):
+    @Slot(str, bool)
+    def _on_stack_error(self, error, opening):
+        (self.imageOpened if opening else self.pageChanged).emit({"ok": False, "error": error})
+
+    def _publish(self, path, preview, original, *, record_recent=True):
         self.original_source = original
-        self.pipeline.set_source(original)
+        if self.pipeline.source is None or self.pipeline.source.identity != original.identity:
+            self.pipeline.set_source(original)
         self.provider.image = preview.image
         self.revision += 1
-        self.recordRecentFile(path)
+        if record_recent:
+            self.recordRecentFile(path)
         return {
             "ok": True, "path": path, "name": self.fileName(path),
             "source": f"image://tiff/current?revision={self.revision}",
             "width": original.metadata.width, "height": original.metadata.height,
             "bitDepth": original.metadata.bit_depth, "pageCount": original.metadata.page_count,
             "dtype": original.metadata.dtype, "channels": original.metadata.channels,
+            "pageIndex": original.page_index,
             "previewWidth": preview.image.width(), "previewHeight": preview.image.height(),
             "sampled": preview.sampled,
         }
 
     @Slot()
     def clearImage(self):
+        self.stack_viewer.clear()
         self.original_source = None
         self.pipeline.set_source(None)
         self.provider.image = QImage()
@@ -297,7 +331,7 @@ class FileBridge(QObject):
     @Slot()
     def waitForLoads(self):
         # Keep worker signal objects alive until decoding ends during shutdown.
-        self._pool.waitForDone()
+        self.stack_viewer.shutdown()
         self.pipeline.shutdown()
 
     @Slot(str)
