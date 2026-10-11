@@ -10,7 +10,7 @@ Rectangle {
     RowLayout {
         anchors.fill: parent; anchors.leftMargin: 10; anchors.rightMargin: 10
         spacing: 5
-        AppButton { theme: root.theme; action: root.actions.open; text: "열기"; iconName: "open"; tip: "TIFF 열기 · Ctrl+O" }
+        AppButton { theme: root.theme; action: root.actions.open; text: "열기"; iconName: "open"; tip: "TIFF/JPG 열기 · Ctrl+O" }
         AppButton { theme: root.theme; action: root.actions.save; text: ""; iconName: "save"; tip: "프로젝트 저장 형식이 연결되지 않았습니다" }
         Rectangle { width: 1; height: 22; color: theme.border; Layout.leftMargin: 6; Layout.rightMargin: 6 }
         AppButton { theme: root.theme; action: root.actions.pan; text: "Pan"; iconName: "pan"; checked: uiState.activeTool === "Pan"; tip: "Pan · H" }

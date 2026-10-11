@@ -5,7 +5,7 @@ from threading import Event
 
 from PySide6.QtCore import QObject, QRunnable, QThreadPool, QTimer, Signal, Slot
 
-from sic_xrt_analyzer.imaging.tiff_stack import TiffStack
+from sic_xrt_analyzer.imaging.image_stack import SampledImageStack, open_stack
 
 
 @dataclass(frozen=True)
@@ -39,7 +39,7 @@ class _Reader:
             return None
         if request.opening or self.stack is None or self.stack.path != request.path:
             self.close()
-            self.stack = TiffStack(request.path, browse_enabled=self.preload_enabled)
+            self.stack = open_stack(request.path, browse_enabled=self.preload_enabled)
         if request.browse:
             self.stack.prepare_browse(request.page, request.window, canceled=token.is_set)
             return None
@@ -192,8 +192,13 @@ class StackController(QObject):
         stack = self._reader.stack
         opening = (self._task is not None and self._task.request.opening) or (
             self._pending is not None and self._pending.opening)
-        if opening or stack is None or stack.browse is None or self.frame is None or stack.path != self.frame.source.path:
+        if opening or stack is None or self.frame is None or stack.path != self.frame.source.path:
             return {"prepared": 0, "total": 0, "ready": False, "bytes": 0}
+        if stack.browse is None:
+            if not isinstance(stack, SampledImageStack):
+                return {"prepared": 0, "total": 0, "ready": False, "bytes": 0}
+            return {"prepared": 1, "total": stack.page_count, "ready": stack.page_count == 1,
+                    "bytes": stack.samples.nbytes if stack.samples is not None else 0}
         count = len(stack.browse.indices)
         return {"prepared": count, "total": stack.page_count, "ready": count == stack.page_count,
                 "bytes": stack.browse.bytes}

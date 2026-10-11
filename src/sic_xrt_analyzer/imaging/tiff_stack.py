@@ -69,7 +69,8 @@ def render_samples(samples, source, low, high, invert):
     m = source.metadata
     # Window 65,536 intensity levels once, rather than millions of float pixels.
     # Keep the same float64 arithmetic/truncation as the general display path.
-    values = np.arange(65536, dtype=np.float64) if samples.dtype == np.uint16 else samples.astype(np.float64)
+    lut_size = 65536 if samples.dtype == np.uint16 else 256 if samples.dtype == np.uint8 else 0
+    values = np.arange(lut_size, dtype=np.float64) if lut_size else samples.astype(np.float64)
     finite = np.isfinite(values)
     with np.errstate(invalid="ignore", over="ignore"):
         values -= low
@@ -77,7 +78,7 @@ def render_samples(samples, source, low, high, invert):
         np.clip(values, 0, 255, out=values)
         values[~finite] = 0
         display = np.ascontiguousarray(values.astype(np.uint8))
-    if samples.dtype == np.uint16:
+    if lut_size:
         display = np.ascontiguousarray(display[samples])
     if invert:
         display = np.ascontiguousarray(255 - display)

@@ -132,3 +132,28 @@ class OriginalImageSource:
     def read_full(self) -> np.ndarray:
         """Explicit full read, subject to the same allocation and decoding budgets."""
         return self.read_region(0, 0, self.metadata.width, self.metadata.height)
+
+    def read_sampled(self, max_edge=2048):
+        """Copy a bounded display grid from a read-only mapping, never the full page."""
+        import math
+        if type(max_edge) is not int or not 1 <= max_edge <= 4096:
+            raise SourceError("INVALID_INPUT", "Preview edge must be between 1 and 4096")
+        self.validate_identity()
+        step = max(1, math.ceil(max(self.metadata.width, self.metadata.height) / max_edge))
+        sample_bytes = math.ceil(self.metadata.width / step) * math.ceil(self.metadata.height / step) * self.metadata.channels * np.dtype(self.metadata.dtype).itemsize
+        if sample_bytes > self.max_read_bytes:
+            raise SourceError("READ_LIMIT_EXCEEDED", "Sample grid exceeds read budget")
+        with tifffile.TiffFile(self.path) as tif:
+            page, count, virtual = page_layout(tif, self.page_index)
+            if not (virtual or page.is_memmappable):
+                raise SourceError("UNSUPPORTED_LARGE_DECODE", "대형 압축 TIFF는 현재 표시할 수 없습니다. 타일/영역 디코더가 필요합니다")
+            mapped = (tifffile.memmap(self.path, series=0, mode="r") if virtual else
+                      tifffile.memmap(self.path, page=self.page_index, mode="r"))
+            try:
+                pixels = mapped.reshape(count, self.metadata.height, self.metadata.width)[self.page_index] if virtual else mapped
+                samples = np.array(pixels[::step, ::step], copy=True, order="C")
+            finally:
+                mapped._mmap.close()
+        self.validate_identity()
+        samples.setflags(write=False)
+        return samples

@@ -16,6 +16,7 @@ QtObject {
     property int pageCount: 0
     property int pageIndex: 0
     property string dtype: ""
+    property string imageFormat: ""
     property int previewWidth: 0
     property int previewHeight: 0
     property bool sampledPreview: false
@@ -38,7 +39,9 @@ QtObject {
     property var analysis: fileBridge.analysis
     property var stack: fileBridge.stackState
     readonly property bool pageLoading: stack.busy && !loading
-    readonly property string cursorValue: stack.revision >= 0 && hasLoadedImage && cursorX >= 0 && cursorY >= 0 ? fileBridge.pixelValue(cursorX, cursorY) : ""
+    readonly property string cursorValue: stack.revision >= 0 && stack.cursorRevision >= 0 && hasLoadedImage && cursorX >= 0 && cursorY >= 0 ? fileBridge.pixelValue(cursorX, cursorY) : ""
+    property var importedRois: fileBridge.roiState
+    property var detail: fileBridge.detailState
     property string analysisScope: ""
     readonly property bool modelAvailable: analysis.modelAvailable
     readonly property bool analysisRunning: analysis.state === "RUNNING"
@@ -64,8 +67,12 @@ QtObject {
     readonly property string viewerStatus: loading ? "로딩 중" : loadError || stack.error ? "파일 오류" : pageLoading ? "페이지 로딩 중" : hasImage ? "준비 완료" : "이미지 없음"
     readonly property real effectiveZoom: fitMode ? fitZoom : zoom
     readonly property string zoomLabel: canNavigateImage ? (fitMode ? "FIT" : (Math.round(effectiveZoom * 1000) / 10) + "%") : "—"
-    readonly property int roiX: Math.floor(Math.min(roiStartX, roiEndX) * contentWidth)
-    readonly property int roiY: Math.floor(Math.min(roiStartY, roiEndY) * contentHeight)
-    readonly property int roiWidth: Math.ceil(Math.max(roiStartX, roiEndX) * contentWidth) - roiX
-    readonly property int roiHeight: Math.ceil(Math.max(roiStartY, roiEndY) * contentHeight) - roiY
+    function pixelEdge(normalized, extent) {
+        var value = normalized * extent, nearest = Math.round(value)
+        return Math.abs(value - nearest) < 0.0000001 ? nearest : value
+    }
+    readonly property int roiX: Math.floor(pixelEdge(Math.min(roiStartX, roiEndX), contentWidth))
+    readonly property int roiY: Math.floor(pixelEdge(Math.min(roiStartY, roiEndY), contentHeight))
+    readonly property int roiWidth: Math.ceil(pixelEdge(Math.max(roiStartX, roiEndX), contentWidth)) - roiX
+    readonly property int roiHeight: Math.ceil(pixelEdge(Math.max(roiStartY, roiEndY), contentHeight)) - roiY
 }

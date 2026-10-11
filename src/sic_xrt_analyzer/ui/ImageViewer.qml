@@ -22,6 +22,21 @@ Rectangle {
     color: theme.viewer
     function resetPan() { panX = 0; panY = 0 }
     function focusView() { viewerMouse.forceActiveFocus() }
+    function syncDetailView() {
+        if (!uiState.hasLoadedImage || uiState.loading || !uiState.sampledPreview || uiState.pageCount !== 1 || displayScale <= 0) { fileBridge.clearDetail(); return }
+        var left = Math.max(0, Math.floor(-imageFrame.x / displayScale))
+        var top = Math.max(0, Math.floor(-imageFrame.y / displayScale))
+        var right = Math.min(uiState.imageWidth, Math.ceil((viewport.width - imageFrame.x) / displayScale))
+        var bottom = Math.min(uiState.imageHeight, Math.ceil((viewport.height - imageFrame.y) / displayScale))
+        if (right <= left || bottom <= top) fileBridge.clearDetail()
+        else fileBridge.requestDetail(left, top, right - left, bottom - top)
+    }
+    onDisplayScaleChanged: Qt.callLater(syncDetailView)
+    Connections {
+        target: root.uiState
+        function onImageSourceChanged() { Qt.callLater(root.syncDetailView) }
+        function onLoadingChanged() { Qt.callLater(root.syncDetailView) }
+    }
     function stepPage(delta) {
         if (uiState.hasLoadedImage && uiState.pageCount > 1 && !uiState.loading)
             fileBridge.requestPage(Math.max(0, Math.min(uiState.pageCount - 1, uiState.stack.requestedPage + delta)))
@@ -50,7 +65,7 @@ Rectangle {
                     Text { text: "XRT VIEWER"; color: theme.muted; font.family: theme.fontFamily; font.pixelSize: 11 }
                     Text { text: uiState.demoMode ? "합성 데모 · 실제 XRT 데이터 아님" : uiState.fileName || "XRT 이미지 없음"; color: theme.text; font.family: theme.fontFamily; font.pixelSize: 12; elide: Text.ElideMiddle; Layout.fillWidth: true }
                 }
-                Text { text: uiState.hasImage ? uiState.contentWidth + " × " + uiState.contentHeight + (uiState.demoMode ? " · 데모" : " · " + uiState.dtype + " · " + (uiState.pageIndex + 1) + "/" + uiState.pageCount) : "TIFF / TIF"; color: theme.muted; font.family: theme.monoFontFamily; font.pixelSize: 11 }
+                Text { text: uiState.hasImage ? uiState.contentWidth + " × " + uiState.contentHeight + (uiState.demoMode ? " · 데모" : " · " + uiState.dtype + " · " + (uiState.pageIndex + 1) + "/" + uiState.pageCount) : "TIFF / JPG"; color: theme.muted; font.family: theme.monoFontFamily; font.pixelSize: 11 }
                 StatusIndicator { theme: root.theme; text: uiState.activeTool === "Pan" ? "PAN" : "ROI"; ink: theme.accent; visible: uiState.canNavigateImage }
             }
         }
@@ -58,6 +73,8 @@ Rectangle {
             id: viewport
             objectName: "viewerViewport"
             Layout.fillWidth: true; Layout.fillHeight: true
+            onWidthChanged: Qt.callLater(root.syncDetailView)
+            onHeightChanged: Qt.callLater(root.syncDetailView)
             clip: true; color: uiState.viewerBackground
             Item {
                 id: imageFrame
@@ -67,8 +84,16 @@ Rectangle {
                 height: uiState.contentHeight * root.displayScale
                 x: (viewport.width - width) / 2 + root.panX
                 y: (viewport.height - height) / 2 + root.panY
+                onXChanged: Qt.callLater(root.syncDetailView)
+                onYChanged: Qt.callLater(root.syncDetailView)
                 DemoImage { theme: root.theme; anchors.fill: parent; visible: uiState.demoMode }
                 Image { objectName: "tiffImage"; anchors.fill: parent; source: uiState.imageSource; visible: uiState.hasLoadedImage && !uiState.demoMode; smooth: uiState.smoothImages; cache: false }
+                Image {
+                    objectName: "detailImage"; visible: uiState.detail.ready
+                    x: uiState.detail.x * root.displayScale; y: uiState.detail.y * root.displayScale
+                    width: uiState.detail.width * root.displayScale; height: uiState.detail.height * root.displayScale
+                    source: uiState.detail.source; smooth: uiState.smoothImages; cache: false
+                }
                 Rectangle {
                     objectName: "roiOverlay"
                     visible: uiState.hasRoi && uiState.roiLayerVisible
@@ -129,13 +154,19 @@ Rectangle {
                     wheel.accepted = true
                 }
             }
+            ImportedRoiOverlay {
+                anchors.fill: parent
+                rois: uiState.importedRois.items
+                imageX: imageFrame.x; imageY: imageFrame.y; imageScale: root.displayScale
+                layerVisible: uiState.roiLayerVisible && uiState.hasLoadedImage
+            }
             ColumnLayout {
                 anchors.centerIn: parent; spacing: 10
                 visible: !uiState.hasImage && !uiState.loading
                 Text { text: "XRT 이미지 없음"; color: theme.text; font.family: theme.fontFamily; font.pixelSize: 17 }
-                Text { text: "TIFF / TIF · 16-bit 회색조 지원"; color: theme.muted; font.family: theme.fontFamily; font.pixelSize: 12 }
+                Text { text: "TIFF / JPG · 16-bit TIFF 및 RGB 지원"; color: theme.muted; font.family: theme.fontFamily; font.pixelSize: 12 }
                 AppButton { theme: root.theme; action: root.actions.open; text: "XRT 이미지 열기"; iconName: "open"; Layout.alignment: Qt.AlignHCenter }
-                Text { text: "또는 TIFF 파일을 이 영역에 놓으세요"; color: theme.muted; font.pixelSize: 11; Layout.alignment: Qt.AlignHCenter }
+                Text { text: "또는 TIFF/JPG 파일을 이 영역에 놓으세요"; color: theme.muted; font.pixelSize: 11; Layout.alignment: Qt.AlignHCenter }
             }
             Rectangle {
                 objectName: "initialLoadingOverlay"
@@ -147,7 +178,7 @@ Rectangle {
                         horizontalAlignment: Text.AlignHCenter; color: uiState.stack.preloadError ? theme.error : theme.text
                         text: uiState.stack.preloadError ? "전체 페이지 로딩 실패\n" + uiState.stack.preloadError
                               : uiState.stack.preload.total > 0 ? "전체 페이지 불러오는 중 · " + uiState.stack.preload.prepared + " / " + uiState.stack.preload.total
-                              : "TIFF 정보를 읽는 중…"
+                              : "이미지 정보를 읽는 중…"
                     }
                     ProgressBar {
                         id: preloadProgress
@@ -172,6 +203,13 @@ Rectangle {
                 visible: uiState.pageLoading; anchors.right: parent.right; anchors.top: parent.top; anchors.margins: 12
                 width: 178; height: 30; color: theme.panel; border.color: theme.border; radius: 3
                 Text { anchors.centerIn: parent; text: "페이지 " + (uiState.stack.requestedPage + 1) + " 읽는 중…"; color: theme.text; font.pixelSize: 11 }
+            }
+            Rectangle {
+                visible: uiState.detail.busy || uiState.detail.error.length > 0
+                anchors.right: parent.right; anchors.top: parent.top; anchors.margins: 12
+                width: Math.min(parent.width - 24, 280); height: detailText.implicitHeight + 16
+                color: theme.panel; border.color: theme.border; radius: 3
+                Text { id: detailText; anchors.fill: parent; anchors.margins: 8; text: uiState.detail.error ? "정밀 영역 읽기 실패: " + uiState.detail.error : "정밀 영역 읽는 중…"; color: uiState.detail.error ? theme.warning : theme.muted; wrapMode: Text.Wrap; font.pixelSize: 11 }
             }
         }
         Rectangle {

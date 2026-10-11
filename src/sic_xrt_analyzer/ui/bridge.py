@@ -25,7 +25,11 @@ from sic_xrt_analyzer.analysis.contracts import (
     Region,
 )
 from sic_xrt_analyzer.analysis.pipeline import AnalysisPipeline
-from sic_xrt_analyzer.imaging.tiff_stack import TiffStack
+from sic_xrt_analyzer.imaging.image_stack import open_stack
+from sic_xrt_analyzer.imaging.original_source import OriginalImageSource
+from sic_xrt_analyzer.ui.detail_reader import DetailReader
+from sic_xrt_analyzer.ui.pixel_reader import PixelReader
+from sic_xrt_analyzer.ui.roi_manager import RoiManager
 from sic_xrt_analyzer.ui.stack_controller import StackController
 
 DEFAULTS = {
@@ -43,9 +47,10 @@ class TiffImageProvider(QQuickImageProvider):
     def __init__(self):
         super().__init__(QQuickImageProvider.Image)
         self.image = QImage()
+        self.detail_image = QImage()
 
     def requestImage(self, image_id: str, size: QSize, requested_size: QSize) -> QImage:
-        return self.image
+        return self.detail_image if image_id.startswith('detail') else self.image
 
 
 class FileBridge(QObject):
@@ -54,6 +59,9 @@ class FileBridge(QObject):
     pageChanged = Signal("QVariantMap")
     stackChanged = Signal()
     analysisChanged = Signal()
+    roisChanged = Signal()
+    roiImportFinished = Signal("QVariantMap")
+    detailChanged = Signal()
 
     def __init__(self, provider=None, parent=None, settings=None):
         super().__init__(parent)
@@ -64,6 +72,13 @@ class FileBridge(QObject):
         self.stack_viewer.frameReady.connect(self._on_frame)
         self.stack_viewer.failed.connect(self._on_stack_error)
         self.original_source = None
+        self.pixel_reader = PixelReader(self)
+        self.pixel_reader.changed.connect(self.stackChanged)
+        self.detail_reader = DetailReader(self)
+        self.detail_reader.changed.connect(self._on_detail_changed)
+        self.roi_manager = RoiManager(self)
+        self.roi_manager.changed.connect(self.roisChanged)
+        self.roi_manager.reader.ready.connect(self._on_roi_imported)
         self.pipeline = AnalysisPipeline(parent=self)
         self.pipeline.changed.connect(self.analysisChanged)
         self._settings = settings or QSettings("CrystalVision-Lab", "sic-xrt-analyzer")
@@ -120,7 +135,9 @@ class FileBridge(QObject):
             "initialLoading": s.initial_loading,
             "preload": s.preload_state, "preloadError": s.preload_error,
             "detailBusy": s.detail_busy, "rawReady": f is not None and f.pixels is not None,
-            "browsePreview": f is not None and f.pixels is None,
+            "browsePreview": f is not None and f.pixels is None and f.source.metadata.page_count > 1,
+            "cursorRevision": self.pixel_reader.revision, "pixelError": self.pixel_reader.error,
+            "format": f.source.metadata.format if f else "",
             "requestedPage": s.requested_page, "currentPage": f.source.page_index if f else 0,
             "pageCount": f.source.metadata.page_count if f else 0,
             "dtype": f.source.metadata.dtype if f else "",
@@ -168,7 +185,88 @@ class FileBridge(QObject):
 
     @Slot(int, int, result=str)
     def pixelValue(self, x, y):
+        f = self.stack_viewer.frame
+        if f is not None and f.pixels is None and f.source.metadata.page_count == 1 and not self.stack_viewer.initial_loading:
+            return self.pixel_reader.value(f.source, x, y)
         return self.stack_viewer.pixel_value(x, y)
+
+    @Property("QVariantMap", notify=roisChanged)
+    def roiState(self):
+        return {"items": self.roi_manager.view(self.stack_viewer.frame), "busy": self.roi_manager.busy,
+                "errors": list(self.roi_manager.errors), "selected": self.roi_manager.selected}
+
+    @Property("QVariantMap", notify=detailChanged)
+    def detailState(self):
+        reader = self.detail_reader
+        key = reader.result[0] if reader.result else None
+        return {'ready': key is not None, 'busy': reader.busy, 'error': reader.error,
+                'x': key[1] if key else 0, 'y': key[2] if key else 0,
+                'width': key[3] if key else 0, 'height': key[4] if key else 0,
+                'source': f'image://tiff/detail?revision={reader.revision}' if key else ''}
+
+    @Slot()
+    def _on_detail_changed(self):
+        result = self.detail_reader.result
+        self.provider.detail_image = result[1] if result else QImage()
+        self.detailChanged.emit()
+
+    @Slot(int, int, int, int)
+    def requestDetail(self, x, y, width, height):
+        frame = self.stack_viewer.frame
+        if frame is None or self.stack_viewer.initial_loading or frame.source.metadata.page_count != 1:
+            self.detail_reader.clear()
+            return
+        try:
+            frame.source.validate_region(x, y, width, height)
+        except ValueError:
+            self.detail_reader.clear()
+            return
+        self.detail_reader.request(frame, x, y, width, height)
+
+    @Slot()
+    def clearDetail(self):
+        self.detail_reader.clear()
+
+    @Slot("QVariantList", result=bool)
+    def importRois(self, urls):
+        frame = self.stack_viewer.frame
+        if frame is None or self.stack_viewer.initial_loading:
+            return False
+        paths = [u.toLocalFile() if isinstance(u, QUrl) else self.localPath(u) for u in urls]
+        if not paths or any(not p for p in paths):
+            return False
+        self.roi_manager.load(paths, frame)
+        return True
+
+    @Slot(object, str)
+    def _on_roi_imported(self, result, error):
+        self.roiImportFinished.emit({"count": len(self.roi_manager.records), "errors": self.roi_manager.errors})
+
+    @Slot(str, bool)
+    def setImportedRoiVisible(self, roi_id, visible):
+        if visible:
+            self.roi_manager.hidden.discard(roi_id)
+        else:
+            self.roi_manager.hidden.add(roi_id)
+        self.roisChanged.emit()
+
+    @Slot(str)
+    def selectImportedRoi(self, roi_id):
+        if any(r.id == roi_id for r in self.roi_manager.records):
+            self.roi_manager.selected = roi_id
+            self.roisChanged.emit()
+
+    @Slot(str)
+    def removeImportedRoi(self, roi_id):
+        self.roi_manager.records = [r for r in self.roi_manager.records if r.id != roi_id]
+        self.roi_manager.hidden.discard(roi_id)
+        if self.roi_manager.selected == roi_id:
+            self.roi_manager.selected = ''
+        self.roisChanged.emit()
+
+    @Slot()
+    def clearImportedRois(self):
+        self.roi_manager.clear()
 
     @Property("QVariantMap", notify=analysisChanged)
     def analysis(self):
@@ -285,9 +383,9 @@ class FileBridge(QObject):
         self.pipeline.invalidate()
         path = self.localPath(url)
         if not path or not self.isAccessible(path):
-            return {"ok": False, "error": "접근 가능한 로컬 TIFF 파일을 선택하세요"}
+            return {"ok": False, "error": "접근 가능한 로컬 TIFF/JPG 파일을 선택하세요"}
         try:
-            stack = TiffStack(path)
+            stack = open_stack(path)
             try:
                 frame = stack.frame(0)
             finally:
@@ -296,6 +394,7 @@ class FileBridge(QObject):
             # A damaged file or an unavailable decoder must not terminate the UI.
             return {"ok": False, "error": str(exc)}
         self.stack_viewer.frame = frame
+        self.stack_viewer.initial_loading = False
         self.stack_viewer.window = (frame.low, frame.high)
         self.stack_viewer.requested_page = 0
         result = self._publish(path, frame.preview, frame.source)
@@ -305,6 +404,9 @@ class FileBridge(QObject):
     @Slot(str)
     def requestImage(self, url):
         self.pipeline.invalidate()
+        self.pixel_reader.clear()
+        self.detail_reader.clear()
+        self.roi_manager.invalidate_pending()
         path = self.localPath(url)
         # Filesystem/header/decode errors occur in the worker, with latest-request semantics.
         self.stack_viewer.open(path)
@@ -312,16 +414,24 @@ class FileBridge(QObject):
     @Slot(object, bool)
     def _on_frame(self, frame, opening):
         result = self._publish(frame.source.path, frame.preview, frame.source, record_recent=opening)
-        result["browsePreview"] = frame.pixels is None
+        result["browsePreview"] = frame.pixels is None and frame.source.metadata.page_count > 1
         (self.imageOpened if opening else self.pageChanged).emit(result)
+        self.roisChanged.emit()
 
     @Slot(str, bool)
     def _on_stack_error(self, error, opening):
         (self.imageOpened if opening else self.pageChanged).emit({"ok": False, "error": error})
 
     def _publish(self, path, preview, original, *, record_recent=True):
+        self.detail_reader.clear()
+        if self.original_source is None or self.original_source.identity != original.identity:
+            self.pixel_reader.clear()
+        if record_recent:
+            self.roi_manager.clear()
         self.original_source = original
-        if self.pipeline.source is None or self.pipeline.source.identity != original.identity:
+        if not isinstance(original, OriginalImageSource):
+            self.pipeline.set_source(None)
+        elif self.pipeline.source is None or self.pipeline.source.identity != original.identity:
             self.pipeline.set_source(original)
         self.provider.image = preview.image
         self.revision += 1
@@ -333,6 +443,7 @@ class FileBridge(QObject):
             "width": original.metadata.width, "height": original.metadata.height,
             "bitDepth": original.metadata.bit_depth, "pageCount": original.metadata.page_count,
             "dtype": original.metadata.dtype, "channels": original.metadata.channels,
+            "format": original.metadata.format,
             "pageIndex": original.page_index,
             "previewWidth": preview.image.width(), "previewHeight": preview.image.height(),
             "sampled": preview.sampled,
@@ -341,6 +452,9 @@ class FileBridge(QObject):
     @Slot()
     def clearImage(self):
         self.stack_viewer.clear()
+        self.pixel_reader.clear()
+        self.roi_manager.clear()
+        self.detail_reader.clear()
         self.original_source = None
         self.pipeline.set_source(None)
         self.provider.image = QImage()
@@ -349,6 +463,9 @@ class FileBridge(QObject):
     def waitForLoads(self):
         # Keep worker signal objects alive until decoding ends during shutdown.
         self.stack_viewer.shutdown()
+        self.pixel_reader.shutdown()
+        self.detail_reader.shutdown()
+        self.roi_manager.shutdown()
         self.pipeline.shutdown()
 
     @Slot(str)
