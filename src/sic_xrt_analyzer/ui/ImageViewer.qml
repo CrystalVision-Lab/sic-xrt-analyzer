@@ -148,6 +148,9 @@ Rectangle {
             PreparedView {
                 objectName: "preparedImageView"; anchors.fill: parent
                 visible: uiState.hasLoadedImage && uiState.stack.preparedDisplay
+                // Match native QPainter sampling at the final scene-graph texture.
+                // Fractional-DPI item origins otherwise blur neighbouring pixels.
+                smooth: root.displayScale * uiState.displayPixelRatio < 1
                 bridge: fileBridge; viewTransform: [imageFrame.x, imageFrame.y, root.displayScale]
                 revision: uiState.stack.revision
             }
