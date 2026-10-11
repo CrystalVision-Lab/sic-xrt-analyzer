@@ -46,7 +46,7 @@ def test_shell_context_layout_and_shared_analysis_command(qt_app, tmp_path, brid
         for name in ('appMenuBar', 'topToolbar', 'workspaceNavigation', 'centralWorkspace',
                      'imageViewer', 'bottomStatusBar', 'viewerHeader', 'currentFileNavigation',
                      'imageContext', 'analysisContext', 'resultContext', 'viewerContext', 'roiContext',
-                     'fileToolGroup', 'viewerToolGroup', 'analysisToolGroup', 'advancedToolGroup'):
+                     'fileToolGroup', 'viewerToolGroup', 'roiToolDropdown', 'measurementToolDropdown', 'advancedToolGroup'):
             item(name)
         assert panel.property('activeContext') == 'idle'
         assert not item('contextRunAnalysis').property('enabled')

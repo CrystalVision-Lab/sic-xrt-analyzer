@@ -22,13 +22,11 @@ RowLayout {
             required property var modelData
             objectName: "tool" + modelData.tool
             implicitWidth: 31; implicitHeight: 30
-            checked: root.uiState.activeTool === modelData.tool && !root.uiState.roiEditMode
-            enabled: root.uiState.hasLoadedImage && root.uiState.canNavigateImage
+            action: root.hostWindow.commands.tools.forTool(modelData.tool)
             contentItem: ToolGlyph { tool: modelData.tool; ink: parent.enabled ? root.theme.text : root.theme.disabled }
             background: Rectangle { color: parent.checked ? root.theme.accentPale : parent.hovered ? root.theme.hover : root.theme.toolbar; border.color: parent.checked ? root.theme.accent : root.theme.border; radius: 2 }
             ToolTip.visible: hovered; ToolTip.text: modelData.tip
-            onClicked: { root.uiState.roiEditMode = false; root.uiState.activeTool = modelData.tool }
         }
     }
-    AppButton { theme: root.theme; text: "측정"; tip: "기준 길이 / 길이·면적·개수 측정"; onClicked: root.hostWindow.stackMeasurement() }
+    AppButton { theme: root.theme; text: "측정"; tip: "기준 길이 / 길이·면적·개수 측정"; action: root.hostWindow.commands.advanced.measurement }
 }

@@ -9,18 +9,20 @@ Rectangle {
     property var hostWindow
     objectName: "primaryToolbar"
     color: theme.toolbar
-    ToolPalette { visible: uiState.stackFeaturesVisible; anchors.left: parent.left; anchors.right: parent.right; anchors.top: parent.top; anchors.margins: 8; height: 30; theme: root.theme; uiState: root.uiState; hostWindow: root.hostWindow }
+    implicitHeight: 40
     RowLayout {
-        anchors.left: parent.left; anchors.right: parent.right; anchors.bottom: parent.bottom; height: 40; anchors.leftMargin: 10; anchors.rightMargin: 10
+        objectName: "primaryToolbarRow"
+        anchors.fill: parent; anchors.leftMargin: 10; anchors.rightMargin: 10
         spacing: 5
         FileToolGroup { theme: root.theme; actions: root.actions }
         Rectangle { width: 1; height: 22; color: theme.border; Layout.leftMargin: 6; Layout.rightMargin: 6 }
-        ViewerToolGroup { theme: root.theme; uiState: root.uiState; actions: root.actions }
+        ViewerToolGroup { theme: root.theme; uiState: root.uiState; actions: root.actions; hostWindow: root.hostWindow }
         Rectangle { width: 1; height: 22; color: theme.border; Layout.leftMargin: 6; Layout.rightMargin: 6 }
-        ModelStatusGroup { theme: root.theme; uiState: root.uiState }
-
+        RoiToolGroup { theme: root.theme; uiState: root.uiState; actions: root.actions; hostWindow: root.hostWindow }
+        MeasurementToolGroup { theme: root.theme; uiState: root.uiState; actions: root.actions; hostWindow: root.hostWindow }
+        Rectangle { width: 1; height: 22; color: theme.border; Layout.leftMargin: 6; Layout.rightMargin: 6 }
+        AdvancedToolGroup { theme: root.theme; uiState: root.uiState; actions: root.actions; hostWindow: root.hostWindow }
         Item { Layout.fillWidth: true }
-        AnalysisToolGroup { theme: root.theme; uiState: root.uiState; actions: root.actions }
     }
     Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 1; color: theme.border }
 }

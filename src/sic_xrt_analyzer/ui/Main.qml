@@ -51,10 +51,12 @@ AppShell {
         statusBar: statusBarAction, fullScreen: fullScreenAction, resetLayout: resetLayoutAction,
         run: runAction, cancelAnalysis: cancelAnalysisAction, settings: settingsAction, modelInfo: modelInfoAction, guide: guideAction,
         shortcutGuide: shortcutGuideAction, reportIssue: reportIssueAction, about: aboutAction,
-        importRois: importRoisAction
+        importRois: importRoisAction, tools: toolCommands, advanced: advancedCommands
     })
     Theme { id: theme }
     UiState { id: uiState; objectName: "uiState"; displayPixelRatio: window.Screen.devicePixelRatio }
+    ToolActions { id: toolCommands; uiState: uiState; baseActions: window.commands; hostWindow: window }
+    AdvancedActions { id: advancedCommands; uiState: uiState; hostWindow: window; bridge: window.desktopBridge }
     function applyPreferences(p) {
         uiState.smoothImages = p.smoothImages; uiState.viewerBackground = p.viewerBackground
         uiState.roiLayerVisible = p.roiVisible; uiState.defaultView = p.defaultView
@@ -176,8 +178,8 @@ AppShell {
     Action { id: demoAction; text: "합성 데모 이미지 보기"; enabled: !uiState.loading; onTriggered: window.showDemo() }
     Action { id: closeImageAction; objectName: "closeImageAction"; text: "현재 이미지 닫기"; shortcut: StandardKey.Close; enabled: uiState.hasImage || uiState.loading; onTriggered: window.closeImage() }
     Action { id: quitAction; text: "종료"; shortcut: "Ctrl+Q"; onTriggered: window.close() }
-    Action { id: panAction; objectName: "panAction"; text: "Pan"; shortcut: "H"; enabled: uiState.canNavigateImage; onTriggered: { uiState.roiEditMode = false; uiState.activeTool = "Pan" } }
-    Action { id: roiAction; objectName: "roiAction"; text: "ROI 선택"; shortcut: "R"; enabled: uiState.canNavigateImage; onTriggered: { uiState.roiEditMode = false; uiState.activeTool = "ROI" } }
+    Action { id: panAction; objectName: "panAction"; text: "Pan"; shortcut: "H"; checkable: true; checked: uiState.activeTool === "Pan" && !uiState.roiEditMode; enabled: uiState.canNavigateImage; onTriggered: { uiState.roiEditMode = false; uiState.activeTool = "Pan" } }
+    Action { id: roiAction; objectName: "roiAction"; text: "ROI 선택"; shortcut: "R"; checkable: true; checked: uiState.activeTool === "ROI" && !uiState.roiEditMode; enabled: uiState.canNavigateImage; onTriggered: { uiState.roiEditMode = false; uiState.activeTool = "ROI" } }
     Action { id: clearRoiAction; objectName: "clearRoiAction"; text: "ROI 초기화"; enabled: uiState.hasRoi && !uiState.loading; onTriggered: window.clearRoi() }
     Action { id: copyRoiAction; objectName: "copyRoiAction"; text: "ROI 좌표 복사"; enabled: uiState.hasRoi && !uiState.loading; onTriggered: window.copyRoiInfo() }
     Action { id: zoomInAction; objectName: "zoomInAction"; text: "확대"; shortcut: "Ctrl++"; enabled: uiState.canNavigateImage && uiState.effectiveZoom < 16; onTriggered: viewer.zoomIn() }
