@@ -220,6 +220,9 @@ def test_candidate_selection_hover_pan_zoom_and_status_preserve_context(workbenc
     adapter = begin(w)
     adapter.release.set()
     spin(w.app, lambda: w.bridge.analysis['hasResult'])
+    # Completion updates the dock width on the next Qt polish. Use the rendered
+    # button coordinates (observed x 1170 before / 1072 after), not stale layout.
+    w.window.grabWindow()
     choose(w, 'image')
     viewer, mouse, frame = w.item('imageViewer'), w.item('viewerMouseArea'), w.item('imageFrame')
     point = mouse.mapToScene(QPointF(frame.property('x') + 80 * viewer.property('displayScale'),

@@ -179,6 +179,17 @@ def test_crossing_line_hit_culling_and_mask_coordinates(qt_app, tmp_path):
         assert colored.pixelColor(int(xx), int(yy)).alpha() == 55
     boundary, _, _ = mask_image(mask, (x, y, w, h), 'boundary')
     assert boundary != colored
+    overlay.rows = [row]
+    overlay.lines = False
+    overlay.highlight = False
+    overlay.maskMode = 'fill'
+    key = (mask['path'], mask['sha256'], (x,y,w,h), 'fill')
+    overlay.keys = (key,)
+    overlay.cache = {key: (colored, bounds, 0.)}
+    yy, xx = np.argwhere(samples != 0)[0]
+    assert overlay.hit(x+int(xx), y+int(yy), .1) == row['id']
+    overlay.maskMode = 'off'
+    assert overlay.hit(x+int(xx), y+int(yy), .1) == ''
     overlay.reader.shutdown()
 
 
@@ -250,3 +261,52 @@ def test_list_filter_layers_selection_and_legacy_export_are_independent(workbenc
     r.exportResult(str(tmp_path/'after'))
     assert (Path(r.export_path)/'predictions.csv').read_bytes() == original
     assert w.bridge.pipeline.result is before
+
+
+def test_repeated_import_and_manual_roi_remain_separate(workbench, tmp_path):
+    w = workbench
+    source, folder = bundle(tmp_path)
+    w.open(source.path)
+    choose(w, 'result')
+    c = w.bridge.experiments
+    w.state.setProperty('autoCandidateRoi',False)
+    for name,value in [('roiStartX',.1),('roiStartY',.2),('roiEndX',.4),('roiEndY',.5),('hasRoi',True)]:
+        w.state.setProperty(name,value)
+    roi = tuple(w.state.property(k) for k in ('roiStartX','roiStartY','roiEndX','roiEndY'))
+    for _ in range(3):
+        load(w.app,c,folder)
+        assert not c.error
+        c.select(c.rows[0]['id'])
+        assert w.bridge.research.state['selection']['kind']=='DEFECT_INSTANCE'
+        assert w.state.property('hasRoi')
+        assert tuple(w.state.property(k) for k in ('roiStartX','roiStartY','roiEndX','roiEndY'))==roi
+        c.unload()
+        assert w.bridge.research.state['selection']['id']==''
+        assert not c.rows
+
+
+def test_linked_observation_requires_same_coords_score_and_model(qt_app, tmp_path, bridge_factory):
+    from types import SimpleNamespace
+
+    from test_bpd_structure import legacy_project
+
+    from sic_xrt_analyzer.ui.experiment_controller import present_bundle
+    source, roi = source_for(tmp_path,'straight')
+    project = legacy_project(source,[(40,80,'BPD'),(80,80,'BPD')])
+    e = detect_structures(source,roi,settings())
+    attached = attach_experiment(project,e,run_id=project.analysis_runs[0].run_id)
+    folder = tmp_path/'linked'
+    save_experiment_bundle(folder,attached,comparison_image(e,project,attached))
+    rows = present_bundle(folder,attached.project,json.loads((folder/"experiment.json").read_text(encoding="utf-8")))
+    bridge = bridge_factory()
+    c = bridge.experiments
+    c.rows = rows
+    observation = project.observations[0]
+    bridge.pipeline.result = SimpleNamespace(model_version=project.analysis_runs[0].model_version)
+    candidate = {'id':observation.source_candidate_id,'x':observation.x,'y':observation.y,'type':'BPD','scores':list(observation.raw_scores)}
+    assert len(c.related(candidate))==1
+    assert c.related({**candidate,'x':candidate['x']+1})==[]
+    assert c.related({**candidate,'scores':[.1,.2,.7]})==[]
+    bridge.pipeline.result = SimpleNamespace(model_version='another-model')
+    assert c.related(candidate)==[]
+    bridge.pipeline.result = None

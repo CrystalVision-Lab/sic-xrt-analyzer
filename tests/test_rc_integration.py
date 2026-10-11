@@ -35,7 +35,8 @@ def test_continuous_analysis_result_roi_export_and_file_switch(workbench, size):
         for kind,total in [('BPD',245),('TED',1398),('TSD',1303),('ALL',2946)]:
             w.click('resultFilter'+kind)
             assert w.bridge.research.state['filteredTotal'] == total
-            assert len(w.item('analysisOverlay').property('points')) == total
+            assert len(w.item('analysisOverlay').property('points')) == 2946
+            assert w.state.property('bpdLayerVisible') and w.state.property('tedLayerVisible') and w.state.property('tsdLayerVisible')
             w.click('nextCandidate'); w.click('nextCandidate'); w.click('previousCandidate')
             assert w.bridge.pipeline.result is original
         assert w.bridge.research.exportResult(str(w.path.parent))

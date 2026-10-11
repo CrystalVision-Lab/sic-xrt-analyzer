@@ -397,7 +397,7 @@ Rectangle {
             Text {
                 anchors.left: parent.left; anchors.bottom: parent.bottom; anchors.margins: 12; z: 5
                 visible: geometryOverlay.visible
-                text: uiState.experiment.status + (geometryOverlay.stats.maskError ? " · Mask 읽기 오류" : "")
+                text: uiState.experiment.status + (geometryOverlay.stats.maskError ? " · Mask 읽기 오류" : uiState.maskMode !== "off" && geometryOverlay.stats.maskLimited > 0 ? " · Mask 일부 표시 (캐시 제한)" : "")
                 color: "#d3bef8"; font.pixelSize: 11; style: Text.Outline; styleColor: "#111518"
             }
             Canvas {

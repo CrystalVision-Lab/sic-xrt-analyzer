@@ -234,6 +234,16 @@ def main():
                     print(json.dumps({'zoom':row['zoom'],'mode':mode,'pan_median':row['pan_submission_ms']['median'],'zoom_median':row['zoom_submission_ms']['median']},ensure_ascii=False),flush=True)
             report['sha_preserved'] = digest(image)==before
             assert report['sha_preserved']
+            if args.synthetic:
+                class EmptyAdapter(SyntheticAdapter):
+                    def analyze_source(self, request, token):
+                        return AdapterOutput((), {'counts':{'BPD':0,'TED':0,'TSD':0}}, {})
+                s.bridge.pipeline.adapter = EmptyAdapter()
+                assert s.bridge.requestAnalysis('FULL_IMAGE',0,0,0,0,{})
+                spin(app,lambda:s.bridge.analysis['hasResult'],30)
+                c.unload()
+                invoke(s.viewer,'fitView')
+                capture('zero-results')
             # Close clears geometry, mask cache and canonical selection; no-results screenshot.
             invoke(s.window,'closeImage')
             assert not c.rows and not r.rows

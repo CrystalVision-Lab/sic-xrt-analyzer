@@ -350,4 +350,7 @@ def test_candidate_hit_testing_and_imported_roi_share_zoom_transform(viewer, tmp
     assert actual == rois
     v.ui.setProperty("analysisLayerVisible", False)
     v.settle()
+    assert overlay.isVisible()  # Selected highlight is an independent layer.
+    v.ui.setProperty("selectedLayerVisible", False)
+    v.settle()
     assert not overlay.isVisible()

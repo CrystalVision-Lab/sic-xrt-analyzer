@@ -98,6 +98,7 @@ class GeometryOverlay(QQuickPaintedItem):
         self.refresh.timeout.connect(self._prepare)
         self.cache, self.keys, self.pending = {}, (), ()
         self.mask_error = ""
+        self.mask_limited = 0
         self.metrics = {"paintMs": 0., "paintCount": 0, "visiblePaths": 0, "maskLoadMs": 0., "maskBytes": 0}
         self.visibleChanged.connect(self._visibility)
         self.widthChanged.connect(self._schedule)
@@ -138,7 +139,9 @@ class GeometryOverlay(QQuickPaintedItem):
             self.cache.clear()
             return
         bounds = self.view_bounds()
-        rows = sorted((r for r in self.rows if intersects(r['mask']['bounds'], bounds)), key=lambda r: r['id'] != self.selectedId)[:8]
+        eligible = [r for r in self.rows if intersects(r['mask']['bounds'], bounds)]
+        self.mask_limited = max(0, len(eligible)-8)
+        rows = sorted(eligible, key=lambda r: r['id'] != self.selectedId)[:8]
         specs = []
         for row in rows:
             bx, by, bw, bh = row['mask']['bounds']
@@ -183,6 +186,7 @@ class GeometryOverlay(QQuickPaintedItem):
             while sum(v[0].sizeInBytes() for v in self.cache.values()) > 32*1024**2:
                 self.cache.pop(next(iter(self.cache)))
             self.metrics['maskLoadMs'] = sum(v[2] for _, v in values)
+        self.mask_limited += max(0, len(self.keys)-len(self.cache)) if not error else 0
         self.update()
         self.changed.emit()
 
@@ -190,16 +194,31 @@ class GeometryOverlay(QQuickPaintedItem):
     def hit(self, x, y, tolerance):
         best, limit = '', tolerance
         for row in self.rows:
+            if not self.lines and not (self.highlight and row['id'] == self.selectedId):
+                continue
             if not intersects(row['bounds'], [x-tolerance, y-tolerance, tolerance*2, tolerance*2]):
                 continue
             distance = min((segment_distance(x, y, a, b) for path in row['paths'] for a, b in pairwise(path)), default=math.inf)
             if distance < limit:
                 best, limit = row['id'], distance
-        return best
+        if best:
+            return best
+        if self.maskMode != 'off':
+            for row in self.rows:
+                for key in self.keys:
+                    if key[0] != row['mask']['path'] or key not in self.cache:
+                        continue
+                    image, b, _ = self.cache[key]
+                    if b[0] <= x < b[0]+b[2] and b[1] <= y < b[1]+b[3]:
+                        px = min(image.width()-1, int((x-b[0])*image.width()/b[2]))
+                        py = min(image.height()-1, int((y-b[1])*image.height()/b[3]))
+                        if image.pixelColor(px, py).alpha():
+                            return row['id']
+        return ''
 
     @Property('QVariantMap', notify=changed)
     def stats(self):
-        return {**self.metrics, 'maskBytes': sum(v[0].sizeInBytes() for v in self.cache.values()), 'maskCount': len(self.cache), 'maskError': self.mask_error}
+        return {**self.metrics, 'maskBytes': sum(v[0].sizeInBytes() for v in self.cache.values()), 'maskCount': len(self.cache), 'maskError': self.mask_error, 'maskLimited': self.mask_limited}
 
     def paint(self, painter):
         start = perf_counter()
