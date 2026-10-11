@@ -14,8 +14,12 @@ QtObject {
         if (uiState.loading) items.push("이미지 준비가 끝날 때까지 기다리세요.")
         else if (uiState.pageLoading) items.push("현재 페이지를 준비하고 있습니다.")
         if (!uiState.analysisScope) items.push("분석 범위를 선택하세요.")
-        else if (uiState.modelAvailable && uiState.analysis.supportedScopes.indexOf(uiState.analysisScope) < 0) items.push("모델이 선택한 분석 범위를 지원하지 않습니다.")
+        else if (uiState.modelAvailable && uiState.inputCompatibilityState !== "ERROR" && uiState.analysis.supportedScopes.indexOf(uiState.analysisScope) < 0) items.push("모델이 선택한 분석 범위를 지원하지 않습니다.")
         if (uiState.analysisScope === "ROI" && (!uiState.hasRoi || uiState.roiWidth <= 0 || uiState.roiHeight <= 0)) items.push("분석 영역을 지정하세요.")
+        if (uiState.hasLoadedImage && uiState.analysis.sourceReady && uiState.modelAvailable && !uiState.loading && !uiState.pageLoading) {
+            if (uiState.inputCompatibilityState === "INCOMPATIBLE" || uiState.inputCompatibilityState === "ERROR") items.push(uiState.inputPreflight.message)
+            else if (uiState.inputCompatibilityState === "UNKNOWN") items.push("입력 호환성을 확인하고 있습니다.")
+        }
         return items
     }
     readonly property string summary: running ? "분석 중"

@@ -24,6 +24,7 @@ from sic_xrt_analyzer.analysis.contracts import (
     AnalysisState,
     Region,
 )
+from sic_xrt_analyzer.analysis.input_preflight import input_preflight
 from sic_xrt_analyzer.analysis.pipeline import AnalysisPipeline
 from sic_xrt_analyzer.imaging.image_stack import open_stack
 from sic_xrt_analyzer.imaging.original_source import OriginalPixelSource
@@ -103,6 +104,7 @@ class FileBridge(QObject):
         self.workbench = ImageJWorkbench(self)
         self.measurements = StackMeasurements(self)
         self.pipeline.changed.connect(self.analysisChanged)
+        self.stack_viewer.changed.connect(self.analysisChanged)
         self._settings = settings or QSettings("CrystalVision-Lab", "sic-xrt-analyzer")
         self.research_controller = ResearchController(self)
         stored = self._settings.value("preferences", {})
@@ -381,6 +383,8 @@ class FileBridge(QObject):
     def analysis(self):
         p = self.pipeline
         adapter = p.adapter
+        preflight = input_preflight(adapter, p.source,
+                                    waiting=self.stack_viewer.busy or self.stack_viewer.opening_request is not None)
         # Detailed adapter errors stay in Python/logs, never in ordinary UI text.
         messages = {
             "CANCELED": "분석이 취소되었습니다",
@@ -398,7 +402,8 @@ class FileBridge(QObject):
             "modelName": adapter.model_name if adapter else "",
             "modelVersion": adapter.model_version if adapter else "",
             "device": (adapter.device or "") if adapter else "",
-            "supportedScopes": [s.value for s in adapter.input_contract.supported_scopes] if adapter else [],
+            "supportedScopes": preflight["modelExpected"].get("supportedScopes", []),
+            "inputPreflight": preflight,
             "sourceReady": p.source is not None,
             "inputSource": f"Original {p.source.metadata.format}" if p.source else "",
             "scope": p.result.scope.value if p.result else "",

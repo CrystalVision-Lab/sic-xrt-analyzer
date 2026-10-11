@@ -212,3 +212,11 @@ Viewer의 8비트 QImage와 **OriginalImageSource**를 분리했습니다. 분�
 Windows는 Qt Widgets의 native modal picker 경로와 명시적인 수명 관리를 사용합니다.
 다른 OS는 기존 QtQuick 선택창을 유지합니다. 실제 마우스 검증은 아직 PENDING이며 RC 승인 단계가 아닙니다.
 진단·반복 검사·알려진 제약은 [TD-10 검증 기록](docs/ux/XRT-UX-TD-10-NATIVE-DIALOG-CRASH.md)을 참고하세요.
+
+## 모델 입력 사전 검사 (TD-11)
+
+분석 화면은 현재 원본 입력과 모델 요구 형식을 미리 비교합니다. RGB8 연구 모델에서
+16비트 단일 채널 TIFF는 분석 실행만 비활성화되고 Viewer·Stack·ROI·ImageJ·저장은 유지됩니다.
+현재 입력과 모델 요구는 분석 화면에, dtype·채널·정규화 정책은 기존 상세창에 표시합니다.
+자동 uint16→uint8/Gray→RGB 변환은 추가하지 않았으며 backend 검증도 유지합니다.
+[계약·상태·검증·잔여 RC blocker](docs/ux/XRT-UX-TD-11-MODEL-INPUT-PREFLIGHT.md)를 참고하세요.

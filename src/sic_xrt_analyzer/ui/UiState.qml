@@ -103,8 +103,12 @@ QtObject {
     readonly property int contentWidth: demoMode ? 960 : imageWidth
     readonly property int contentHeight: demoMode ? 600 : imageHeight
     readonly property bool canNavigateImage: workspaceIndex === 0 && hasImage && !loading && !fileBridge.imagej.state.busy
-    readonly property bool canAnalyze: hasLoadedImage && analysis.sourceReady && modelAvailable && !analysisRunning && !loading && !pageLoading && analysis.supportedScopes.indexOf(analysisScope) >= 0 && (analysisScope === "FULL_IMAGE" || (analysisScope === "ROI" && hasRoi && roiWidth > 0 && roiHeight > 0))
-    readonly property string analysisReason: analysis.errorMessage || (!modelAvailable ? "승인된 모델이 연결되지 않았습니다" : !analysis.sourceReady ? "원본 TIFF 또는 JPG를 여세요" : analysisRunning ? "분석 중입니다" : !analysisScope ? "분석 범위를 선택하세요" : analysis.supportedScopes.indexOf(analysisScope) < 0 ? "모델이 선택한 분석 범위를 지원하지 않습니다" : analysisScope === "ROI" && !hasRoi ? "ROI를 선택하세요" : "원본 이미지 분석")
+    readonly property var inputPreflight: analysis.inputPreflight || ({state: "UNKNOWN", isCompatible: false})
+    readonly property string inputCompatibilityState: loading || pageLoading ? "UNKNOWN" : inputPreflight.state
+    readonly property bool inputCompatible: !loading && !pageLoading && inputPreflight.isCompatible === true
+    readonly property bool canAnalyze: generalReady && inputCompatible
+    readonly property bool generalReady: hasLoadedImage && analysis.sourceReady && modelAvailable && !analysisRunning && !loading && !pageLoading && analysis.supportedScopes.indexOf(analysisScope) >= 0 && (analysisScope === "FULL_IMAGE" || (analysisScope === "ROI" && hasRoi && roiWidth > 0 && roiHeight > 0))
+    readonly property string analysisReason: analysis.errorMessage || (!modelAvailable ? "승인된 모델이 연결되지 않았습니다" : !analysis.sourceReady ? "원본 TIFF 또는 JPG를 여세요" : analysisRunning ? "분석 중입니다" : !analysisScope ? "분석 범위를 선택하세요" : inputCompatibilityState === "ERROR" ? inputPreflight.message : analysis.supportedScopes.indexOf(analysisScope) < 0 ? "모델이 선택한 분석 범위를 지원하지 않습니다" : analysisScope === "ROI" && !hasRoi ? "ROI를 선택하세요" : !inputCompatible ? inputPreflight.message : "원본 이미지 분석")
     readonly property string workflowLabel: loading ? "로딩 중" : loadError ? "파일 오류" : hasImage ? (hasRoi ? "ROI 선택됨" : "이미지 준비 완료") : "이미지 없음"
     readonly property string viewerStatus: loadFlow.statusLabel
     readonly property real effectiveZoom: fitMode ? fitZoom : zoom
