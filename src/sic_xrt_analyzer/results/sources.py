@@ -1,6 +1,7 @@
 """Explicit source availability/hash/relink operations; never decode pixels, copy or upload data."""
 
 import hashlib
+import time
 import warnings
 from dataclasses import dataclass, replace
 from pathlib import Path
@@ -41,12 +42,18 @@ def _metadata(path):
                 return (image.width, image.height, "uint8", 8, 3, 1)
 
 
-def _hash_snapshot(path):
+def _hash_snapshot(path, *, cancelled=None, progress=None):
     before = path.stat()
     sha = hashlib.sha256()
+    last_progress = 0.0
     with path.open("rb") as stream:
         for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            if cancelled and cancelled():
+                raise InterruptedError("Source verification canceled")
             sha.update(chunk)
+            if progress and (time.monotonic()-last_progress >= .1 or stream.tell()==before.st_size):
+                progress(stream.tell(), before.st_size)
+                last_progress = time.monotonic()
     after = path.stat()
     if (before.st_size, before.st_mtime_ns) != (after.st_size, after.st_mtime_ns):
         raise ValueError("Source changed during hash verification")
@@ -55,7 +62,7 @@ def _hash_snapshot(path):
     )
 
 
-def inspect_source(source, *, reference=None, verify_hash=False):
+def inspect_source(source, *, reference=None, verify_hash=False, cancelled=None, progress=None):
     path = Path(reference or source.source_reference).resolve()
     if not path.is_file():
         return SourceAvailability(
@@ -86,7 +93,7 @@ def inspect_source(source, *, reference=None, verify_hash=False):
                     False,
                     "No previously verified content hash; cannot prove a relocated source",
                 )
-            if _hash_snapshot(path).value != source.content_hash.value:
+            if _hash_snapshot(path, cancelled=cancelled, progress=progress).value != source.content_hash.value:
                 return SourceAvailability(
                     "IDENTITY_MISMATCH", False, "Content hash differs"
                 )
@@ -111,18 +118,18 @@ def inspect_source(source, *, reference=None, verify_hash=False):
         return SourceAvailability("UNREADABLE", False, str(exc))
 
 
-def verify_content_hash(source):
+def verify_content_hash(source, *, cancelled=None, progress=None):
     status = inspect_source(source)
     if not status.pixels_available:
         raise ValueError(status.detail)
     path = Path(source.source_reference).resolve()
-    snapshot = _hash_snapshot(path)
+    snapshot = _hash_snapshot(path, cancelled=cancelled, progress=progress)
     if source.content_hash and snapshot.value != source.content_hash.value:
         raise ValueError("Content differs from previously verified hash")
     return replace(source, content_hash=snapshot)
 
 
-def relink_source(source, reference):
+def relink_source(source, reference, *, cancelled=None, progress=None):
     if source.content_hash is None:
         raise ValueError(
             "Relinking requires a previously explicitly verified content hash"
@@ -138,7 +145,7 @@ def relink_source(source, reference):
         source.page_count,
     ):
         raise ValueError("Relinked original metadata differs")
-    snapshot = _hash_snapshot(path)
+    snapshot = _hash_snapshot(path, cancelled=cancelled, progress=progress)
     if snapshot.value != source.content_hash.value:
         raise ValueError("Relinked source hash differs")
     return replace(

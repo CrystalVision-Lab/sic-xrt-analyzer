@@ -71,9 +71,18 @@ class ExperimentController(QObject):
         self.reader.ready.connect(self._ready)
         self.source = None
         self.project = self.manifest = None
+        self.saved_origin = False
         self.rows = []
         self.folder = self.error = self.selected_id = ""
         self.loading = False
+        self.saved_origin = False
+
+    def adopt_saved(self, source, rows, path):
+        self.unload()
+        self.source, self.rows, self.folder = source, rows, path
+        self.saved_origin = True
+        self.manifest = {"algorithm": "저장된 실험 근거", "source_identity": asdict(source.identity), "source_metadata": asdict(source.metadata)}
+        self.changed.emit()
 
     def bind_source(self, source):
         identity = source.identity if source else None
@@ -127,6 +136,7 @@ class ExperimentController(QObject):
             else:
                 # Commit only a fully validated snapshot; failed import preserves prior selection.
                 self.clear_selection()
+                self.saved_origin = False
                 self.folder, self.project, self.manifest, self.rows = str(payload[1]), payload[2], payload[3], payload[4]
                 self.error = ""
         self.research.changed.emit()
@@ -151,6 +161,7 @@ class ExperimentController(QObject):
         self.cancel()
         self.clear_selection()
         self.project = self.manifest = None
+        self.saved_origin = False
         self.rows = []
         self.folder = self.error = ""
         self.bridge.provider.experiment_image = self.bridge.provider.experiment_image.__class__()
@@ -158,7 +169,7 @@ class ExperimentController(QObject):
         self.changed.emit()
 
     def related(self, candidate):
-        result = self.bridge.pipeline.result
+        result = self.research.display_result
         if not candidate or result is None:
             return []
         return [row for row in self.rows if any(

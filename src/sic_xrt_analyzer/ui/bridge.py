@@ -115,6 +115,8 @@ class FileBridge(QObject):
         self.stack_viewer.changed.connect(self.analysisChanged)
         self._settings = settings or QSettings("CrystalVision-Lab", "sic-xrt-analyzer")
         self.research_controller = ResearchController(self)
+        from .project_controller import ProjectController
+        self.project_controller = ProjectController(self)
         self.feedback_controller = FeedbackController(self)
         self.feedback_controller.changed.connect(self.research_controller.changed)
         stored = self._settings.value("preferences", {})
@@ -624,6 +626,7 @@ class FileBridge(QObject):
 
     @Slot()
     def waitForLoads(self):
+        self.project_controller.shutdown()
         self.feedback_controller.loader.shutdown()
         self.feedback_controller.preview_loader.shutdown()
         self.native_dialogs.shutdown()
@@ -644,6 +647,10 @@ class FileBridge(QObject):
         self.pipeline.shutdown()
         self.research_controller.loader.shutdown()
         self.workbench.shutdown()
+
+    @Property(QObject, constant=True)
+    def projects(self):
+        return self.project_controller
 
     @Property(QObject, constant=True)
     def research(self):
