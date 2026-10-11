@@ -19,7 +19,8 @@ QtObject {
     property int previewWidth: 0
     property int previewHeight: 0
     property bool sampledPreview: false
-    property bool loading: false
+    property bool opening: false
+    readonly property bool loading: opening || !!stack.initialLoading
     property string loadError: ""
     property bool hasRoi: false
     property bool selectingRoi: false

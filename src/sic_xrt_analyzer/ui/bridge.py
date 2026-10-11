@@ -117,6 +117,7 @@ class FileBridge(QObject):
         low, high = s.window or (0.0, 65535.0)
         return {
             "busy": s.busy, "error": s.error, "revision": self.revision,
+            "initialLoading": s.initial_loading,
             "preload": s.preload_state, "preloadError": s.preload_error,
             "detailBusy": s.detail_busy, "rawReady": f is not None and f.pixels is not None,
             "browsePreview": f is not None and f.pixels is None,

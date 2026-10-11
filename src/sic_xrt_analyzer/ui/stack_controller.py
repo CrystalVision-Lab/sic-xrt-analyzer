@@ -88,6 +88,7 @@ class StackController(QObject):
         self._epoch = 0
         self._preload_enabled = preload_enabled
         self.preload_error = ""
+        self.initial_loading = False
         self.detail_busy = False
         self.scrubbing = False
         self._detail_timer = QTimer(self)
@@ -128,12 +129,13 @@ class StackController(QObject):
     def open(self, path):
         self._epoch += 1
         self.preload_error = ""
+        self.initial_loading = True
         self.scrubbing = False
         self.window = None
         self._submit(path, 0, None, opening=True)
 
     def page(self, index):
-        if self._closed or self.frame is None or type(index) is not int or not 0 <= index < self.frame.source.metadata.page_count:
+        if self._closed or self.initial_loading or self.frame is None or type(index) is not int or not 0 <= index < self.frame.source.metadata.page_count:
             return False
         if index != self.requested_page:
             self._direction = 1 if index > self.requested_page else -1
@@ -164,6 +166,8 @@ class StackController(QObject):
         return True
 
     def begin_scrub(self):
+        if self._closed or self.initial_loading:
+            return
         self.scrubbing = True
         self._detail_timer.stop()
         self._serial += 1
@@ -186,7 +190,9 @@ class StackController(QObject):
     @property
     def preload_state(self):
         stack = self._reader.stack
-        if stack is None or stack.browse is None or self.frame is None or stack.path != self.frame.source.path:
+        opening = (self._task is not None and self._task.request.opening) or (
+            self._pending is not None and self._pending.opening)
+        if opening or stack is None or stack.browse is None or self.frame is None or stack.path != self.frame.source.path:
             return {"prepared": 0, "total": 0, "ready": False, "bytes": 0}
         count = len(stack.browse.indices)
         return {"prepared": count, "total": stack.page_count, "ready": count == stack.page_count,
@@ -244,7 +250,7 @@ class StackController(QObject):
             return
 
     def display_range(self, low, high, *, automatic=False):
-        if self.frame is None:
+        if self.initial_loading or self.frame is None:
             return False
         if not automatic and (not math.isfinite(low) or not math.isfinite(high) or low >= high):
             self.error = "표시 최솟값은 최댓값보다 작아야 합니다"
@@ -262,10 +268,14 @@ class StackController(QObject):
         if request.browse and not canceled and request.epoch == self._epoch and not self._closed:
             if error:
                 self.preload_error = error
+            elif self.preload_state["ready"]:
+                self.initial_loading = False
             self.changed.emit()
         if not request.prefetch and request.serial == self._serial and not self._closed:
             self.busy = self.detail_busy = False
             if error:
+                if request.opening:
+                    self.initial_loading = False
                 self.error = error
                 if self.frame is not None:
                     self.requested_page = self.frame.source.page_index
@@ -273,6 +283,8 @@ class StackController(QObject):
                 self.failed.emit(error, request.opening)
             elif frame is not None:
                 self._publish(frame, request.opening)
+                if request.opening:
+                    self.initial_loading = self._preload_enabled and not self.preload_state["ready"]
             self.changed.emit()
         if self._pending is not None:
             self._launch()
@@ -296,6 +308,7 @@ class StackController(QObject):
         self.scrubbing = False
         self.detail_busy = False
         self.preload_error = ""
+        self.initial_loading = False
         self._prefetch_timer.stop()
         self._neighbors.clear()
         self._serial += 1
@@ -311,6 +324,7 @@ class StackController(QObject):
 
     def shutdown(self):
         self._closed = True
+        self.initial_loading = False
         self._prefetch_timer.stop()
         self._detail_timer.stop()
         self._neighbors.clear()

@@ -56,6 +56,7 @@ ApplicationWindow {
     }
     function openInspectorTab(index) { inspectorCollapsed = false; inspector.tabIndex = index }
     function clearImageState() {
+        uiState.opening = false
         uiState.filePath = ""; uiState.fileName = ""; uiState.imageSource = ""
         uiState.imageWidth = 0; uiState.imageHeight = 0; uiState.bitDepth = 0; uiState.pageCount = 0
         uiState.pageIndex = 0; uiState.dtype = ""
@@ -65,7 +66,7 @@ ApplicationWindow {
         uiState.selectingRoi = false; uiState.fitMode = true
         viewer.resetPan(); fileBridge.clearImage()
     }
-    function closeImage() { if (uiState.loading) return; clearImageState(); uiState.zoom = 1; uiState.statusText = "현재 이미지를 닫았습니다" }
+    function closeImage() { clearImageState(); uiState.zoom = 1; uiState.statusText = "현재 이미지를 닫았습니다" }
     function showDemo() {
         if (uiState.loading) return
         clearImageState(); uiState.workspaceIndex = 0; uiState.demoMode = true; viewer.defaultView()
@@ -73,13 +74,13 @@ ApplicationWindow {
     }
     function selectImagePath(path) { selectImageFile(fileBridge.localUrl(path)) }
     function selectImageFile(url) {
-        uiState.loading = true; uiState.loadError = ""; uiState.statusText = "TIFF 로딩 중…"
+        uiState.opening = true; uiState.loadError = ""; uiState.statusText = "TIFF 전체 페이지 로딩 중…"
         fileBridge.requestImage(url)
     }
     Connections {
         target: window.desktopBridge
         function onImageOpened(result) {
-            uiState.loading = false
+            uiState.opening = false
             if (!result.ok) { uiState.loadError = result.error; uiState.statusText = "TIFF 열기 실패: " + result.error; return }
             uiState.filePath = result.path; uiState.fileName = result.name
             uiState.imageWidth = result.width; uiState.imageHeight = result.height
@@ -90,7 +91,7 @@ ApplicationWindow {
             uiState.activeTool = "Pan"; uiState.hasRoi = false; uiState.cursorX = -1; uiState.cursorY = -1
             viewer.defaultView()
             viewer.focusView()
-            uiState.statusText = "TIFF 로드 완료 · " + result.pageCount + " 페이지 / 원본 좌표"
+            uiState.statusText = "TIFF · " + result.pageCount + " 페이지 / 전체 준비 후 탐색"
         }
         function onPageChanged(result) {
             if (!result.ok) { uiState.loadError = result.error; return }
@@ -122,7 +123,7 @@ ApplicationWindow {
     Action { id: openAction; objectName: "openAction"; text: "이미지 열기…"; shortcut: StandardKey.Open; onTriggered: window.openImageDialog() }
     Action { id: saveAction; text: "프로젝트 저장"; enabled: false }
     Action { id: demoAction; text: "합성 데모 이미지 보기"; enabled: !uiState.loading; onTriggered: window.showDemo() }
-    Action { id: closeImageAction; objectName: "closeImageAction"; text: "현재 이미지 닫기"; shortcut: StandardKey.Close; enabled: uiState.hasImage && !uiState.loading; onTriggered: window.closeImage() }
+    Action { id: closeImageAction; objectName: "closeImageAction"; text: "현재 이미지 닫기"; shortcut: StandardKey.Close; enabled: uiState.hasImage || uiState.loading; onTriggered: window.closeImage() }
     Action { id: quitAction; text: "종료"; shortcut: "Ctrl+Q"; onTriggered: window.close() }
     Action { id: panAction; objectName: "panAction"; text: "Pan"; shortcut: "H"; enabled: uiState.canNavigateImage; onTriggered: uiState.activeTool = "Pan" }
     Action { id: roiAction; objectName: "roiAction"; text: "ROI 선택"; shortcut: "R"; enabled: uiState.canNavigateImage; onTriggered: uiState.activeTool = "ROI" }
