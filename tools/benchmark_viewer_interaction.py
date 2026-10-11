@@ -272,6 +272,8 @@ class Session:
             self.viewer.setProperty('panX', -x*scale-(self.viewport.width()-source.metadata.width*scale)/2)
             self.viewer.setProperty('panY', -y*scale-(self.viewport.height()-source.metadata.height*scale)/2)
             self.settle()
+            # A queued animation must not silently replace the requested scale.
+            assert abs(self.viewer.property('displayScale') * dpr - zoom) < 1e-8
             captured = self.window.grabWindow()
             pos = self.viewport.mapToScene(QPointF())
             actual = pixels(captured.copy(round(pos.x()*dpr), round(pos.y()*dpr),w,h))
@@ -320,6 +322,10 @@ class Session:
             self.app.processEvents()
             assert research.selected_id == chosen['id']
             assert self.bridge.pipeline.result is original
+            # Clicking the same candidate starts another valid Focus animation.
+            # Wait for that animation before the unrelated burst/quality test.
+            spin(self.app, lambda: not animation.property('running'), 5)
+            self.settle()
             result['candidate_focus_hit_test'] = {'passed': True, 'ms': (time.perf_counter()-time_start)*1000}
         self.ui.setProperty('analysisLayerVisible',False)
         self.ui.setProperty('roiLayerVisible',False)
@@ -431,6 +437,8 @@ def main():
                     assert s.bridge.research.rows == saved['predictions'] if args.reference_result else len(s.bridge.research.rows)==2946
                     row['predictions_after_interactions_unchanged'] = True
                 row['interaction']=s.interactions()
+                if not args.baseline_viewer:
+                    assert all(q['exact'] for q in row['quality'] + row['interaction']['quality_after_burst']), 'Completed viewport differs from original crop'
                 if args.pages and source.metadata.page_count>1:
                     row['page_quality']=[]
                     for page in [source.metadata.page_count//2,source.metadata.page_count-1,0]:
@@ -445,6 +453,7 @@ def main():
                     s.settle()
                     assert s.ui.property('pageIndex')==0
                     row['latest_page_request']=True
+                    assert all(q['exact'] for q in row['page_quality']), 'Completed TIFF viewport differs from original crop'
                 row['sha_after']=digest(path)
                 assert before==row['sha_after']
                 row['unchanged']=True
