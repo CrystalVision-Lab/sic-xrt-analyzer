@@ -86,7 +86,11 @@ class ExperimentController(QObject):
         from .research_controller import local_path
         self.cancel()
         if self.source is None or self.bridge.stack_viewer.initial_loading or self.bridge.stack_viewer.busy:
-            self.error = "원본 TIFF/JPG를 먼저 여세요."
+            self.error = "2D JPG 이미지를 먼저 여세요."
+            self.changed.emit()
+            return
+        if self.source.metadata.format == "TIFF":
+            self.error = "TIFF는 스택 탐색·3D용 데이터입니다. 결함 분석 결과는 2D JPG에서 사용하세요."
             self.changed.emit()
             return
         source, folder = self.source, local_path(url).resolve()

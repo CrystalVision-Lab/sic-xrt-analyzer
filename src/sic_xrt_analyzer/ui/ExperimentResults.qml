@@ -4,6 +4,7 @@ import QtQuick.Layouts
 
 ColumnLayout {
     id: root
+    visible: uiState.hasLoadedImage && uiState.imageFormat !== "TIFF"
     property QtObject theme
     property QtObject uiState
     readonly property var experiment: uiState.experiment

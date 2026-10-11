@@ -265,7 +265,7 @@ def test_result_fixed_information_and_list_bounds(workbench, size):
 def test_empty_zero_new_run_and_new_file_discard_stale_selection(workbench):
     w = workbench
     choose(w, 'result')
-    assert w.item('resultLifecycleMessage').property('text') == '아직 분석 결과가 없습니다.'
+    assert w.item('resultLifecycleMessage').property('text') == 'TIFF는 스택 탐색·3D용 데이터입니다.'
     assert not w.item('candidateList').property('visible')
     r = analyzed(w)
     w.click('resultFilterBPD')

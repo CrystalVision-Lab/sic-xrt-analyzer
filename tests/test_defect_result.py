@@ -26,8 +26,15 @@ from sic_xrt_analyzer.ui.geometry_overlay import GeometryOverlay, intersects, ma
 pytest_plugins = ('test_toolbar',)
 
 
-def bundle(tmp_path, kind='y', dtype='uint16', offset=(41, 73)):
-    source, roi = source_for(tmp_path, kind, dtype=dtype, offset=offset)
+def bundle(tmp_path, kind='y', dtype='uint8', offset=(41, 73)):
+    source, roi = source_for(tmp_path, kind, dtype=dtype, rgb=dtype=='uint8', offset=offset)
+    if dtype == 'uint8':
+        from PIL import Image
+
+        from sic_xrt_analyzer.imaging.image_stack import JpegImageSource
+        path = tmp_path / (kind + '-synthetic.jpg')
+        Image.fromarray(source.read_full()).save(path, quality=100, subsampling=0)
+        source = JpegImageSource(path)
     experiment = detect_structures(source, roi, settings())
     project = AnalysisProject('Synthetic GUI QA')
     attached = attach_experiment(project, experiment)
@@ -235,8 +242,7 @@ def test_gui_import_graph_mask_focus_and_cleanup(workbench, tmp_path, size):
     w.click('structureDetails')
     assert w.item('structureDetailDialog').property('visible')
     invoke(w.item('structureDetailDialog'), 'close')
-    # uint16 retains RGB model preflight, but experiment navigation works.
-    assert not w.state.property('inputCompatible')
+    assert w.state.property('imageFormat') == 'JPEG'
     invoke(w.window, 'closeImage')
     assert not c.rows and not c.selected_id
     assert not overlay.property('visible')
@@ -310,3 +316,24 @@ def test_linked_observation_requires_same_coords_score_and_model(qt_app, tmp_pat
     bridge.pipeline.result = SimpleNamespace(model_version='another-model')
     assert c.related(candidate)==[]
     bridge.pipeline.result = None
+
+
+def test_tiff_keeps_viewer_but_rejects_experiment_analysis_ui(workbench, tmp_path, monkeypatch):
+    w = workbench
+    source, folder = bundle(tmp_path, dtype='uint16')
+    w.open(source.path)
+    def forbidden(*args):
+        raise AssertionError('TIFF must not load an analysis experiment')
+    monkeypatch.setattr('sic_xrt_analyzer.results.bpd_experiment.load_experiment_bundle', forbidden)
+    c = w.bridge.experiments
+    c.load(str(folder))
+    assert not c.loading and not c.rows and '3D' in c.error
+    assert w.bridge.pipeline.result is None
+    assert not w.state.property('inputCompatible')
+    choose(w, 'result')
+    assert not w.item('importExperiment').isVisible()
+    assert not w.item('resultTotal').isVisible()
+    assert w.item('imageViewer').isVisible()
+    choose(w, 'viewer')
+    assert w.item('imageViewer').isVisible()
+    invoke(w.window, 'closeImage')

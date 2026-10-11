@@ -7,7 +7,7 @@ SiC XRT 이미지를 탐색하는 PySide6/QML 데스크톱 앱입니다. 산업�
 Python 3.11 이상과 ImageJ 실행용 Java 17 이상이 필요합니다. Fiji/ImageJ2는 **Java 21 이상**이 필요합니다. Java가 PATH에 있어야 합니다. 저장소 폴더에서 실행합니다.
 
 ```powershell
-cd C:\Users\PC-1\capstone\sic-xrt-analyzer
+cd D:\capstone\sic-xrt-analyzer
 python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -e ".[dev,viewer,imagej,research]"
 .\.venv\Scripts\python.exe tools/setup_imagej.py
@@ -250,3 +250,12 @@ Windows 전체 293개 검사 × 3회, native plugin4개, native Open100/Save100/
 ## BPD 선형·분기 구조 실험 (RESULT-TD-02)
 
 원본 ROI에서 국소 대비/Sato/Frangi를 비교하고 중심선·분기 Graph·영역 mask와 기존 BPD 후보 연결을 별도 실험 bundle로 저장합니다. 명시적 CLI만 제공하며 기본 분석은 기존 모델을 사용합니다. 새 구조는 미분류 RULE_BASED 제안이고 실제 정확도는 정답 데이터가 없어 PRELIMINARY입니다. [실행 방법·비교 결과·보존 검사·제약](docs/result/XRT-RESULT-TD-02-BPD-DETECTION.md).
+
+
+## 결함 중심 결과 탐색 (RESULT-TD-03)
+
+결과 화면은 **분류 후보 수**와 BPD/TED/TSD 분포를 요약하고 선택 후보의 원본 Crop을 보여줍니다. 목록 필터와 ‘결과 표시…’의 클래스·구조·선택·ImageJ ROI 레이어는 독립입니다. 목록은 펼쳐 검색·페이지 이동할 수 있으며 기존 후보 검수와 전체 CSV/JSON 내보내기를 유지합니다.
+
+이미지를 연 뒤 결과 패널의 **실험 영역 불러오기…**에서 TD-02 출력 폴더를 선택하면 검증된 선형·분기 Graph·Mask를 원본 좌표에 표시합니다. 선이나 구조 목록을 선택하면 전체 형상으로 이동하고 원본 Crop·근거를 확인합니다. TIFF는 스택 탐색·향후 3D용으로 사용하며 이 GUI의 실험 결과 불러오기를 제공하지 않습니다. 원본 TIFF의 뷰어·ImageJ와 기존 RGB 모델의 uint16 입력 제한은 유지합니다. **자동 구조 제안은 실제 정확도 미검증이며 확정 결함이 아닙니다.** 프로젝트 전체 저장 UI와 구조 검수는 후속 단계입니다.
+
+[구현·실제 XRT 검증·DPI 계측·화면 캡처·제약](docs/result/XRT-RESULT-TD-03-RESULT-UX.md).

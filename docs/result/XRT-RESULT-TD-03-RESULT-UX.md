@@ -2,7 +2,7 @@
 
 ## Status
 
-**PARTIAL — 구현과 실제 RGB/합성 GUI 검증 완료; 최종 전체 회귀·CI·DPI 계측 진행 중.**
+**PARTIAL — 실제 RGB/합성 JPG GUI·DPI 검증 완료; TIFF 범위 정정 후 최종 전체 회귀 진행 중.**
 자동 구조 제안의 실제 검출 정확도는 미검증이다. 이는 UI의 검증 결과와 별개다.
 물리적 마우스 조작 Acceptance는 PENDING이며 Qt QTest 자동 입력과 구분한다.
 
@@ -12,7 +12,7 @@
 - 시작 HEAD: `cb8d43059f9929f3c3346f3eed2e37a8da80667b`
 - 작업 Branch: `feat/100-defect-result-explorer`
 - Issue: [#100](https://github.com/CrystalVision-Lab/sic-xrt-analyzer/issues/100)
-- Draft PR: 생성 후 본문에 최종 SHA/CI 연결
+- Draft PR: [#101](https://github.com/CrystalVision-Lab/sic-xrt-analyzer/pull/101)
 - Base: `feat/98-bpd-region-detection`; 기존 Draft PR #97/#99 merge/rebase/retarget 없음
 - Final HEAD/CI: 최종 검증 후 PR 본문에 기록 (문서 자신의 SHA를 자기 커밋에 넣을 수 없으므로 PR이 기준)
 - 사용자 `AGENTS.md` SHA256: `97fd9e0886957e532cfd5bafd525263462dc6e90652cf2b43ce6d3404fc04eaf`, 수정·스테이징하지 않음
@@ -69,6 +69,7 @@ DEFECT_INSTANCE이면 기존 candidate 선택/thumbnail을 지우고 해당 구�
 
 source key는 현재 앱의 canonical 원본 경로이며 TD01 project UUID와 혼동하지 않는다.
 실험 row에는 번들의 domain sourceId/page를 별도로 보존한다.
+사용자 추가 지시(2026-10-12)에 따라 TIFF는 스택 탐색·향후 3D용이며 이 GUI 실험 결과 기능의 대상에서 제외했다.
 기존 `focusCandidate()`와 cursor anchored zoom은 유지한다.
 구조는 전체 Bounds+여백을 기준으로 focusGeometry()를 실행한다. 첫 노드만 줌하지 않는다.
 모델/원본 범위/픽셀 좌표에 의해 bounds가 검증되며 focus 중심은 이미지 안에 제한한다.
@@ -114,7 +115,8 @@ QQuickPaintedItem의 viewport texture에 합성하므로 모든 Mask를 별도 G
 기존 `load_experiment_bundle()`의 JSON/schema/project reference/path/PNG budget/binary/SHA 검증을
 그대로 수행하고, GUI에서 현재 OriginalPixelSource의 canonical path/size/mtime/header/page까지 비교한다.
 원본 ROI bytes의 SHA도 비교하며 project에 verified content hash가 있으면 전체 원본 SHA를 확인한다.
-primary geometry source/page/kind도 확인한다. uint16는 원본 그대로 읽으며 모델 RGB preflight를 유지한다.
+primary geometry source/page/kind도 확인한다. TIFF의 GUI 실험 bundle 요청은 reader 실행 전에 거부한다.
+실제 uint16 스택의 RGB preflight와 뷰어·ImageJ는 유지한다. TIFF 원본을 JPG로 자동 변환하지 않는다.
 
 검증은 worker에서 수행하며 로딩·취소·오류를 표시한다. 완전한 유효 snapshot만 GUI에 반영한다.
 잘못된 bundle은 기존 이미지/분석/이전 유효 구조/선택을 보존한다.
@@ -156,7 +158,52 @@ snapshot을 별도 controller에서 적용해야 한다. 현재 Export 버튼을
 - maskLoadMs는 worker SHA/read/crop/color 총합; native texture upload/GPU 완료 시간은 별도 분리하지 않았다.
 - 물리적 마우스 입력은 PENDING. 백그라운드 사용자 PC 활동은 제어하지 않았다.
 
-최종 Windows D3D11 DPI 100/125/150% 계측 표는 아래에 추가한다.
+세 DPI 모두 Windows platform/D3D11, QML warning 0, 원본 SHA/결과 객체/Export bytes 보존 PASS.
+각 셀은 **median / p95 ms**, 각 case Pan 8회 + Zoom 8회다. 일부 실행은 회귀 검사와 겹쳤으므로 독립된 성능 개선율 또는 다른 DPI 간 속도 비교 근거로 사용하지 않는다.
+
+| DPI | 배율 | 표시 | Pan 제출 ms | Zoom 제출 ms | RSS MiB |
+|---:|---|---|---:|---:|---:|
+| 100% | Fit | ALL | 29.09 / 52.53 | 44.29 / 52.16 | 1304.6 |
+| 100% | Fit | BPD | 23.53 / 43.10 | 30.79 / 43.20 | 1302.0 |
+| 100% | Fit | SELECTED | 23.71 / 32.45 | 26.20 / 35.90 | 1300.2 |
+| 100% | Fit | GEOMETRY | 14.54 / 22.61 | 16.09 / 19.20 | 1319.3 |
+| 100% | 100% | ALL | 15.61 / 20.05 | 15.38 / 16.80 | 1319.7 |
+| 100% | 100% | BPD | 15.53 / 18.65 | 15.07 / 23.08 | 1319.7 |
+| 100% | 100% | SELECTED | 15.18 / 17.32 | 15.51 / 16.82 | 1319.9 |
+| 100% | 100% | GEOMETRY | 16.58 / 28.55 | 15.43 / 17.59 | 1318.1 |
+| 100% | 400% | ALL | 15.35 / 20.03 | 15.07 / 20.15 | 1318.3 |
+| 100% | 400% | BPD | 15.37 / 16.16 | 15.53 / 16.04 | 1318.3 |
+| 100% | 400% | SELECTED | 14.29 / 15.22 | 16.40 / 17.04 | 1321.1 |
+| 100% | 400% | GEOMETRY | 15.40 / 19.49 | 14.76 / 16.59 | 1320.8 |
+| 125% | Fit | ALL | 33.14 / 57.31 | 32.17 / 33.75 | 1330.5 |
+| 125% | Fit | BPD | 15.65 / 18.60 | 16.54 / 16.90 | 1330.5 |
+| 125% | Fit | SELECTED | 15.35 / 18.36 | 14.86 / 16.18 | 1331.5 |
+| 125% | Fit | GEOMETRY | 16.30 / 18.42 | 14.36 / 15.33 | 1332.0 |
+| 125% | 100% | ALL | 23.97 / 27.19 | 21.97 / 25.88 | 1326.4 |
+| 125% | 100% | BPD | 24.18 / 39.78 | 23.22 / 24.32 | 1308.2 |
+| 125% | 100% | SELECTED | 15.88 / 35.43 | 15.12 / 17.53 | 1300.9 |
+| 125% | 100% | GEOMETRY | 37.16 / 53.37 | 34.00 / 54.91 | 1276.3 |
+| 125% | 400% | ALL | 22.29 / 31.78 | 19.24 / 23.84 | 1273.2 |
+| 125% | 400% | BPD | 17.88 / 47.25 | 16.42 / 17.85 | 1270.8 |
+| 125% | 400% | SELECTED | 15.43 / 17.90 | 14.87 / 16.92 | 1292.6 |
+| 125% | 400% | GEOMETRY | 15.06 / 16.64 | 15.28 / 15.86 | 1295.4 |
+| 150% | Fit | ALL | 62.64 / 65.49 | 34.13 / 45.14 | 1412.7 |
+| 150% | Fit | BPD | 25.43 / 41.23 | 23.59 / 24.99 | 1406.9 |
+| 150% | Fit | SELECTED | 15.25 / 19.02 | 15.46 / 16.46 | 1408.0 |
+| 150% | Fit | GEOMETRY | 15.21 / 17.54 | 15.53 / 16.16 | 1395.5 |
+| 150% | 100% | ALL | 14.79 / 22.51 | 16.61 / 17.47 | 1395.7 |
+| 150% | 100% | BPD | 14.95 / 22.42 | 16.01 / 16.60 | 1395.5 |
+| 150% | 100% | SELECTED | 20.03 / 29.90 | 27.01 / 31.03 | 1397.8 |
+| 150% | 100% | GEOMETRY | 20.90 / 49.96 | 26.14 / 33.75 | 1397.3 |
+| 150% | 400% | ALL | 15.52 / 38.75 | 15.45 / 22.74 | 1397.4 |
+| 150% | 400% | BPD | 15.12 / 24.63 | 15.50 / 16.63 | 1397.4 |
+| 150% | 400% | SELECTED | 15.12 / 16.11 | 15.54 / 16.20 | 1394.5 |
+| 150% | 400% | GEOMETRY | 15.41 / 24.55 | 15.20 / 16.67 | 1378.5 |
+
+Geometry CPU paint median 범위 0.083–8.438 ms. 전체 점 Canvas JS paint median 범위 2–4 ms (1ms 양자화).
+CPU는 해당 process의 한 core=100% 환산 35.1–129.4%; 시스템 전체 점유율이 아니다.
+Geometry case의 채취 시점 Mask cache는 0–24,884 bytes다. Fit에서는 cache=0인 표본도 있으므로 이 값을 full-mask 렌더 비용으로 주장하지 않는다. 실제 fill/선택 표시와 cache 해제는 별도 GUI 검사로 확인했다.
+실제 bundle은 34개 구조이며 수십만 Geometry/장시간 지속 입력의 성능을 검증한 것은 아니다.
 사전 offscreen/Software 측정은 진단용으로만 보관하며 네이티브 D3D11 수치와 섞지 않는다.
 
 ## Actual RGB Regression
@@ -175,7 +222,8 @@ GUI는 해당 합성 이력을 실제 사람 검수로 가져오지 않았다.
 
 ## Screenshots
 
-Git에는 [result100 합성 화면](../screenshots/result100/)만 포함한다. 원본과 후보는 명시적 SYNTHETIC UI QA.
+Git에는 [result100 합성 화면](../screenshots/result100/)만 포함한다. 원본과 후보는 명시적 SYNTHETIC UI QA JPG.
+TIFF 용도 정정 후 JPG fixture로 native 캡처를 다시 만들었고 같은 UI·Export·원본 보존 검사가 PASS했다.
 실제 XRT 화면은 ignored artifacts/result100-native-* 및 result100-real-*에 보관한다.
 
 | 시나리오 | 합성 Qt 캡처 |
@@ -192,6 +240,7 @@ Git에는 [result100 합성 화면](../screenshots/result100/)만 포함한다. 
 ## Regression / 최초 실패 구분
 
 - 새 bundle/geometry/selection GUI 검사 22 PASS (20.30s).
+- TIFF 차단 + 실제 JPG fixture로 바꾼 새 결과 GUI 검사 **23 PASS (33.87s)**. 기존 scientific pixel/dtype 테스트는 변경하지 않았다.
 - 핵심 Result/ROI 검사 22 PASS (38.33s); 이전 layout/Export 좁은 창 검사 3 PASS (21.16s).
 - 최초 전체 Windows 검사: **478 PASS / 4 FAIL / 5 SKIP**, 452.93s.
   - 세 건: 구 정책의 ‘목록 필터=Overlay’와 ‘점 숨김=선택도 숨김’ 기대값. 독립 레이어 정책 검사를
@@ -225,7 +274,7 @@ cd D:\capstone\sic-xrt-analyzer
 .\.venv\Scripts\python.exe -m sic_xrt_analyzer
 ```
 
-1. 원본 JPG/TIFF를 연다. JPG는 승인 모델로 기존 분석을 실행한다.
+1. 2D JPG를 연 뒤 승인 모델로 기존 분석을 실행한다. TIFF는 이 결과 분석 기능의 대상이 아니며 기존 스택 뷰어·ImageJ에서 탐색한다.
 2. 결과 Context에서 분류 후보 Summary, 목록 필터와 ‘결과 표시…’를 사용한다.
 3. TD02 출력 폴더를 ‘실험 영역 불러오기…’로 선택한다.
 4. ‘구조 제안 N개’ 목록이나 이미지의 선/Mask를 클릭한다. 위치/상세에서 원본 영역을 확인한다.

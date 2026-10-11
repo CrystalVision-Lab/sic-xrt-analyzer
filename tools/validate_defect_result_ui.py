@@ -16,9 +16,9 @@ from unittest.mock import patch
 
 import numpy as np
 import psutil
-import tifffile
 from benchmark_viewer import digest, spin
 from benchmark_viewer_interaction import Session, stats
+from PIL import Image
 from PySide6.QtCore import Q_ARG, QMetaObject, QPoint, QPointF, Qt, qVersion
 from PySide6.QtGui import QFont, QFontDatabase
 from PySide6.QtQuickControls2 import QQuickStyle
@@ -36,7 +36,7 @@ from sic_xrt_analyzer.analysis.contracts import (
     Region,
 )
 from sic_xrt_analyzer.analysis.desktop_adapter import DesktopResearchAdapter
-from sic_xrt_analyzer.imaging.original_source import OriginalImageSource
+from sic_xrt_analyzer.imaging.image_stack import JpegImageSource
 from sic_xrt_analyzer.results import AnalysisProject
 from sic_xrt_analyzer.results.bpd_experiment import (
     attach_experiment,
@@ -76,9 +76,9 @@ def generated(output):
     image = np.full((512,512,3), 120, np.uint8)
     image[60:220,60:220] = synthetic_sample('straight', rgb=True)
     image[280:440,280:440] = synthetic_sample('y', rgb=True)
-    path = output/'SYNTHETIC_UI_QA_RGB.tif'
-    tifffile.imwrite(path, image, photometric='rgb')
-    source = OriginalImageSource(path)
+    path = output/'SYNTHETIC_UI_QA_RGB.jpg'
+    Image.fromarray(image).save(path, quality=100, subsampling=0)
+    source = JpegImageSource(path)
     e = detect_structures(source, Region(32,32,448,448), StructureSettings(scales=(1,2), background_sigma=8, link_distance_px=4, method='sato', polarity='bright', low_threshold=.10, high_threshold=.25, min_area=12, min_length_px=20, max_width_px=12, min_aspect=3, contrast_floor=.005))
     p = AnalysisProject('SYNTHETIC UI QA; not scientific accuracy evidence')
     attached = attach_experiment(p, e)
