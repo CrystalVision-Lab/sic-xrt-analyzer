@@ -9,14 +9,14 @@ ColumnLayout {
     property QtObject uiState
     property var actions
     visible: uiState.hasLoadedImage
-    spacing: 10
+    spacing: theme.spacingMd
 
     SectionHeader { theme: root.theme; text: "페이지 탐색"; visible: uiState.pageCount > 1; Layout.fillWidth: true }
     RowLayout {
-        visible: uiState.pageCount > 1; Layout.fillWidth: true; spacing: 6
+        visible: uiState.pageCount > 1; Layout.fillWidth: true; spacing: theme.spacingXs
         Text {
             objectName: "currentPageLabel"; text: uiState.loadFlow.currentPageLabel
-            color: theme.text; font.pixelSize: 12; Layout.fillWidth: true
+            color: theme.text; font.pixelSize: theme.bodySize; Layout.fillWidth: true
         }
         AppButton { objectName: "previousPageButton"; theme: root.theme; text: "‹"; tip: "이전 페이지"; enabled: uiState.loadFlow.pageNavigationReady && uiState.stack.requestedPage > 0; onClicked: fileBridge.requestPage(uiState.stack.requestedPage - 1) }
         AppButton { objectName: "nextPageButton"; theme: root.theme; text: "›"; tip: "다음 페이지"; enabled: uiState.loadFlow.pageNavigationReady && uiState.stack.requestedPage < uiState.pageCount - 1; onClicked: fileBridge.requestPage(uiState.stack.requestedPage + 1) }
@@ -32,13 +32,13 @@ ColumnLayout {
     }
     Text {
         objectName: "preloadStatus"; visible: uiState.pageCount > 1; Layout.fillWidth: true
-        wrapMode: Text.Wrap; font.pixelSize: 11
+        wrapMode: Text.Wrap; font.pixelSize: theme.smallSize
         color: uiState.stack.preloadError ? theme.warning : theme.muted
         text: uiState.loadFlow.stackLabel; Accessible.name: text
     }
     Text {
         objectName: "navigationReadyReason"; visible: !uiState.loadFlow.pageNavigationReady; Layout.fillWidth: true; wrapMode: Text.Wrap
-        text: uiState.loadFlow.availableHint + "\n" + uiState.loadFlow.navigationReason; color: theme.muted; font.pixelSize: 11
+        text: uiState.loadFlow.availableHint + "\n" + uiState.loadFlow.navigationReason; color: theme.muted; font.pixelSize: theme.smallSize
     }
     RowLayout {
         visible: uiState.stack.initialLoading; Layout.fillWidth: true
@@ -47,15 +47,15 @@ ColumnLayout {
     }
 
     SectionHeader { theme: root.theme; text: "밝기 · 대비"; Layout.fillWidth: true; Layout.topMargin: 8 }
-    Text { Layout.fillWidth: true; text: "표시 범위 조절 · 원본 데이터 유지"; color: theme.muted; font.pixelSize: 11; wrapMode: Text.Wrap }
+    Text { Layout.fillWidth: true; text: "표시 범위 조절 · 원본 데이터 유지"; color: theme.muted; font.pixelSize: theme.smallSize; wrapMode: Text.Wrap }
     RowLayout {
-        Layout.fillWidth: true; spacing: 8
-        Text { text: "표시 최소"; color: theme.muted; font.pixelSize: 11; Layout.fillWidth: true }
-        TextField {
-            objectName: "displayLowField"; Layout.preferredWidth: 90; implicitHeight: 28
+        Layout.fillWidth: true; spacing: theme.spacingSm
+        Text { text: "표시 최소"; color: theme.muted; font.pixelSize: theme.smallSize; Layout.fillWidth: true }
+        AppTextField {
+            objectName: "displayLowField"; Layout.preferredWidth: 90; implicitHeight: theme.controlHeight
             text: Number(uiState.stack.low).toFixed(uiState.dtype.indexOf("float") >= 0 ? 3 : 0)
-            color: theme.text; font.pixelSize: 11; selectByMouse: true; enabled: uiState.loadFlow.displayRangeReady
-            background: Rectangle { color: theme.surface; border.color: theme.border; radius: 2 }
+            color: theme.text; font.pixelSize: theme.smallSize; selectByMouse: true; enabled: uiState.loadFlow.displayRangeReady
+
             onEditingFinished: fileBridge.setDisplayRange(Number(text), uiState.stack.high)
         }
     }
@@ -66,13 +66,13 @@ ColumnLayout {
         onMoved: fileBridge.setDisplayRange(Math.min(value, uiState.stack.high - Math.max(0.000001, (to - from) / 65535)), uiState.stack.high)
     }
     RowLayout {
-        Layout.fillWidth: true; spacing: 8
-        Text { text: "표시 최대"; color: theme.muted; font.pixelSize: 11; Layout.fillWidth: true }
-        TextField {
-            objectName: "displayHighField"; Layout.preferredWidth: 90; implicitHeight: 28
+        Layout.fillWidth: true; spacing: theme.spacingSm
+        Text { text: "표시 최대"; color: theme.muted; font.pixelSize: theme.smallSize; Layout.fillWidth: true }
+        AppTextField {
+            objectName: "displayHighField"; Layout.preferredWidth: 90; implicitHeight: theme.controlHeight
             text: Number(uiState.stack.high).toFixed(uiState.dtype.indexOf("float") >= 0 ? 3 : 0)
-            color: theme.text; font.pixelSize: 11; selectByMouse: true; enabled: uiState.loadFlow.displayRangeReady
-            background: Rectangle { color: theme.surface; border.color: theme.border; radius: 2 }
+            color: theme.text; font.pixelSize: theme.smallSize; selectByMouse: true; enabled: uiState.loadFlow.displayRangeReady
+
             onEditingFinished: fileBridge.setDisplayRange(uiState.stack.low, Number(text))
         }
     }
@@ -83,21 +83,21 @@ ColumnLayout {
         onMoved: fileBridge.setDisplayRange(uiState.stack.low, Math.max(value, uiState.stack.low + Math.max(0.000001, (to - from) / 65535)))
     }
     RowLayout {
-        Layout.fillWidth: true; spacing: 6
+        Layout.fillWidth: true; spacing: theme.spacingXs
         AppButton { theme: root.theme; text: "자동 범위"; Layout.fillWidth: true; enabled: uiState.loadFlow.displayRangeReady; onClicked: fileBridge.autoDisplayRange() }
         AppButton { theme: root.theme; text: "초기 범위"; Layout.fillWidth: true; enabled: uiState.loadFlow.displayRangeReady; onClicked: fileBridge.resetDisplayRange() }
     }
     Text {
-        Layout.fillWidth: true; font.pixelSize: 11; color: theme.muted; wrapMode: Text.Wrap
+        Layout.fillWidth: true; font.pixelSize: theme.smallSize; color: theme.muted; wrapMode: Text.Wrap
         text: "초기 범위: " + uiState.stack.rangeOrigin
     }
     SectionHeader { theme: root.theme; text: "조작 안내"; Layout.fillWidth: true; Layout.topMargin: 8 }
     Text {
-        Layout.fillWidth: true; font.pixelSize: 11; color: theme.muted; wrapMode: Text.Wrap
+        Layout.fillWidth: true; font.pixelSize: theme.smallSize; color: theme.muted; wrapMode: Text.Wrap
         text: (uiState.pageCount > 1 ? "슬라이더 · 휠 · 방향키: 페이지 이동\nCtrl+휠: 확대·축소" : "휠: 확대·축소")
     }
     Text {
-        Layout.fillWidth: true; font.pixelSize: 11; color: theme.muted; wrapMode: Text.Wrap
+        Layout.fillWidth: true; font.pixelSize: theme.smallSize; color: theme.muted; wrapMode: Text.Wrap
         text: uiState.stack.frames > 0 ? "ImageJ frames " + uiState.stack.frames + " · 공간 Z 미확정" : "페이지 순서, 공간 간격 미확정"
     }
 }

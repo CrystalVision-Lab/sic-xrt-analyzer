@@ -10,5 +10,5 @@ Item {
     readonly property string informationPriority: "secondary"
     implicitWidth: indicator.implicitWidth
     implicitHeight: indicator.implicitHeight
-        StatusIndicator { id: indicator; anchors.centerIn: parent; objectName: "researchModelStatus"; theme: root.theme; text: uiState.analysisFlow.modelStatus; ink: uiState.modelAvailable ? theme.accent : theme.warning }
+        StatusIndicator { id: indicator; anchors.left: parent.left; objectName: "researchModelStatus"; theme: root.theme; text: uiState.analysisFlow.modelStatus; ink: uiState.modelAvailable ? theme.muted : theme.warning }
 }

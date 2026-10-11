@@ -47,9 +47,9 @@ RowLayout {
                 objectName: "workspacePlaceholder" + (index + 1)
                 color: root.theme.viewer
                 ColumnLayout {
-                    anchors.centerIn: parent; spacing: 10
-                    Text { text: modelData; color: root.theme.text; font.pixelSize: 17 }
-                    Text { text: "해당 작업 영역은 아직 연결되지 않았습니다"; color: root.theme.muted; font.pixelSize: 12 }
+                    anchors.centerIn: parent; spacing: theme.spacingMd
+                    Text { text: modelData; color: root.theme.text; font.pixelSize: theme.emptyTitleSize }
+                    Text { text: "해당 작업 영역은 아직 연결되지 않았습니다"; color: root.theme.muted; font.pixelSize: theme.bodySize }
                 }
             }
         }

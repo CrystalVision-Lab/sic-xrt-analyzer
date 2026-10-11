@@ -6,6 +6,8 @@
 
 ## 1. 기존 구조 조사
 
+현재 전역 글자·간격·버튼·테두리 표현은 [TD-08 Visual Density](XRT-UX-TD-08-VISUAL-DENSITY.md)를 따른다. IA와 Context 전환 정책은 유지한다.
+
 | 영역 | 기존 구현 | 조사 결과 |
 | --- | --- | --- |
 | Main Window | Main.qml | Action·파일 대화상자·브리지 이벤트·전체 레이아웃을 한 파일에서 관리 |

@@ -38,9 +38,15 @@ Fiji/ImageJ2는 다음 명령으로 Java 라이브러리를 설치하고, 작업
 
 선택한 ROI를 Fiji Overlay로 전달하여 선택 영역을 사용하는 명령을 실행합니다. 사각형·타원·다각형·자유영역·선·점을 원본 좌표로 연결하며, Dataset만 처리하는 명령은 ROI를 무시할 수 있습니다. 실제 3D XRT TIFF 4개에서 첫·중간·마지막 페이지, 밝기·대비, 연속 탐색, 확대·이동, Fiji ROI 처리와 재열기·캐시 정리를 확인했습니다. [시간·메모리·제약과 검증 재현](docs/stack-validation.md).
 
-**현재 검증:** 회귀 검사 **237개**, Windows AWT/Swing/ImageJ 창 검사 **4개**, 총 **241개**가 통과했습니다. [TD-07 로딩 검증·제약](docs/ux/XRT-UX-TD-07-TIFF-LOADING.md)을 참고하세요. 아래 이전 단계의 테스트 수는 당시 기록입니다.
+**현재 검증:** 회귀 검사 **258개**, Windows AWT/Swing/ImageJ 창 검사 **4개**, 총 **262개**가 통과했습니다. [TD-08 시각 위계·검증·제약](docs/ux/XRT-UX-TD-08-VISUAL-DENSITY.md) · [TD-07 로딩 검증·제약](docs/ux/XRT-UX-TD-07-TIFF-LOADING.md). 아래 이전 단계의 테스트 수는 당시 기록입니다.
 
 ## 화면과 조작
+
+### 전역 시각 위계 (XRT-UX-TD-08)
+
+Context 제목 15px, 본문 13px, 보조 12px, 기술 정보 11px로 통일했습니다. 입력/일반 버튼 32px, 대표 분석 실행 36px, Toolbar 32px를 사용합니다. 일반 패널·버튼·Section의 중복 테두리를 줄이고 선택·입력·키보드 focus를 구분합니다. 메뉴·작업 흐름·영상 표시·원본 좌표는 기존 동작을 유지합니다.
+
+일반 우측 패널 282px·결과 패널 380px와 Viewer 면적은 그대로입니다. 목록의 글자·간격을 키워 독립 목록 스크롤은 일부 증가했습니다. 합성 이미지로 17개 상태의 1100×700·1440×900 변경 전후 화면과 1920 결과 화면을 기록했습니다. [토큰·측정·70장 비교·DPI·남은 제약](docs/ux/XRT-UX-TD-08-VISUAL-DENSITY.md) · [최소 화면 분석](docs/screenshots/visual-td08/after/analysis-ready-1100.png) · [결과 검토](docs/screenshots/visual-td08/after/result-bpd-1100.png).
 
 ### 화면 정보구조 (XRT-UX-TD-01)
 

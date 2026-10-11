@@ -7,7 +7,7 @@ ColumnLayout {
     property QtObject theme
     property QtObject uiState
     readonly property string informationPriority: "technical"
-    spacing: 5
+    spacing: theme.spacingXs
     InfoRow { theme: root.theme; label: "모델"; value: uiState.analysis.modelName || "—"; Layout.fillWidth: true }
     InfoRow { theme: root.theme; label: "버전"; visible: !/^[a-fA-F0-9]{32,}$/.test(uiState.analysis.modelVersion || ""); value: uiState.analysis.modelVersion || "—"; Layout.fillWidth: true }
     InfoRow { theme: root.theme; label: "장치"; value: uiState.analysis.device || "—"; Layout.fillWidth: true }
