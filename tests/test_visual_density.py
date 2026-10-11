@@ -163,6 +163,9 @@ def test_long_filename_is_elided_without_changing_panel_width(workbench):
     title = in_window(w, 'viewerFileName')
     assert title.property('text') == path.name and title.property('truncated')
     assert w.item('currentFileName').property('text') == path.name
+    assert not w.panel.property('visible')
+    choose(w, 'image')
+    QTest.qWait(35)
     assert w.panel.property('width') == 282
     assert w.bridge.original_source.metadata.width == 64
 

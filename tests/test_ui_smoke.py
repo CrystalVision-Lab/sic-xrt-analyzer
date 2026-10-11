@@ -97,6 +97,8 @@ def test_workstation_flow(tmp_path):
     assert state.property("fitMode")
     assert state.property("zoomLabel") == "FIT"
 
+    invoke(window, "openContext", "image")
+    settle(app)
     old_width = viewer.property("viewportWidth")
     invoke(window.findChild(QObject, "inspectorPanelAction"), "trigger")
     settle(app)

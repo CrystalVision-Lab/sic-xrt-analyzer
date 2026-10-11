@@ -19,7 +19,10 @@ pytest_plugins = ('test_toolbar',)
 
 
 def choose(w, key):
-    w.select('contextSwitcher', 'contextChoice' + str(KEYS.index(key)))
+    if w.window.property('inspectorCollapsed'):
+        w.select('toolbarContextTools', 'toolbarContext' + key)
+    else:
+        w.select('contextSwitcher', 'contextChoice' + str(KEYS.index(key)))
     assert w.panel.property('requestedContext') == key
     assert w.panel.property('lastReason') == 'MANUAL'
     assert w.item('viewerMouseArea').property('activeFocus')
