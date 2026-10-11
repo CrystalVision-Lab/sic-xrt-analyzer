@@ -2,7 +2,7 @@
 
 ## Status
 
-**PARTIAL — 실제 RGB/합성 JPG GUI·DPI 검증 완료; TIFF 범위 정정 후 최종 전체 회귀 진행 중.**
+**PASS — 2D JPG 결과 UI·원본 보존·자동 GUI·전체 Windows/CI 검증 완료.**
 자동 구조 제안의 실제 검출 정확도는 미검증이다. 이는 UI의 검증 결과와 별개다.
 물리적 마우스 조작 Acceptance는 PENDING이며 Qt QTest 자동 입력과 구분한다.
 
@@ -14,7 +14,9 @@
 - Issue: [#100](https://github.com/CrystalVision-Lab/sic-xrt-analyzer/issues/100)
 - Draft PR: [#101](https://github.com/CrystalVision-Lab/sic-xrt-analyzer/pull/101)
 - Base: `feat/98-bpd-region-detection`; 기존 Draft PR #97/#99 merge/rebase/retarget 없음
-- Final HEAD/CI: 최종 검증 후 PR 본문에 기록 (문서 자신의 SHA를 자기 커밋에 넣을 수 없으므로 PR이 기준)
+- Runtime HEAD: `ea810714ea3fcf83d1d11e0fcfc9e7b17d811e63`
+- Final code/test HEAD: `ef29b6338ab929f5fcf123a6ac8d7164fe532de6` (Windows 전체/CI PASS)
+- Final HEAD/CI: 최종 보고서만 추가한 커밋의 SHA/CI를 PR 본문에 기록 (문서 자신의 SHA는 자기 커밋에 넣을 수 없으므로 PR이 기준)
 - 사용자 `AGENTS.md` SHA256: `97fd9e0886957e532cfd5bafd525263462dc6e90652cf2b43ce6d3404fc04eaf`, 수정·스테이징하지 않음
 - 실제 원본/번들/모델/연구 결과는 ignored `artifacts/`에만 기록. `sources/` 변경 없음.
 
@@ -265,7 +267,10 @@ TIFF 용도 정정 후 JPG fixture로 native 캡처를 다시 만들었고 같�
     임의 sleep 증가/Native 코드 변경은 하지 않았다.
 - 중간 재실행: **483 PASS / 1 FAIL / 5 SKIP / 1 ERROR**, 750.80s. TIFF 용도 변경 중의 기존 안내 문구 기대값 불일치와 ignored 임시 진단 파일 `test_result100_polish.py`의 잘못된 수집이었다. 문구 기대값만 수정하고 임시 파일을 `result100_polish_diagnostic.py`로 이름 변경했다. 기존 product 테스트를 제거하거나 skip하지 않았다.
 - TIFF 범위 수정 커밋 CI에서 ROI Context 조작 1 FAIL / 485 PASS / 4 SKIP (279.67s), Linux X11 native 4 PASS (20.06s). Windows 동일 ROI 검사를 개별 재실행해 같은 미렌더 좌표 오류를 재현했다. 공통 Context 선택 helper가 렌더 후 좌표를 쓰도록 보완한 뒤 Context 전체 **11 PASS (31.95s)**. assertion/ROI 동작/Native 코드를 변경하지 않았다.
-- 최종 전체 Windows/CI는 이후 기록. 기존 검사를 삭제/skip하지 않았다.
+- TIFF 정책 보완 직후 Windows 전체: **484 PASS / 1 FAIL / 5 SKIP**, 783.13s. 실패는 위 공통 Context helper 수정 전의 같은 ROI 미렌더 좌표 오류다.
+- **최종 Windows 전체: 485 PASS / 0 FAIL / 5 SKIP**, 641.19s (`ef29b6338ab929f5fcf123a6ac8d7164fe532de6`, `pytest -q tests`).
+- **CI: 486 PASS / 0 FAIL / 4 SKIP**, 329.57s; Linux X11 native **4 PASS**, 21.28s. [검증 커밋 CI #118](https://github.com/CrystalVision-Lab/sic-xrt-analyzer/actions/runs/38179938545).
+- 환경별 기존 skip 수를 유지했다. Windows native 4개는 별도 3회 반복했다. 기존 검사를 삭제하거나 새 skip을 추가하지 않았다.
 - QML warnings: 최종 합성 JPG Windows/실제 RGB native 세 DPI/TIFF viewer-only에서 모두 0.
 - Ruff/compileall 및 desktop wheel build PASS.
 - 최종 runtime code HEAD: `ea810714ea3fcf83d1d11e0fcfc9e7b17d811e63`; 이후 Context 테스트 helper 보완 및 검증 결과 기록 커밋은 runtime을 변경하지 않는다. 최종 test HEAD/CI는 PR 본문을 기준으로 확인한다.
@@ -301,3 +306,39 @@ cd D:\capstone\sic-xrt-analyzer
 
 자동 QA는 explicit `--synthetic` 또는 `--image --model --experiment`와 새 `--output`을 요구한다.
 아무 이미지도 자동으로 검출/업로드/수정하지 않는다.
+
+## 검증 재현 / 로컬 증거
+
+```powershell
+$env:QT_QPA_PLATFORM = "offscreen"
+$env:QSG_RENDER_LOOP = "basic"
+$env:SIC_XRT_FIJI_HOME = "$PWD/artifacts/fiji-runtime"
+.\.venv\Scripts\python.exe -m pytest -q tests
+.\.venv\Scripts\python.exe -m ruff check .
+```
+
+Native 반복은 새 process마다 `QT_QPA_PLATFORM=windows`에서
+`pytest -q tests/test_stack_compatibility.py -k gui_plugin`을 실행했다.
+DPI QA는 `QT_QPA_PLATFORM=windows`, `QSG_RHI_BACKEND=d3d11`,
+`QT_SCALE_FACTOR=1/1.25/1.5`를 각각 별도 process로 사용했다.
+GUI QA의 `--output`은 새 폴더여야 한다. 공개 fixture 예:
+
+```powershell
+.\.venv\Scripts\python.exe tools/validate_defect_result_ui.py --synthetic --output artifacts/my-result-ui-qa --repeats 8
+```
+
+이 도구의 합성 모델·검출은 명시적 QA mode에만 존재하며 앱의 Production model을 대체하지 않는다.
+실제 JPG mode는 `--image <JPG> --model <approved-bundle> --experiment <TD02-folder>`를 명시해야 한다.
+TIFF viewer-only 도구는 `tools/validate_tiff_defect_ui.py --image <TIFF>`(반복 가능)와 새 `--output`만 받으며 모델을 로드하지 않는다.
+
+| ignored 로컬 증거 | 결과 |
+|---|---|
+| `artifacts/result100-final-ef29.log` | 최종 Windows 전체 485 PASS / 5 SKIP |
+| `artifacts/result100-native-swing-{1,2,3}.log` | 4 PASS × 3회 |
+| `artifacts/result100-real-domain/report.json`, `result100-prior-contract.json` | 실제 Full/ROI 및 이전 TD01 값 대조 |
+| `artifacts/result100-native-dpi{100,125,150}/report.json` | 실제 RGB D3D11 세 DPI, raw timings / QML / SHA / Export |
+| `artifacts/result100-synthetic-jpg-final/report.json` | 공개 JPG fixture / 세 크기 / 원본·결과 보존 |
+| `artifacts/result100-tiff-viewer-only/report.json` | 네 실제 TIFF, 모델 실행 0회 / 세 페이지 / SHA |
+| `artifacts/result100-full-tests.log`, `result100-final-tests.log`, `result100-accepted-scope-tests.log` | 최초·중간 실패 원인과 로그 유지 |
+
+실제 XRT 캡처·가공 결과·모델은 로컬에만 있으며 Git에 포함하지 않았다.
