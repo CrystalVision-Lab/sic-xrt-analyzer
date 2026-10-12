@@ -280,3 +280,14 @@ JPG 분석 결과 또는 저장된 Run에서 후보·구조를 선택하고 **�
 검수 목록에서 미검수·완료·수정·결함 아님·보류·충돌을 구분하고 이력의 연구원·부모·revision을 확인합니다. 서로 다른 연구원의 판정은 마지막 기록으로 자동 덮어쓰지 않습니다. 검수는 학습 정답 승인·재학습·서버 전송을 실행하지 않습니다. Legacy 검수는 별도 출처로 유지합니다. TIFF는 스택·ImageJ용이며 이 검수·편집의 대상이 아닙니다.
 
 프로젝트 검수가 처음 추가될 때 Schema **1.1.0**을 사용합니다. **1.0.0** 파일의 읽기·저장 호환을 유지하며 구버전 상태에서 독립 판정을 추측하지 않습니다. 1.1.0은 이전 프로그램에서 지원되지 않습니다. [계약·검증·제약 보고서](docs/result/XRT-RESULT-TD-05-REVIEW-WORKSPACE.md).
+
+
+## 중앙 연구 서버와 명시적 동기화 (TD-06)
+
+프로젝트 작업 영역의 **중앙 서버**에서 저장된 분석·검수 기록을 인증된 localhost 서버로 전송할 수 있습니다. 자동 업로드는 OFF이며 API Credential은 OS Vault에 저장합니다. Crop은 검수한 JPG 원본 국소 영역을 별도 동의 후 lossless PNG로 전송합니다.
+
+- [Windows 서버 시작·중지·백업·별도 복원](docs/server/DEPLOYMENT.md)
+- [아키텍처와 버전 계약](docs/server/ARCHITECTURE.md)
+- [인증·데이터 보호 정책](docs/server/SECURITY.md)
+- [API 계약](docs/server/API.md)
+- [TD-06 검증 결과](docs/result/XRT-RESULT-TD-06-CENTRAL-SYNC.md)
