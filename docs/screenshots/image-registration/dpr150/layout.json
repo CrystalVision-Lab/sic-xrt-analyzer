@@ -1,0 +1,44 @@
+{
+  "layouts": [
+    {
+      "size": [
+        1100,
+        700
+      ],
+      "dpr": 1.5,
+      "viewport": [
+        677,
+        261
+      ],
+      "coordinate_roundtrip_error": 5.684341886080802e-14
+    },
+    {
+      "size": [
+        1440,
+        900
+      ],
+      "dpr": 1.5,
+      "viewport": [
+        927,
+        561
+      ],
+      "coordinate_roundtrip_error": 5.684341886080802e-14
+    },
+    {
+      "size": [
+        1920,
+        1080
+      ],
+      "dpr": 1.5,
+      "viewport": [
+        1287,
+        831
+      ],
+      "coordinate_roundtrip_error": 5.684341886080802e-14
+    }
+  ],
+  "warnings": [],
+  "manual_qtest_point_count": 4,
+  "input": "synthetic",
+  "acceptance": "automated_QTest_not_physical_mouse"
+}
