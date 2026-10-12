@@ -144,19 +144,25 @@ class ModelUpdateController(QObject):
                     raise ValueError("RELEASE_LIST_SIZE")
                 chosen = None
                 unavailable = []
+                rejected = 0
                 minimum = self.store.state()["sequences"].get(
                     client.origin + "|" + channel, 0
                 )
                 for row in rows:
                     envelope = row["release"]
-                    m = verify_release(
-                        envelope,
-                        trust,
-                        client.origin,
-                        channel=channel,
-                        minimum_sequence=0,
-                        allow_expired=row["status"] != "AVAILABLE",
-                    )
+                    try:
+                        m = verify_release(
+                            envelope,
+                            trust,
+                            client.origin,
+                            channel=channel,
+                            minimum_sequence=0,
+                            allow_expired=row["status"] != "AVAILABLE",
+                        )
+                    except ValueError:
+                        # Retired keys/incompatible historical entries cannot block a newer trusted release.
+                        rejected += 1
+                        continue
                     if row["status"] != "AVAILABLE":
                         unavailable.append(m["release_id"])
                         self.store.remember(
@@ -173,10 +179,19 @@ class ModelUpdateController(QObject):
                         chosen = envelope
                 if chosen:
                     self.store.remember(client.origin, channel, chosen)
+                current = self.store.state()["current"]
+                current_invalid = False
+                if current:
+                    try:
+                        self.store.verify_installed(current, trust)
+                    except (OSError, ValueError, KeyError):
+                        current_invalid = True
                 return {
                     "operation": "check",
                     "release": chosen,
                     "unavailable": unavailable,
+                    "rejected": rejected,
+                    "current_invalid": current_invalid,
                 }
             finally:
                 client.close()
@@ -361,6 +376,10 @@ class ModelUpdateController(QObject):
                 if self.available
                 else "최신 승인 모델이 없습니다. 현재 모델을 유지합니다."
             )
+            if not self.available and value.get("rejected"):
+                self.error = "모델 목록의 서명·신뢰키·호환성을 확인하지 못했습니다. 현재 모델을 유지합니다."
+            if value.get("current_invalid"):
+                self.error = "현재 설치 모델의 서명·상태·파일을 확인할 수 없습니다. 작업을 저장한 뒤 이전 모델을 복원하세요."
             current = self.store.state()["current"]
             if current and current.get("release_id") in value.get("unavailable", []):
                 self.error = "현재 모델의 배포 승인이 철회되었거나 재검토 중입니다. 작업을 저장한 뒤 이전 모델을 복원하세요."

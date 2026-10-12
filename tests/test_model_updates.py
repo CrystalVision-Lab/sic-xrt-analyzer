@@ -481,3 +481,41 @@ def test_corrupt_local_state_falls_back_to_bundle(
     trust.write_bytes(canonical([]))
     monkeypatch.setenv("SIC_XRT_MODEL_TRUST_FILE", str(trust))
     assert c.startup_bundle() is None
+
+
+def test_controller_key_rotation_keeps_latest_trusted_release(
+    release, tmp_path, bridge_factory, qt_app, monkeypatch
+):
+    from model_update_fixtures import signing
+
+    b = bridge_factory(
+        settings=QSettings(str(tmp_path / "prefs.ini"), QSettings.IniFormat)
+    )
+    c = b.modelUpdates
+    origin = "http://127.0.0.1:18766"
+    b.centralSync.endpoint = origin
+    rotated, trust, _ = signing(release[0], sequence=2, key_id="new-key")
+    trust["origins"][origin]["keys"].update(release[2]["origins"][origin]["keys"])
+    trust["origins"][origin]["keys"]["qa-key"]["status"] = "REVOKED"
+    monkeypatch.setattr(c, "trust", lambda: trust)
+    rows = [
+        {"release": rotated, "status": "AVAILABLE"},
+        {"release": release[1], "status": "KEY_OR_RELEASE_UNAVAILABLE"},
+    ]
+    monkeypatch.setattr(
+        c,
+        "_client",
+        lambda cancel: UpdateClient(
+            origin,
+            "qa",
+            cancel,
+            transport=httpx.MockTransport(lambda r: httpx.Response(200, json=rows)),
+        ),
+    )
+    c.checkUpdates()
+    spin(qt_app, lambda: not c.busy)
+    assert (
+        not c.error
+        and c.available == rotated
+        and c.store.state()["sequences"][origin + "|STABLE"] == 2
+    )
