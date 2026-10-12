@@ -82,7 +82,7 @@ class ReviewRepository:
         for event in tips:
             by_reviewer.setdefault(event.reviewer_id, []).append(event.review_id)
         meanings = {
-            (e.review_status, e.corrected_class, e.corrected_geometry_reference)
+            (e.review_status, e.corrected_class, e.corrected_geometry_reference, e.existence, e.class_decision, e.geometry_decision)
             for e in tips
         }
         conflict = len(meanings) > 1 or any(

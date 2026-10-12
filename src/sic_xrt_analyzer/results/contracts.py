@@ -464,6 +464,28 @@ class ReviewStatus(str, Enum):
     NEEDS_REVIEW = "NEEDS_REVIEW"
 
 
+class ExistenceDecision(str, Enum):
+    PRESENT = "PRESENT"
+    ABSENT = "ABSENT"
+    UNCERTAIN = "UNCERTAIN"
+    NOT_REVIEWED = "NOT_REVIEWED"
+
+
+class ClassDecision(str, Enum):
+    BPD = "BPD"
+    TED = "TED"
+    TSD = "TSD"
+    UNKNOWN = "UNKNOWN"
+    NOT_REVIEWED = "NOT_REVIEWED"
+
+
+class GeometryDecision(str, Enum):
+    ACCEPTED = "ACCEPTED"
+    CORRECTED = "CORRECTED"
+    UNCERTAIN = "UNCERTAIN"
+    NOT_REVIEWED = "NOT_REVIEWED"
+
+
 class ReviewTarget(str, Enum):
     OBSERVATION = "OBSERVATION"
     DEFECT_INSTANCE = "DEFECT_INSTANCE"
@@ -484,6 +506,9 @@ class ReviewEvent:
     corrected_geometry_reference: str | None = None
     comment: str = ""
     parent_review_ids: tuple[str, ...] = ()
+    existence: ExistenceDecision = ExistenceDecision.NOT_REVIEWED
+    class_decision: ClassDecision = ClassDecision.NOT_REVIEWED
+    geometry_decision: GeometryDecision = GeometryDecision.NOT_REVIEWED
 
     def __post_init__(self):
         for value in (self.review_id, self.target_id, self.reviewer_id):
@@ -515,6 +540,12 @@ class ReviewEvent:
             raise ValueError(
                 "CORRECTED requires explicit class/geometry; other statuses cannot change them"
             )
+        if not isinstance(self.existence, ExistenceDecision) or not isinstance(self.class_decision, ClassDecision) or not isinstance(self.geometry_decision, GeometryDecision):
+            raise TypeError("Explicit independent review decisions required")
+        if self.geometry_decision == GeometryDecision.CORRECTED and not self.corrected_geometry_reference:
+            raise ValueError("Geometry correction requires a new geometry reference")
+        if self.corrected_class and self.class_decision != ClassDecision.NOT_REVIEWED and self.corrected_class != self.class_decision.value:
+            raise ValueError("Corrected class must agree with the independent decision")
         freeze_fields(self, "original_prediction")
 
 
@@ -576,7 +607,7 @@ class AnalysisProject:
         text(self.project_name)
         text(self.project_id)
         integer(self.revision, "project revision", 1)
-        if self.schema_version != SCHEMA_VERSION:
+        if self.schema_version not in (SCHEMA_VERSION, "1.1.0"):
             raise ValueError(f"Unsupported project schema: {self.schema_version}")
         timestamp(self.created_at)
         timestamp(self.updated_at)
@@ -746,6 +777,8 @@ class AnalysisProject:
         prediction_by_observation = {p.observation_id: p for p in preds.values()}
         seen_reviews = {}
         for event in self.review_events:
+            if self.schema_version == "1.0.0" and (event.existence != ExistenceDecision.NOT_REVIEWED or event.class_decision != ClassDecision.NOT_REVIEWED or event.geometry_decision != GeometryDecision.NOT_REVIEWED):
+                raise ValueError("Independent decisions require project schema 1.1.0")
             target = (
                 obs.get(event.target_id)
                 if event.target_type == ReviewTarget.OBSERVATION

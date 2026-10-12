@@ -90,9 +90,13 @@ def dumps(project):
     # Reconstruct to validate even a caller that used object.__setattr__ on a frozen instance.
     payload = {
         "format": FORMAT,
-        "schema_version": SCHEMA_VERSION,
+        "schema_version": project.schema_version,
         "project": plain(project),
     }
+    if project.schema_version == "1.0.0":
+        for event in payload["project"]["review_events"]:
+            for field in ("existence", "class_decision", "geometry_decision"):
+                del event[field]
     encoded = (
         json.dumps(payload, ensure_ascii=False, indent=2, allow_nan=False).encode(
             "utf-8"
@@ -131,7 +135,7 @@ def loads(encoded):
             or data["format"] != FORMAT
         ):
             raise ValueError("Not a research project manifest")
-        if data["schema_version"] != SCHEMA_VERSION:
+        if data["schema_version"] not in (SCHEMA_VERSION, "1.1.0"):
             raise ValueError(
                 f"Unsupported project schema: {data['schema_version']}; explicit migration required"
             )
@@ -140,6 +144,13 @@ def loads(encoded):
             or data["project"].get("schema_version") != data["schema_version"]
         ):
             raise ValueError("Envelope/project schema mismatch")
+        if data["schema_version"] == "1.0.0":
+            # Explicit read migration: legacy status never invents independent judgements.
+            for event in data["project"].get("review_events", []):
+                for field in ("existence", "class_decision", "geometry_decision"):
+                    if field in event:
+                        raise ValueError("Schema 1.0.0 cannot contain 1.1.0 decisions")
+                    event[field] = "NOT_REVIEWED"
         return _decode(AnalysisProject, data["project"])
     except (
         UnicodeError,
