@@ -138,3 +138,51 @@ def test_current_page_ready_is_distinct_from_whole_stack(workbench):
     assert w.bridge.workbench.error and not w.bridge.workbench.busy
     w.bridge.stack_viewer.initial_loading = False
     w.bridge.stackChanged.emit()
+
+
+def test_picker_brush_fill_from_more_menu_preserve_original(workbench):
+    w = workbench
+    path = w.path.parent / "drawing-tools.tif"
+    raw = np.zeros((64, 64), np.uint8)
+    raw[24:48, 24:48] = 96
+    tifffile.imwrite(path, raw)
+    before = path.read_bytes()
+    w.open(path)
+    assert w.bridge.setDisplayRange(0, 255)
+    spin(w.app, lambda: not w.bridge.stack_viewer.busy)
+
+    w.select("tiffMore", "tiffMorePicker")
+    QTest.mouseClick(w.window, Qt.LeftButton, Qt.NoModifier, point(w, 32, 32))
+    assert w.bridge.workbench.color == "#606060"
+    assert not w.bridge.roi_manager.records
+    w.bridge.workbench.configure("#ffffff", 1, 0, "")
+
+    w.select("tiffMore", "tiffMoreBrush")
+    QTest.mousePress(w.window, Qt.LeftButton, Qt.NoModifier, point(w, 8, 8))
+    QTest.mouseMove(w.window, point(w, 16, 8), 20)
+    QTest.mouseRelease(w.window, Qt.LeftButton, Qt.NoModifier, point(w, 16, 8))
+    spin(
+        w.app,
+        lambda: not w.bridge.workbench.busy and not w.state.property("opening"),
+        30,
+    )
+    assert not w.bridge.workbench.error, w.bridge.workbench.error
+    brushed = w.bridge.original_source.read_full()
+    assert brushed.dtype == np.uint8 and brushed[8, 12] == 255
+    assert brushed[32, 32] == 96 and brushed[5, 5] == 0
+    assert w.bridge.original_source.path != str(path)
+
+    w.select("tiffMore", "tiffMoreFill")
+    QTest.mouseClick(w.window, Qt.LeftButton, Qt.NoModifier, point(w, 32, 32))
+    spin(
+        w.app,
+        lambda: not w.bridge.workbench.busy and not w.state.property("opening"),
+        30,
+    )
+    assert not w.bridge.workbench.error, w.bridge.workbench.error
+    filled = w.bridge.original_source.read_full()
+    assert filled[32, 32] == 255 and filled[5, 5] == 0 and filled[8, 12] == 255
+    assert path.read_bytes() == before
+    assert (
+        w.state.property("tiffMode") and not w.item("imagePrepareAnalysis").isVisible()
+    )

@@ -15,7 +15,7 @@ import numpy as np
 import pytest
 import tifffile
 from test_analysis_pipeline import spin
-from test_desktop_research import create_source
+from test_desktop_research import create_jpeg_source as create_source
 from test_ui_analysis_contract import invoke
 
 from sic_xrt_analyzer.analysis.contracts import (
