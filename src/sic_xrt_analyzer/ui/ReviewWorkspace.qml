@@ -23,6 +23,7 @@ ScrollView {
         AppButton { objectName: "reviewVerifySource"; theme: root.theme; text: "현재 원본 SHA 검증"; visible: !review.ready && !!review.sourceId; enabled: !uiState.project.busy; onClicked: fileBridge.projects.verifySource(review.sourceId) }
         Image { objectName: "projectReviewCrop"; Layout.preferredWidth: 112; Layout.preferredHeight: 112; fillMode: Image.PreserveAspectFit; smooth: false; cache: false; source: review.ready ? (review.selected.type === "OBSERVATION" ? uiState.research.thumbnailSource : review.crop || "") : "" }
         Text { objectName: "projectReviewModelScore"; visible: review.selected.type === "OBSERVATION"; text: "모델 점수 " + uiState.resultPresentation.confidence(review.selected.score) + " · 원점수 " + JSON.stringify(review.selected.scores || []); color: theme.muted; wrapMode: Text.Wrap; Layout.fillWidth: true }
+        Text { objectName: "reviewLinkedObservations"; visible: review.selected.type === "DEFECT_INSTANCE"; text: "연결된 원본 후보: " + ((review.selected.linkedObservations || []).length ? (review.selected.linkedObservations || []).map(function(o) { return o.candidateId + " · " + o.label }).join(" / ") : "없음") + "\n연결은 근거이며 동일 결함 확정·자동 병합이 아닙니다."; color: theme.muted; wrapMode: Text.Wrap; Layout.fillWidth: true }
         Text { text: "결함 여부"; color: theme.text }
         RowLayout {
             Layout.fillWidth: true

@@ -95,6 +95,7 @@ class ReviewController(QObject):
                             "number": len(self.rows) + 1,
                         }
                     )
+                observations = {o.observation_id: o for o in p.observations}
                 for i in p.defect_instances:
                     self.rows.append(
                         {
@@ -106,6 +107,18 @@ class ReviewController(QObject):
                             "label": i.class_label or "UNKNOWN",
                             "geometryId": i.geometry_id,
                             "manual": i.instance_status == "HUMAN",
+                            "linkedObservations": [
+                                {
+                                    "id": observations[ident].observation_id,
+                                    "candidateId": observations[
+                                        ident
+                                    ].source_candidate_id,
+                                    "label": observations[ident].assigned_class
+                                    or "UNKNOWN",
+                                    "runId": observations[ident].run_id,
+                                }
+                                for ident in i.linked_observations
+                            ],
                             "number": len(self.rows) + 1,
                         }
                     )
