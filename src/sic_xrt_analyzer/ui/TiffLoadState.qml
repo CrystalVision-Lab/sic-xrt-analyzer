@@ -16,6 +16,7 @@ QtObject {
     readonly property bool pageNavigationReady: hasViewableFrame && !uiState.stack.initialLoading
     readonly property bool displayRangeReady: pageNavigationReady
     readonly property bool recordReady: pageNavigationReady
+    readonly property bool imagejReady: currentPageReady && !uiState.opening && !fileBridge.imagej.state.busy && !uiState.importedRois.busy
     readonly property string phase: isOpening ? "OPENING" : hasError ? "ERROR"
         : !uiState.hasImage ? "EMPTY" : isStackPreparing ? preparedPages <= 1 ? "FIRST_FRAME_READY" : "STACK_PREPARING" : "READY"
     readonly property bool blocking: isOpening || (hasError && !hasViewableFrame && !uiState.demoMode)
@@ -28,9 +29,9 @@ QtObject {
         : uiState.pageLoading ? pageRequestLabel : isStackPreparing ? stackLabel : uiState.hasImage ? "준비 완료" : "이미지 없음"
     readonly property string statusLabel: isOpening ? "파일 여는 중" : hasError ? uiState.stack.preloadError ? "Stack 준비 실패" : "파일 오류"
         : uiState.pageLoading ? "현재 페이지 준비 중" : isStackPreparing ? "Stack 준비 · " + preparedPages + "/" + totalPages : uiState.hasImage ? "준비 완료" : "이미지 없음"
-    readonly property string navigationReason: pageNavigationReady ? "" : hasViewableFrame ? "전체 페이지 준비 후 페이지 이동·밝기/대비·ImageJ 작업을 사용할 수 있습니다." : "현재 페이지가 준비되면 사용할 수 있습니다."
+    readonly property string navigationReason: pageNavigationReady ? "" : hasViewableFrame ? "전체 페이지 준비 후 페이지 이동·밝기/대비·전체 스택 작업을 사용할 수 있습니다." : "현재 페이지가 준비되면 사용할 수 있습니다."
     readonly property string openingHint: uiState.hasImage ? "이전 이미지를 표시하고 있습니다. 새 파일이 준비되면 교체합니다." : "첫 페이지가 준비되면 이미지를 표시합니다."
-    readonly property string availableHint: "현재 페이지의 Pan·Zoom·Fit·픽셀 확인·분석 영역을 사용할 수 있습니다. 분석 실행은 기존 준비 조건을 따릅니다."
+    readonly property string availableHint: "현재 페이지의 Pan·Zoom·Fit·픽셀 확인과 준비된 ImageJ 선택·측정을 사용할 수 있습니다."
     readonly property string errorDetails: [uiState.loadError, uiState.stack.error, uiState.stack.preloadError].filter(function(value, index, values) { return value && values.indexOf(value) === index }).join("\n\n")
     // Presentation-only delay. It never delays readiness or stores TIFF data.
     property bool indicatorElapsed: false

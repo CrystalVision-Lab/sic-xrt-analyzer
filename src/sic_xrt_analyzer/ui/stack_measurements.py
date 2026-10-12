@@ -28,10 +28,10 @@ class StackMeasurements(QObject):
 
     def require_frame(self):
         frame = self.bridge.stack_viewer.frame
-        working_stack = frame is not None and self.bridge._stack_context and frame.source.path == self.bridge._working_path
-        if (frame is None or frame.source.metadata.format != 'TIFF' or (frame.source.metadata.page_count < 2 and not working_stack)
-                or self.bridge.stack_viewer.initial_loading):
-            raise ValueError('여러 페이지가 있는 XRT TIFF 스택을 준비한 뒤 사용하세요')
+        if (frame is None or frame.source.metadata.format != 'TIFF'
+                or self.bridge.stack_viewer.opening_request is not None or self.bridge.stack_viewer.busy
+                or self.bridge.workbench.busy):
+            raise ValueError('현재 TIFF 페이지와 진행 중인 작업을 준비한 뒤 사용하세요')
         return frame
 
     @Slot()
