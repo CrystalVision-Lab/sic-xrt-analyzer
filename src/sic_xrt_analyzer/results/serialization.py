@@ -88,6 +88,7 @@ def dumps(project):
     if not isinstance(project, AnalysisProject):
         raise TypeError("Validated AnalysisProject required")
     # Reconstruct to validate even a caller that used object.__setattr__ on a frozen instance.
+    AnalysisProject(**{f.name: getattr(project, f.name) for f in fields(project)})
     payload = {
         "format": FORMAT,
         "schema_version": project.schema_version,

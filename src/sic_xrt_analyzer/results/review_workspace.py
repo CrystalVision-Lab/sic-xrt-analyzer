@@ -316,7 +316,8 @@ class GeometryDraft:
             return
         if checkpoint:
             self.checkpoint()
-        parts = self.selected.split(":")
+        key, value = self.selected.split(":", 1)
+        parts = [key, *value.rsplit(":", 1)] if key == "e" else [key, value]
         if parts[0] == "p":
             self.data["points"][int(parts[1])] = p
         elif parts[0] == "n":
@@ -371,7 +372,8 @@ class GeometryDraft:
         if not self.selected:
             return
         self.checkpoint()
-        parts = self.selected.split(":")
+        key, value = self.selected.split(":", 1)
+        parts = [key, *value.rsplit(":", 1)] if key == "e" else [key, value]
         if parts[0] == "p":
             del self.data["points"][int(parts[1])]
         elif parts[0] == "e":
