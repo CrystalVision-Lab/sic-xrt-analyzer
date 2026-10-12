@@ -115,6 +115,8 @@ def file_sha(path, maximum=MAX_MODEL):
 
 
 def frozen_manifest(value):
+    if not isinstance(value, dict):
+        raise ValueError("MODEL_CONTRACT")  # noqa: TRY004 -- stable boundary error for untrusted JSON
     if (
         value.get("schema") != "frozen_xrt_patch_classifier"
         or value.get("schema_version") != 1
@@ -156,15 +158,29 @@ def verify_release(
     from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
     from packaging.version import Version
 
-    if set(envelope) != {"metadata", "signature"}:
+    if (
+        not isinstance(envelope, dict)
+        or not isinstance(trust, dict)
+        or set(envelope) != {"metadata", "signature"}
+    ):
         raise ValueError("RELEASE_SCHEMA")
     m = envelope["metadata"]
-    if set(m) != FIELDS or m["schema"] != "xrt_signed_model_release/v1":
+    if (
+        not isinstance(m, dict)
+        or set(m) != FIELDS
+        or m["schema"] != "xrt_signed_model_release/v1"
+    ):
         raise ValueError("RELEASE_SCHEMA")
-    keys = trust.get("origins", {}).get(origin, {})
+    safe_name(m["signing_key_id"])
+    origins = trust.get("origins", {})
+    if not isinstance(origins, dict):
+        raise ValueError("UNTRUSTED_SIGNING_KEY")  # noqa: TRY004
+    keys = origins.get(origin, {})
+    if not isinstance(keys, dict) or not isinstance(keys.get("keys", {}), dict):
+        raise ValueError("UNTRUSTED_SIGNING_KEY")  # noqa: TRY004 -- trust protocol boundary
     key = keys.get("keys", {}).get(m["signing_key_id"])
     if (
-        not key
+        not isinstance(key, dict)
         or key.get("status") != "TRUSTED"
         or keys.get("registry_id") != m["registry_id"]
     ):

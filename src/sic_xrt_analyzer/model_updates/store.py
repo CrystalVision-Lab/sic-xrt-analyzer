@@ -64,11 +64,27 @@ class ModelStore:
 
     def state(self):
         path = self.root / "state.json"
-        return (
+        value = (
             read_json(safe_path(path).read_bytes())
             if path.exists()
             else {"current": None, "previous": None, "sequences": {}, "revoked": []}
         )
+        if (
+            not isinstance(value, dict)
+            or set(value) != {"current", "previous", "sequences", "revoked"}
+            or any(
+                v is not None and not isinstance(v, dict)
+                for v in (value["current"], value["previous"])
+            )
+            or not isinstance(value["sequences"], dict)
+            or any(
+                not isinstance(k, str) or type(v) is not int or v < 0
+                for k, v in value["sequences"].items()
+            )
+            or not isinstance(value["revoked"], list)
+        ):
+            raise ValueError("INVALID_MODEL_STATE")
+        return value
 
     def remember(self, origin, channel, envelope, revoked=False):
         with self.exclusive():

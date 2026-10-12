@@ -401,21 +401,31 @@ if found!=set(expected):raise ValueError('Asset inventory mismatch')
     if manifest["format"] == "xrt-server-backup-2":
         from model_blob_backup import RESTORE
 
-        compose(
-            project,
+        # Compose inherits the persistent API's :ro mode even with a short -v override.
+        # An isolated one-shot restore gets only this NEW model volume writable.
+        run(
             [
+                "docker",
                 "run",
                 "--rm",
-                "--no-deps",
-                "-v",
-                str(source) + ":/backup:ro",
-                "-v",
-                project + "_models:/data/models",
-                "api",
+                "--network",
+                "none",
+                "--read-only",
+                "--tmpfs",
+                "/tmp",
+                "--security-opt",
+                "no-new-privileges",
+                "--cap-drop",
+                "ALL",
+                "--mount",
+                "type=bind,source=" + str(source) + ",target=/backup,readonly",
+                "--mount",
+                "type=volume,source=" + project + "_models,target=/data/models",
+                project + "-api",
                 "python",
                 "-c",
                 RESTORE,
-            ],
+            ]
         )
     compose(project, ["up", "-d", "api"])
     print("Restored to isolated Compose stack; original stack and volumes preserved")

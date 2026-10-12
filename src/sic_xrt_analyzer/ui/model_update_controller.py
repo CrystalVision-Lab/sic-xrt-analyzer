@@ -59,7 +59,14 @@ class ModelUpdateController(QObject):
             Path(__file__).resolve().parents[1] / "model_updates/trusted-keys.json"
         )
         path = Path(os.getenv("SIC_XRT_MODEL_TRUST_FILE", str(default)))
-        return read_json(path.read_bytes())
+        value = read_json(path.read_bytes())
+        if (
+            not isinstance(value, dict)
+            or value.get("schema") != "xrt_release_trust/v1"
+            or not isinstance(value.get("origins"), dict)
+        ):
+            raise ValueError("INVALID_TRUST_FILE")
+        return value
 
     def fingerprint(self):
         sync = self.bridge.sync_controller
@@ -136,6 +143,7 @@ class ModelUpdateController(QObject):
                 if not isinstance(rows, list) or len(rows) > 100:
                     raise ValueError("RELEASE_LIST_SIZE")
                 chosen = None
+                unavailable = []
                 minimum = self.store.state()["sequences"].get(
                     client.origin + "|" + channel, 0
                 )
@@ -147,8 +155,10 @@ class ModelUpdateController(QObject):
                         client.origin,
                         channel=channel,
                         minimum_sequence=0,
+                        allow_expired=row["status"] != "AVAILABLE",
                     )
                     if row["status"] != "AVAILABLE":
+                        unavailable.append(m["release_id"])
                         self.store.remember(
                             client.origin, channel, envelope, revoked=True
                         )
@@ -163,7 +173,11 @@ class ModelUpdateController(QObject):
                         chosen = envelope
                 if chosen:
                     self.store.remember(client.origin, channel, chosen)
-                return {"operation": "check", "release": chosen}
+                return {
+                    "operation": "check",
+                    "release": chosen,
+                    "unavailable": unavailable,
+                }
             finally:
                 client.close()
 
@@ -347,6 +361,9 @@ class ModelUpdateController(QObject):
                 if self.available
                 else "최신 승인 모델이 없습니다. 현재 모델을 유지합니다."
             )
+            current = self.store.state()["current"]
+            if current and current.get("release_id") in value.get("unavailable", []):
+                self.error = "현재 모델의 배포 승인이 철회되었거나 재검토 중입니다. 작업을 저장한 뒤 이전 모델을 복원하세요."
         elif operation == "download":
             self.installed_record = value["record"]
             self.status = "설치 완료. 적용 버튼을 누르면 새 분석부터 사용합니다."

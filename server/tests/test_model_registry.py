@@ -418,7 +418,8 @@ def test_same_version_changed_manifest_denied(api, candidate):
 
 
 @pytest.mark.parametrize(
-    "missing", ["ground_truth", "independent", "bpd", "matrix", "cpu", "restricted"]
+    "missing",
+    ["ground_truth", "independent", "bpd", "matrix", "cpu", "restricted", "complete"],
 )
 def test_scientific_gate_rejects_incomplete_expert_metadata(
     api, candidate, monkeypatch, missing
@@ -536,5 +537,9 @@ def test_scientific_gate_rejects_incomplete_expert_metadata(
         evaluation["candidate"]["per_class"][0].pop("recall")
     if missing == "matrix":
         evaluation["candidate"]["confusion_matrix"][0][0] = 4
-    assert not scientific_gate(Session(), c, "unused", "STABLE")["eligible"]
-    assert not scientific_gate(Session(), c, "unused", "BETA")["eligible"]
+    assert scientific_gate(Session(), c, "unused", "STABLE")["eligible"] == (
+        missing == "complete"
+    )
+    assert scientific_gate(Session(), c, "unused", "BETA")["eligible"] == (
+        missing == "complete"
+    )

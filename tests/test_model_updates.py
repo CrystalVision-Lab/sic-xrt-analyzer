@@ -419,3 +419,65 @@ def test_qml_update_buttons_install_activate_restart_rollback(
         engine.deleteLater()
         bridge.deleteLater()
         qt_app.processEvents()
+
+
+def test_known_revoked_current_warns_and_rejects_next_activation(
+    release, tmp_path, bridge_factory, qt_app, monkeypatch
+):
+    b = bridge_factory(
+        settings=QSettings(str(tmp_path / "prefs.ini"), QSettings.IniFormat)
+    )
+    c = b.modelUpdates
+    b.centralSync.endpoint = "http://127.0.0.1:18766"
+    monkeypatch.setattr(c, "trust", lambda: release[2])
+    network = client(release)
+    try:
+        record = c.store.install(network, release[1], release[2])
+    finally:
+        network.close()
+    c.store.activate(
+        record,
+        {
+            "legacy_bundle": str(release[0]),
+            "model_hash": release[1]["metadata"]["model_sha256"],
+        },
+    )
+
+    def revoked(cancel):
+        return UpdateClient(
+            b.centralSync.endpoint,
+            "synthetic",
+            cancel,
+            transport=httpx.MockTransport(
+                lambda r: httpx.Response(
+                    200, json=[{"release": release[1], "status": "REVOKED"}]
+                )
+            ),
+        )
+
+    monkeypatch.setattr(c, "_client", revoked)
+    before = b.pipeline.adapter
+    c.checkUpdates()
+    spin(qt_app, lambda: not c.busy)
+    assert "철회" in c.error and c.available is None and b.pipeline.adapter is before
+    with pytest.raises(ValueError, match="REVOKED"):
+        c.store.verify_installed(record, release[2])
+    assert c.store.recover_record(release[2]) == c.store.rollback_record()
+
+
+@pytest.mark.parametrize("bad", [None, [], {"current": []}])
+def test_corrupt_local_state_falls_back_to_bundle(
+    tmp_path, bridge_factory, monkeypatch, bad
+):
+    b = bridge_factory(
+        settings=QSettings(str(tmp_path / "prefs.ini"), QSettings.IniFormat)
+    )
+    c = b.modelUpdates
+    (c.store.root / "state.json").write_bytes(canonical(bad))
+    assert c.startup_bundle() is None
+    assert not c.state["canRollback"]
+    # A malformed out-of-band trust file must also be a contained startup error.
+    trust = tmp_path / "bad-trust.json"
+    trust.write_bytes(canonical([]))
+    monkeypatch.setenv("SIC_XRT_MODEL_TRUST_FILE", str(trust))
+    assert c.startup_bundle() is None
