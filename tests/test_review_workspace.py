@@ -642,3 +642,30 @@ def test_actual_review_typing_does_not_trigger_global_r_h_shortcuts(
     v.decisions("PRESENT", "TED", "ACCEPTED", v.comment)
     assert v.commit(False)
     assert _c.project.review_events[-1].comment == "research review: bpd to ted"
+
+
+def test_review_index_resolves_typed_observation_links(workbench, tmp_path):
+    from sic_xrt_analyzer.results.contracts import DefectInstance, ObservationLink
+
+    c, _r, v, _ = prepare(workbench, tmp_path)
+    p = c.project
+    o = p.observations[0]
+    g = next(g for g in p.geometries if g.geometry_id == o.geometry_id)
+    instance = DefectInstance(
+        new_id(),
+        g.source_id,
+        g.geometry_id,
+        (ObservationLink(o.observation_id),),
+        "BPD",
+    )
+    c._replace(p.evolve(defect_instances=p.defect_instances + (instance,)))
+    row = next(row for row in v.rows if row["id"] == instance.instance_id)
+    assert row["linkedObservations"] == [
+        {
+            "id": o.observation_id,
+            "candidateId": o.source_candidate_id,
+            "label": o.assigned_class or "UNKNOWN",
+            "runId": o.run_id,
+        }
+    ]
+    assert not workbench.warnings

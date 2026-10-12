@@ -55,6 +55,7 @@ QtObject {
     property string analysisPointMode: "contrast_proposals"
     property var projectReview: fileBridge.reviews.state
     onProjectReviewChanged: { if (projectReview.editing) { roiEditMode=false; feedbackVisible=false; activeTool="Pan"; autoCandidateRoi=false; selectingRoi=false } }
+    property var centralSync: fileBridge.centralSync.state
     property var project: fileBridge.projects.state
     property var research: fileBridge.research.state
     property bool feedbackVisible: false

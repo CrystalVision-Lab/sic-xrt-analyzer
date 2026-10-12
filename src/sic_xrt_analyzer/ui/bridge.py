@@ -124,6 +124,8 @@ class FileBridge(QObject):
         self.feedback_controller.changed.connect(self.research_controller.changed)
         from .review_controller import ReviewController
         self.review_controller = ReviewController(self)
+        from .sync_controller import SyncController
+        self.sync_controller = SyncController(self)
         stored = self._settings.value("preferences", {})
         self._preferences = self._validated(stored if isinstance(stored, dict) else {})
         recent = self._settings.value("recentFiles", [])
@@ -635,6 +637,7 @@ class FileBridge(QObject):
 
     @Slot()
     def waitForLoads(self):
+        self.sync_controller.shutdown()
         self.project_controller.shutdown()
         self.review_controller.crop_reader.shutdown()
         self.feedback_controller.loader.shutdown()
@@ -693,3 +696,7 @@ class FileBridge(QObject):
     @Slot(result=bool)
     def openIssueTracker(self):
         return QDesktopServices.openUrl(QUrl("https://github.com/CrystalVision-Lab/sic-xrt-analyzer/issues"))
+
+    @Property(QObject, constant=True)
+    def centralSync(self):
+        return self.sync_controller

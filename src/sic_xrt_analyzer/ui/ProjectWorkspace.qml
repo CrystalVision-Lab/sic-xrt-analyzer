@@ -15,6 +15,7 @@ Item {
     property bool creating: false
     property string chosenSource: ""
     property string relinkId: ""
+    SyncPanel { id: centralSyncDialog; theme: root.theme; uiState: root.uiState }
     function guard(action) { hostWindow.confirmReviewDiscard(function() { root.guardProject(action) }) }
     function guardProject(action) {
         if (uiState.analysisRunning) { hostWindow.showInfo("분석 진행 중", "분석을 완료하거나 취소한 뒤 프로젝트를 전환하세요."); return }
@@ -102,6 +103,7 @@ Item {
             anchors.fill: parent; spacing: theme.spacingSm
             Text { textFormat: Text.PlainText; text: project.name + " · 이미지 " + project.sourceCount + "개 · 분석 실행 " + project.runCount + "회"; color: theme.text; font.pixelSize: theme.titleSize; Layout.fillWidth: true }
             Text { text: project.path || "저장 위치 미지정"; color: theme.muted; elide: Text.ElideMiddle; Layout.fillWidth: true; font.pixelSize: theme.smallSize }
+            AppButton { objectName: "projectCentralSync"; theme: root.theme; text: "중앙 서버 · 동기화…"; onClicked: centralSyncDialog.open() }
             RowLayout {
                 AppButton { objectName: "projectRegisterImage"; theme: root.theme; text: "현재 원본 등록"; enabled: uiState.hasLoadedImage && !project.busy; onClicked: fileBridge.projects.registerCurrent() }
                 AppButton { objectName: "projectCaptureLive"; theme: root.theme; text: "현재 분석 추가"; enabled: uiState.analysis.hasResult && uiState.imageFormat === "JPEG" && !project.busy; onClicked: fileBridge.projects.captureCurrent() }

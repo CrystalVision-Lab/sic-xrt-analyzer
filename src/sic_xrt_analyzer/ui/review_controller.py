@@ -109,13 +109,13 @@ class ReviewController(QObject):
                             "manual": i.instance_status == "HUMAN",
                             "linkedObservations": [
                                 {
-                                    "id": observations[ident].observation_id,
+                                    "id": observations[ident.observation_id].observation_id,
                                     "candidateId": observations[
-                                        ident
+                                        ident.observation_id
                                     ].source_candidate_id,
-                                    "label": observations[ident].assigned_class
+                                    "label": observations[ident.observation_id].assigned_class
                                     or "UNKNOWN",
-                                    "runId": observations[ident].run_id,
+                                    "runId": observations[ident.observation_id].run_id,
                                 }
                                 for ident in i.linked_observations
                             ],
