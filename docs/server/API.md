@@ -69,3 +69,16 @@ Project summary는 project_name/schema_version/created_at/updated_at/server_rece
 400 malformed/duplicate JSON; 401 인증; 403 project/device/role; 404 resource; 409 immutable/revision/storage/quota conflict; 413 oversized; 415 MIME; 422 contract; 503 DB/storage. 인증 실패·충돌·검증 거부를 네트워크 성공으로 표시하지 않는다. Desktop은 안전한 코드만 표시한다.
 
 Transport는 connect 3초/read-write-pool 10초, 최대 3회, 0.25/0.5초 backoff다. network/502/503/504만 재시도한다. 취소는 worker token으로 확인하며 이미 시작한 HTTP block은 timeout 이내에 종료된다. 서버가 이미 commit했다면 취소가 이를 되돌리지 않는다. 이후 같은 Outbox Batch를 재전송하여 ACK를 확인한다. 앱 종료는 bounded worker 완료를 기다릴 수 있다.
+
+
+## 승인 데이터셋 관리 (TD-07, ADMIN only)
+
+- GET `/api/v1/admin/datasets/eligibility?project_id=<id>`: 적격 Crop와 제외 사유.
+- POST `/api/v1/admin/datasets/groups`: 원본 hash와 독립 촬영·Wafer·제공자·전후·중복 그룹 Mapping. first previous_event_id=null, 후속 기록은 이전 event_id를 지정한다.
+- POST `/api/v1/admin/datasets/approvals`: project_id, asset_id, status, approved_class, 현재 모든 review_ids, reason, resolve_conflict, previous_event_id. 철회도 새 이벤트다.
+- GET `/api/v1/admin/datasets/events?project_id=<id>`: 승인·Mapping 이력.
+- POST `/api/v1/admin/datasets`: `{version, project_ids, seed}`. 같은 version 재사용은 409. 포함 가능한 승인 Crop가 없으면 DATA_NOT_READY로 409.
+- GET `/api/v1/admin/datasets`: 버전·hash·현재 usage_status.
+- GET `/api/v1/admin/datasets/<id>`: 불변 Manifest와 현재 제한 상태. PNG 다운로드 경로는 없다.
+
+기존 strict JSON·Credential 인증·안전한 오류 응답을 유지한다. RESEARCHER는 자기 검수를 승인·반출할 수 없다. 전체 필드와 기준은 [승인 데이터셋 계약](VERIFIED-DATASET-CONTRACT.md)을 참고한다. TD06 summary의 ground_truth_approved는 기존 DefectInstance assessment 수이며 새 관리자 DatasetApproval 수와 혼동하지 않는다. 새 승인 데이터 집계는 datasets/eligibility를 사용한다.

@@ -65,3 +65,16 @@ $env:SIC_XRT_SYNC_DIR = 'D:\capstone\private-sync'
 현재 외부 서버 공개와 Tunnel 실행은 하지 않았다. 향후 관리자 승인 후 Cloudflare Tunnel의 public hostname은 loopback API `http://127.0.0.1:18766`만 가리키고, Access 정책으로 연구원/조직/기기 접근을 제한한다. Tunnel token은 OS secret storage로 보관하며 설정 저장소에 커밋하지 않는다. PostgreSQL Tunnel은 만들지 않는다. public HTTPS 인증서/접근 정책/앱 Credential·프로젝트 권한/외부 재시도/백업을 별도로 acceptance한 후 Desktop origin을 변경한다. 공개 URL 생성은 별도 승인 작업이다.
 
 Linux CI에서 독립 서버 패키지와 PostgreSQL 검사를 통과시키지만 Linux Compose 실사용 검증은 별도다. Linux에서는 0600 secret bind 파일을 컨테이너 xrt(uid 10001)가 읽을 수 있도록 소유자/ACL을 설정해야 한다. Windows ACL 검증 결과를 Linux 권한 검증으로 간주하지 않는다.
+
+
+## 승인 데이터셋 로컬 반출 (TD-07)
+
+먼저 기존 백업 명령으로 새 private 백업을 생성한다. start 시 Alembic 0002가 이벤트·버전 테이블과 append-only trigger를 추가한다. 기존 0001 데이터는 보존한다. 관리자만 API로 Group Mapping과 정답 승인을 작성한다. 사용 권한·독립 촬영 그룹·라벨 근거를 확인한 후 새 Dataset Version을 만든다. 이번 실제 승인 수는 0개여서 기존 QA 자료로 학습 버전을 만들지 않았다.
+
+```powershell
+.\.venv\Scripts\python.exe tools/server_ops.py dataset-export --dataset-id <dataset-UUID> --output artifacts/sync106-private/exports/<new-version>
+```
+
+출력은 새 경로이며 ACL 보호 private 폴더 아래여야 한다. Artifact는 지정한 폴더의 dataset/ 아래에 생성된다. 일회성 관리 컨테이너에 관리자 Credential 파일은 read-only, 지정 출력 폴더만 writable로 마운트한다. 상시 API에는 관리자 파일·반출 폴더를 마운트하지 않는다. 인증값을 출력하지 않는다. 반출 실패 시 partial 폴더를 재사용하지 않고 새 경로를 지정한다. public 다운로드·자동 업로드는 없다.
+
+학습 전 GET datasets/<id>의 usage_status=AVAILABLE을 다시 확인한다. 철회 시 이전 사본은 불변으로 보존하되 사용을 중단한다. 학습은 별도 ML 프로세스로 실행한다. [Artifact 계약](VERIFIED-DATASET-CONTRACT.md)과 ML TD-07 문서를 따른다.
