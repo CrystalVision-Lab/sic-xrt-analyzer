@@ -23,17 +23,21 @@ AppShell {
     property var desktopBridge: fileBridge
     property var discardNext: null
     property bool allowQuit: false
-    function imagejCommand(command, options) { if (uiState.stackFeaturesVisible) imagejDialog.showCommand(command, options) }
-    function imagejTools() { if (uiState.stackFeaturesVisible) { imagejDialog.tabsIndex = 3; imagejDialog.open() } }
-    function imagejMacro() { if (uiState.stackFeaturesVisible) imagejDialog.showMacro() }
-    function imagejPlugin() { if (uiState.stackFeaturesVisible) imagejDialog.showPlugin() }
-    function stackMeasurement() { if (uiState.stackFeaturesVisible) measurementDialog.open() }
-    function imagejCatalog() { if (uiState.stackFeaturesVisible) { imagejDialog.tabsIndex = 1; imagejDialog.open(); fileBridge.imagej.loadCommands() } }
-    function imagejModern() { if (uiState.stackFeaturesVisible) { imagejDialog.tabsIndex = 4; imagejDialog.open() } }
-    function imagejResults() { if (uiState.stackFeaturesVisible) { imagejDialog.tabsIndex = 2; imagejDialog.open() } }
+    function imagejCommand(command, options) { if (uiState.imagejFeaturesVisible) imagejDialog.showCommand(command, options) }
+    function imagejTools() { if (uiState.imagejFeaturesVisible) { imagejDialog.tabsIndex = 3; imagejDialog.open() } }
+    function imagejMacro() { if (uiState.imagejFeaturesVisible) imagejDialog.showMacro() }
+    function imagejPlugin() { if (uiState.imagejFeaturesVisible) imagejDialog.showPlugin() }
+    function stackMeasurement() { if (uiState.imagejFeaturesVisible) measurementDialog.open() }
+    function imagejCatalog() { if (uiState.imagejFeaturesVisible) { imagejDialog.tabsIndex = 1; imagejDialog.open(); fileBridge.imagej.loadCommands() } }
+    function imagejModern() { if (uiState.imagejFeaturesVisible) { imagejDialog.tabsIndex = 4; imagejDialog.open() } }
+    function imagejResults() { if (uiState.imagejFeaturesVisible) { imagejDialog.tabsIndex = 2; imagejDialog.open() } }
+    function changeTiffPage(index) { viewer.cancelToolDrawing(); fileBridge.requestPage(index) }
+    function measureSelection() { if (!uiState.loadFlow.imagejReady) return; fileBridge.stackMeasurements.measure(); openContext("viewer"); viewer.focusView() }
+    function processTiff(kind) { if (uiState.imagejFeaturesVisible && uiState.loadFlow.imagejReady) processingDialog.showKind(kind) }
+    Shortcut { sequence: "R"; enabled: uiState.imagejFeaturesVisible && uiState.loadFlow.imagejReady && !window.editingText; onActivated: toolCommands.rectangle.trigger() }
     function saveImageCopy() { imageSaveDialog.open() }
     function saveMeasurements() { measurementsSaveDialog.open() }
-    function imagejStatistics(kind) { if (uiState.stackFeaturesVisible) { imagejResults(); fileBridge.imagej.statistics(kind) } }
+    function imagejStatistics(kind) { if (uiState.imagejFeaturesVisible) { imagejResults(); fileBridge.imagej.statistics(kind) } }
     function imagejStackCommand(command, options) { if (uiState.stackFeaturesVisible) { imagejDialog.showCommand(command, options); imagejDialog.wholeStack = true } }
     property var reviewDiscardNext: null
     function confirmReviewDiscard(callback) {
@@ -205,7 +209,7 @@ AppShell {
     }
     function clearRoi() { uiState.stopCandidateRoiTracking(); uiState.hasRoi = false; uiState.statusText = "ROI를 초기화했습니다" }
     function selectImportedBounds() {
-        if (uiState.analysisRunning) return
+        if (uiState.tiffMode || uiState.analysisRunning) return
         var selected = uiState.importedRois.items.filter(function(r) { return r.selected && r.active })
         if (!selected.length) return
         uiState.stopCandidateRoiTracking()
@@ -239,7 +243,7 @@ AppShell {
     Action { id: closeImageAction; objectName: "closeImageAction"; text: "현재 이미지 닫기"; shortcut: StandardKey.Close; enabled: uiState.hasImage || uiState.loading; onTriggered: window.closeImage() }
     Action { id: quitAction; text: "종료"; shortcut: "Ctrl+Q"; onTriggered: window.close() }
     Action { id: panAction; objectName: "panAction"; text: "Pan"; shortcut: window.editingText ? "" : "H"; checkable: true; checked: uiState.activeTool === "Pan" && !uiState.roiEditMode; enabled: uiState.canNavigateImage; onTriggered: { uiState.roiEditMode = false; uiState.activeTool = "Pan" } }
-    Action { id: roiAction; objectName: "roiAction"; text: "ROI 선택"; shortcut: window.editingText ? "" : "R"; checkable: true; checked: uiState.activeTool === "ROI" && !uiState.roiEditMode; enabled: uiState.canNavigateImage && !uiState.analysisRunning; onTriggered: { uiState.roiEditMode = false; uiState.activeTool = "ROI"; Qt.callLater(function() { viewer.focusView() }) } }
+    Action { id: roiAction; objectName: "roiAction"; text: "ROI 선택"; shortcut: window.editingText || uiState.tiffMode ? "" : "R"; checkable: true; checked: uiState.activeTool === "ROI" && !uiState.roiEditMode; enabled: !uiState.tiffMode && uiState.canNavigateImage && !uiState.analysisRunning; onTriggered: { uiState.roiEditMode = false; uiState.activeTool = "ROI"; Qt.callLater(function() { viewer.focusView() }) } }
     Action { id: clearRoiAction; objectName: "clearRoiAction"; text: "ROI 초기화"; enabled: uiState.hasRoi && !uiState.loading && !uiState.analysisRunning; onTriggered: window.clearRoi() }
     Action { id: copyRoiAction; objectName: "copyRoiAction"; text: "ROI 좌표 복사"; enabled: uiState.hasRoi && !uiState.loading; onTriggered: window.copyRoiInfo() }
     Action { id: zoomInAction; objectName: "zoomInAction"; text: "확대"; shortcut: "Ctrl++"; enabled: uiState.canNavigateImage && uiState.effectiveZoom < 16; onTriggered: viewer.zoomIn() }
@@ -255,8 +259,8 @@ AppShell {
     Action { id: runAction; objectName: "runAction"; text: "분석 실행"; enabled: uiState.canAnalyze; onTriggered: { if (!uiState.canAnalyze) return; window.requestContext("analysis", "ANALYSIS_START"); uiState.candidateRoiId = ""; fileBridge.requestAnalysis(uiState.analysisScope, uiState.roiX, uiState.roiY, uiState.roiWidth, uiState.roiHeight, {point_mode: uiState.analysisPointMode}) } }
     Action { id: cancelAnalysisAction; objectName: "cancelAnalysisAction"; text: "분석 취소"; enabled: uiState.analysisRunning; onTriggered: fileBridge.cancelAnalysis() }
     Action { id: settingsAction; objectName: "settingsAction"; text: "설정…"; onTriggered: settingsDialog.openPreferences() }
-    Action { id: prepareAnalysisAction; objectName: "prepareAnalysisAction"; text: "분석하기"; enabled: uiState.hasLoadedImage && !uiState.loading; onTriggered: { uiState.workspaceIndex = 0; window.openContext("analysis"); viewer.focusView() } }
-    Action { id: analysisInputInfoAction; objectName: "analysisInputInfoAction"; text: "분석 입력 상세"; enabled: uiState.hasLoadedImage; onTriggered: window.showInfo("분석 입력", uiState.inputPreflight.currentInputDetail + "\n" + uiState.fileName + "\n" + uiState.filePath + "\n표시 밝기·배율과 별개로 원본 픽셀을 사용합니다.") }
+    Action { id: prepareAnalysisAction; objectName: "prepareAnalysisAction"; text: "분석하기"; enabled: !uiState.tiffMode && uiState.hasLoadedImage && !uiState.loading; onTriggered: { uiState.workspaceIndex = 0; window.openContext("analysis"); viewer.focusView() } }
+    Action { id: analysisInputInfoAction; objectName: "analysisInputInfoAction"; text: "분석 입력 상세"; enabled: !uiState.tiffMode && uiState.hasLoadedImage; onTriggered: window.showInfo("분석 입력", uiState.inputPreflight.currentInputDetail + "\n" + uiState.fileName + "\n" + uiState.filePath + "\n표시 밝기·배율과 별개로 원본 픽셀을 사용합니다.") }
     Action { id: modelInfoAction; text: "모델 정보"; onTriggered: window.showInfo("모델 정보", uiState.analysisFlow.modelStatus + "\n모델: " + (uiState.analysis.modelName || "—") + "\n버전: " + (uiState.analysis.modelVersion || "—") + "\n장치: " + (uiState.analysis.device || "—") + "\n모델 폴더: " + (uiState.research.bundle || "—") + (uiState.research.error ? "\n안내: " + uiState.research.error : "") + "\n\n" + uiState.inputPreflight.modelExpectedDetail) }
     Action { id: modelUpdatesAction; objectName: "modelUpdatesAction"; text: "AI 모델 관리…"; onTriggered: modelUpdatesDialog.open() }
     Action { id: guideAction; text: "사용 안내"; onTriggered: window.showInfo("뷰어 사용 안내", "파일 메뉴에서 TIFF/JPG 또는 합성 데모를 여세요.\n상단 패널 메뉴의 뷰어·스택: 페이지 이동과 밝기·대비. ⋯ 메뉴에서도 표시 설정을 열 수 있습니다. 스택은 휠/방향키로 탐색하고 Ctrl+휠로 확대합니다.\nROI 관리: 대응하는 이미지의 .roi/RoiSet.zip 가져오기 및 표시.\nPan / ROI 도구, FIT 화면 맞춤, 100% 원본 픽셀 배율을 지원합니다. 확대 시 보이는 영역을 정밀 읽습니다.\nImageJ frames는 공간 Z축으로 해석하지 않습니다. 상단 분석하기를 누르면 분석 준비 패널을 엽니다. 전체 이미지 또는 ROI를 선택하고 연구 모델로 분석할 수 있습니다.") }
@@ -266,6 +270,7 @@ AppShell {
     Connections { target: fileBridge.feedback; function onFocusRequested(x, y) { window.requestContext("feedback", "REVIEW_REQUESTED"); uiState.workspaceIndex = 0; Qt.callLater(function() { viewer.focusCandidate(x, y) }) } }
     Connections { target: fileBridge.research; function onFocusRequested(x, y) { window.requestContext("result", "CANDIDATE_SELECTED"); uiState.workspaceIndex = 0; uiState.updateCandidateRoi(); Qt.callLater(function() { viewer.focusCandidate(x, y) }) } }
     Connections { target: fileBridge.experiments; function onFocusRequested(x, y, w, h) { window.requestContext("result", "CANDIDATE_SELECTED"); uiState.workspaceIndex = 0; Qt.callLater(function() { viewer.focusGeometry(x, y, w, h) }) } }
+    ImageJProcessingDialog { id: processingDialog; theme: theme; uiState: uiState; backend: fileBridge.imagej }
     ModelUpdatesDialog { id: modelUpdatesDialog; onLocalModelRequested: researchModelDialog.open() }
     SafeFolderDialog { id: researchModelDialog; objectName: "researchModelDialog"; title: "고정 모델 폴더 선택"; onAccepted: fileBridge.research.loadModel(selectedFolder.toString()) }
     SafeFileDialog { id: coordinatesDialog; title: "현재 영상의 좌표 CSV"; nameFilters: ["좌표 CSV (*.csv)"]; onAccepted: fileBridge.research.setCoordinates(selectedFile.toString()) }
@@ -288,5 +293,5 @@ AppShell {
     ImageJDialog { id: imagejDialog; parent: Overlay.overlay; theme: theme; backend: fileBridge.imagej; x: (window.width - width) / 2; y: (window.height - height) / 2 }
     StackMeasurementDialog { id: measurementDialog; parent: Overlay.overlay; theme: theme; backend: fileBridge.stackMeasurements; uiState: uiState; x: (window.width-width)/2; y: (window.height-height)/2 }
     PluginWindowsDialog { parent: Overlay.overlay; theme: theme; backend: fileBridge.imagej; x: (window.width-width)/2; y: (window.height-height)/2 }
-    Connections { target: uiState; function onStackFeaturesVisibleChanged() { if (!uiState.stackFeaturesVisible) { imagejDialog.close(); measurementDialog.close() } } }
+    Connections { target: uiState; function onImagejFeaturesVisibleChanged() { if (!uiState.imagejFeaturesVisible) { imagejDialog.close(); measurementDialog.close() } } }
 }

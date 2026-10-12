@@ -20,7 +20,9 @@ QtObject {
         ANALYSIS_START: "analysis", ANALYSIS_COMPLETE: "result", ANALYSIS_FAILED: "analysis", ANALYSIS_CANCELED: "analysis",
         CANDIDATE_SELECTED: "result", REVIEW_REQUESTED: "feedback", ROI_MANAGER_OPEN: "roi", ROI_IMPORT: "roi", ROI_EDIT: "roi", VIEWER_SETTINGS: "viewer"
     })
+    function available(key) { return !uiState.tiffMode || ["analysis", "result", "feedback"].indexOf(key) < 0 }
     function requestContext(key, reason) {
+        if (!available(key)) return false
         var index = keys.indexOf(key)
         if (index < 0 || (reason !== "MANUAL" && events[reason] !== key)) return false
         tabIndex = index
@@ -52,7 +54,7 @@ QtObject {
         target: root.uiState
         function onAnalysisChanged() { root.handleAnalysis() }
     }
-    readonly property string title: labels[tabIndex] || labels[0]
+    readonly property string title: uiState.tiffMode && requestedContext === "viewer" ? uiState.pageCount > 1 ? "TIFF 스택" : "TIFF 이미지" : uiState.tiffMode && requestedContext === "roi" ? "ImageJ 선택" : labels[tabIndex] || labels[0]
     readonly property string resultPhase: !uiState.hasResult ? "empty" : !uiState.research.total ? "zero" : uiState.research.selected.id ? "candidate-selected" : "list"
     readonly property string resultMessage: !uiState.hasResult
         ? uiState.analysisRunning ? "분석 중입니다. 완료 후 결과가 표시됩니다."

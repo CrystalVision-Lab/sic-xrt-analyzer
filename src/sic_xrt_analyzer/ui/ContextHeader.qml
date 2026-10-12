@@ -28,6 +28,7 @@ ColumnLayout {
                     ToolbarMenuItem {
                         required property int index; required property string modelData
                         objectName: "contextChoice" + index
+                        rowAvailable: root.controller.available(modelData)
                         text: root.controller.labels[index]; checkable: true
                         autoExclusive: true
                         checked: root.controller.requestedContext === modelData

@@ -17,7 +17,7 @@ ColumnLayout {
     signal reviewRequested()
     Keys.onLeftPressed: fileBridge.research.stepCandidate(-1)
     Keys.onRightPressed: fileBridge.research.stepCandidate(1)
-    spacing: theme.spacingXs
+    spacing: uiState.roiInteraction && uiState.roiInteraction.height < 650 ? 2 : theme.spacingXs
     function filter(kind, low, query) {
         fileBridge.research.setFilter(kind, low, query)
         // Retained selections on later list pages must remain reachable.

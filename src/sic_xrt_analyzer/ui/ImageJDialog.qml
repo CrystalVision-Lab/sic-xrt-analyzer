@@ -16,9 +16,9 @@ SurfaceDialog {
     modal: false; title: "ImageJ · 명령 / 매크로 / 플러그인 / 결과"
     width: 850; height: 640
     function showCommand(command, options) { mode = "command"; stackInput.checked = false; commandField.text = command; optionsField.text = options || ""; tabs.currentIndex = 0; open() }
-    function showMacro() { mode = "macro"; tabs.currentIndex = 0; open() }
-    function showPlugin() { mode = "plugin"; tabs.currentIndex = 0; open() }
-    function showModern(command) { mode = "modern"; commandField.text = command; optionsField.text = "{}"; tabs.currentIndex = 0; open() }
+    function showMacro() { stackInput.checked = false; mode = "macro"; tabs.currentIndex = 0; open() }
+    function showPlugin() { stackInput.checked = false; mode = "plugin"; tabs.currentIndex = 0; open() }
+    function showModern(command) { stackInput.checked = false; mode = "modern"; commandField.text = command; optionsField.text = "{}"; tabs.currentIndex = 0; open() }
     contentItem: ColumnLayout {
         spacing: theme.spacingMd
         RowLayout {
@@ -52,17 +52,17 @@ SurfaceDialog {
                 Text { visible: root.mode !== "macro"; Layout.fillWidth: true; Layout.fillHeight: true; wrapMode: Text.Wrap; color: theme.muted
                     text: (root.mode === "modern" ? "선택 ROI를 Fiji Overlay로 전달합니다. Overlay/ImageDisplay를 사용하는 명령에서 선택 영역을 처리합니다. Dataset만 사용하는 명령은 ROI를 무시할 수 있습니다.\n전체 스택에서 allPlanes=true는 같은 XY 영역을 모든 페이지에 적용합니다. false는 현재 페이지만 처리합니다(이 옵션을 지원하는 명령 기준).\n" : "현재 페이지와 선택 ROI를 작업 복사본으로 처리합니다.\n") + "설정창 사용을 켜면 AWT/Swing 플러그인 창을 프로그램 내부에 연결합니다.\nFiji/ImageJ2는 SciJava Command를 실행하며, 이미지 입력은 자동 연결하고 추가 인수는 JSON으로 전달합니다. 모든 외부 플러그인의 호환성을 보장하지는 않습니다."
                 }
-                AppCheckBox { id: stackInput; theme: root.theme; text: "전체 TIFF 스택 전달 (페이지 순서, 공간 Z 미확정)"; enabled: fileBridge.stackState.pageCount > 1; onEnabledChanged: if (!enabled) checked = false }
+                AppCheckBox { id: stackInput; theme: root.theme; text: "전체 TIFF 스택 전달 (페이지 순서, 공간 Z 미확정)"; enabled: fileBridge.stackState.pageCount > 1 && !fileBridge.stackState.initialLoading; onEnabledChanged: if (!enabled) checked = false }
                 RowLayout {
                     AppCheckBox { theme: root.theme; text: "명령 기록"; checked: root.runtimeState.recording; onClicked: backend.record(checked) }
                     AppButton { theme: root.theme; text: "기록 → 편집기"; onClicked: { root.mode = "macro"; macroText.text = root.runtimeState.recorded } }
                     Item { Layout.fillWidth: true }
                     AppButton { theme: root.theme; text: "취소"; enabled: root.runtimeState.busy; onClicked: backend.cancel() }
-                    AppButton { objectName: "imagejRunButton"; theme: root.theme; text: root.runtimeState.busy ? "처리 중…" : "실행"; enabled: !root.runtimeState.busy && fileBridge.stackState.frameViewable && !fileBridge.stackState.initialLoading; primary: true
+                    AppButton { objectName: "imagejRunButton"; theme: root.theme; text: root.runtimeState.busy ? "처리 중…" : "실행"; enabled: !root.runtimeState.busy && fileBridge.stackState.frameViewable && !fileBridge.stackState.busy && (!stackInput.checked || !fileBridge.stackState.initialLoading); primary: true
                         onClicked: backend.execute(root.mode, root.mode === "macro" ? macroText.text : commandField.text, optionsField.text, stackInput.checked)
                     }
                 }
-                Text { visible: fileBridge.stackState.initialLoading; Layout.fillWidth: true; wrapMode: Text.Wrap; color: theme.muted; text: "전체 페이지 준비 후 ImageJ 작업을 실행할 수 있습니다." }
+                Text { visible: fileBridge.stackState.initialLoading; Layout.fillWidth: true; wrapMode: Text.Wrap; color: theme.muted; text: "현재 페이지는 준비 후 처리할 수 있습니다. 전체 스택 처리는 전체 페이지 준비가 필요합니다." }
             }
             ColumnLayout {
                 AppTextField { id: search; Layout.fillWidth: true; placeholderText: "ImageJ 명령 검색" }

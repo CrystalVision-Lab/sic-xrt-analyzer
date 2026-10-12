@@ -18,14 +18,16 @@ Rectangle {
         Rectangle { width: 1; height: 22; color: theme.border; Layout.leftMargin: 6; Layout.rightMargin: 6 }
         ViewerToolGroup { theme: root.theme; uiState: root.uiState; actions: root.actions; hostWindow: root.hostWindow }
         Rectangle { width: 1; height: 22; color: theme.border; Layout.leftMargin: 6; Layout.rightMargin: 6 }
-        RoiToolGroup { theme: root.theme; uiState: root.uiState; actions: root.actions; hostWindow: root.hostWindow }
-        MeasurementToolGroup { theme: root.theme; uiState: root.uiState; actions: root.actions; hostWindow: root.hostWindow }
+        RoiToolGroup { visible: !root.uiState.tiffMode; theme: root.theme; uiState: root.uiState; actions: root.actions; hostWindow: root.hostWindow }
+        MeasurementToolGroup { visible: !root.uiState.tiffMode; theme: root.theme; uiState: root.uiState; actions: root.actions; hostWindow: root.hostWindow }
         Rectangle { width: 1; height: 22; color: theme.border; Layout.leftMargin: 6; Layout.rightMargin: 6 }
-        AdvancedToolGroup { theme: root.theme; uiState: root.uiState; actions: root.actions; hostWindow: root.hostWindow }
+        AdvancedToolGroup { visible: !root.uiState.tiffMode; theme: root.theme; uiState: root.uiState; actions: root.actions; hostWindow: root.hostWindow }
+        StackViewerToolGroup { visible: root.uiState.tiffMode; theme: root.theme; uiState: root.uiState; hostWindow: root.hostWindow; compact: root.width < 1250 }
+        TiffWorkbenchControls { visible: root.uiState.tiffMode; theme: root.theme; uiState: root.uiState; actions: root.actions; hostWindow: root.hostWindow; compact: root.width < 1250 }
         Item { Layout.fillWidth: true }
         ContextTools { theme: root.theme; uiState: root.uiState; actions: root.actions; hostWindow: root.hostWindow }
         AppButton {
-            objectName: "imagePrepareAnalysis"; theme: root.theme; action: root.actions.prepareAnalysis
+            objectName: "imagePrepareAnalysis"; visible: !root.uiState.tiffMode; theme: root.theme; action: root.actions.prepareAnalysis
             text: "분석하기"; primary: true; implicitHeight: theme.toolbarButtonHeight
             Accessible.name: text; tip: "분석 범위와 모델을 확인하고 실행하세요."
         }

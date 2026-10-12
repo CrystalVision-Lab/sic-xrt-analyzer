@@ -22,7 +22,7 @@ MenuBar {
     Shortcut { sequence: "Alt+V"; onActivated: viewMenu.open() }
     Shortcut { sequence: "Alt+W"; onActivated: workspaceMenu.open() }
     Shortcut { sequence: "Alt+A"; onActivated: analysisMenu.open() }
-    Shortcut { sequence: "Alt+T"; enabled: root.uiState.stackFeaturesVisible; onActivated: toolsMenu.open() }
+    Shortcut { sequence: "Alt+T"; enabled: root.uiState.imagejFeaturesVisible; onActivated: toolsMenu.open() }
     Shortcut { sequence: "Alt+S"; onActivated: settingsMenu.open() }
     Shortcut { sequence: "Alt+H"; onActivated: helpMenu.open() }
     AppMenu {
@@ -61,7 +61,7 @@ MenuBar {
         AppMenuItem { action: root.actions.projectWorkspace }
         MenuSeparator {}
         AppMenuItem { action: root.actions.save; shortcutLabel: "Ctrl+S" }
-        AppMenuItem { text: "측정 결과 TSV 저장…"; rowAvailable: root.uiState.stackFeaturesVisible; action: root.actions.advanced.saveMeasurements }
+        AppMenuItem { text: "측정 결과 TSV 저장…"; rowAvailable: root.uiState.imagejFeaturesVisible; action: root.actions.advanced.saveMeasurements }
         AppMenuItem { text: "결과 내보내기…"; enabled: root.uiState.hasResult; onTriggered: root.hostWindow.exportResearchResult() }
         AppMenu { title: "내보내기…"; enabled: false
             AppMenuItem { text: "분석 결과 CSV…"; enabled: false }
@@ -76,19 +76,19 @@ MenuBar {
         id: editMenu; objectName: "editMenu"; title: "편집"
         AppMenuItem { text: "ROI 실행 취소"; shortcutLabel: "Ctrl+Z"; enabled: root.uiState.importedRois.canUndo; onTriggered: root.fileBridge.roiHistory(false) }
         AppMenuItem { text: "ROI 다시 실행"; shortcutLabel: "Ctrl+Y"; enabled: root.uiState.importedRois.canRedo; onTriggered: root.fileBridge.roiHistory(true) }
-        AppMenuItem { rowAvailable: root.uiState.stackFeaturesVisible; text: "픽셀 그리기 실행 취소"; enabled: root.uiState.loadFlow.recordReady; onTriggered: root.fileBridge.imagej.execute("command", "Undo", "", false) }
-        AppMenuItem { rowAvailable: root.uiState.stackFeaturesVisible; text: "선택을 그리기"; onTriggered: root.hostWindow.imagejCommand("Draw", "") }
-        AppMenuItem { rowAvailable: root.uiState.stackFeaturesVisible; text: "선택을 채우기"; onTriggered: root.hostWindow.imagejCommand("Fill", "") }
-        AppMenuItem { rowAvailable: root.uiState.stackFeaturesVisible; text: "선택을 지우기"; onTriggered: root.hostWindow.imagejCommand("Clear", "") }
-        AppMenuItem { rowAvailable: root.uiState.stackFeaturesVisible; text: "선택 외부 지우기"; onTriggered: root.hostWindow.imagejCommand("Clear Outside", "") }
-        AppMenuItem { rowAvailable: root.uiState.stackFeaturesVisible; text: "도구 옵션…"; action: root.actions.advanced.tools }
+        AppMenuItem { rowAvailable: root.uiState.imagejFeaturesVisible; text: "픽셀 그리기 실행 취소"; enabled: root.uiState.loadFlow.imagejReady; onTriggered: root.fileBridge.imagej.execute("command", "Undo", "", false) }
+        AppMenuItem { rowAvailable: root.uiState.imagejFeaturesVisible; text: "선택을 그리기"; onTriggered: root.hostWindow.imagejCommand("Draw", "") }
+        AppMenuItem { rowAvailable: root.uiState.imagejFeaturesVisible; text: "선택을 채우기"; onTriggered: root.hostWindow.imagejCommand("Fill", "") }
+        AppMenuItem { rowAvailable: root.uiState.imagejFeaturesVisible; text: "선택을 지우기"; onTriggered: root.hostWindow.imagejCommand("Clear", "") }
+        AppMenuItem { rowAvailable: root.uiState.imagejFeaturesVisible; text: "선택 외부 지우기"; onTriggered: root.hostWindow.imagejCommand("Clear Outside", "") }
+        AppMenuItem { rowAvailable: root.uiState.imagejFeaturesVisible; text: "도구 옵션…"; action: root.actions.advanced.tools }
         AppMenuItem { action: root.actions.settings; iconName: "settings" }
         MenuSeparator {}
-        AppMenuItem { action: root.actions.copyRoi }
+        AppMenuItem { rowAvailable: !root.uiState.tiffMode; action: root.actions.copyRoi }
     }
     AppMenu {
         id: viewMenu; objectName: "viewMenu"; title: "이미지 (Image)"
-        AppMenu { title: "형식 (Type)"; available: root.uiState.stackFeaturesVisible
+        AppMenu { title: "형식 (Type)"; available: root.uiState.imagejFeaturesVisible
             AppMenuItem { text: "8-bit"; onTriggered: root.hostWindow.imagejCommand("8-bit", "") }
             AppMenuItem { text: "16-bit"; onTriggered: root.hostWindow.imagejCommand("16-bit", "") }
             AppMenuItem { text: "32-bit"; onTriggered: root.hostWindow.imagejCommand("32-bit", "") }
@@ -97,12 +97,12 @@ MenuBar {
         AppMenu { title: "조정 (Adjust)"
             AppMenuItem { text: "밝기 / 대비…"; action: root.actions.viewerSettings }
             AppMenuItem { text: "자동 표시 범위"; onTriggered: root.fileBridge.autoDisplayRange() }
-            AppMenuItem { rowAvailable: root.uiState.stackFeaturesVisible; text: "임계값 / 이진화…"; onTriggered: root.hostWindow.imagejCommand("Convert to Mask", "method=Default background=Dark") }
-            AppMenuItem { rowAvailable: root.uiState.stackFeaturesVisible; text: "크기 변경…"; onTriggered: root.hostWindow.imagejCommand("Size...", "width=1024 height=1024 interpolation=Bilinear") }
+            AppMenuItem { rowAvailable: root.uiState.imagejFeaturesVisible; text: "임계값 / 이진화…"; onTriggered: root.hostWindow.imagejCommand("Convert to Mask", "method=Default background=Dark") }
+            AppMenuItem { rowAvailable: root.uiState.imagejFeaturesVisible; text: "크기 변경…"; onTriggered: root.hostWindow.imagejCommand("Size...", "width=1024 height=1024 interpolation=Bilinear") }
         }
-        AppMenuItem { rowAvailable: root.uiState.stackFeaturesVisible; text: "복제…"; onTriggered: root.hostWindow.imagejCommand("Duplicate...", "") }
-        AppMenuItem { rowAvailable: root.uiState.stackFeaturesVisible; text: "ROI로 자르기"; onTriggered: root.hostWindow.imagejCommand("Crop", "") }
-        AppMenu { title: "변환 (Transform)"; available: root.uiState.stackFeaturesVisible
+        AppMenuItem { rowAvailable: root.uiState.imagejFeaturesVisible; text: "복제…"; onTriggered: root.hostWindow.imagejCommand("Duplicate...", "") }
+        AppMenuItem { rowAvailable: root.uiState.imagejFeaturesVisible; text: "ROI로 자르기"; onTriggered: root.hostWindow.imagejCommand("Crop", "") }
+        AppMenu { title: "변환 (Transform)"; available: root.uiState.imagejFeaturesVisible
             AppMenuItem { text: "수평 뒤집기"; onTriggered: root.hostWindow.imagejCommand("Flip Horizontally", "") }
             AppMenuItem { text: "수직 뒤집기"; onTriggered: root.hostWindow.imagejCommand("Flip Vertically", "") }
             AppMenuItem { text: "오른쪽 90° 회전"; onTriggered: root.hostWindow.imagejCommand("Rotate 90 Degrees Right", "") }
@@ -130,7 +130,7 @@ MenuBar {
         AppMenuItem { action: root.actions.resetLayout }
     }
     AppMenu {
-        id: processMenu; objectName: "processMenu"; title: "처리 (Process)"; available: root.uiState.stackFeaturesVisible
+        id: processMenu; objectName: "processMenu"; title: "처리 (Process)"; available: root.uiState.imagejFeaturesVisible
         AppMenuItem { text: "Smooth"; onTriggered: root.hostWindow.imagejCommand("Smooth", "") }
         AppMenuItem { text: "Sharpen"; onTriggered: root.hostWindow.imagejCommand("Sharpen", "") }
         AppMenuItem { text: "Find Edges"; onTriggered: root.hostWindow.imagejCommand("Find Edges", "") }
@@ -161,31 +161,32 @@ MenuBar {
     }
     AppMenu {
         id: analysisMenu; objectName: "analysisMenu"; title: "분석 (Analyze)"
-        AppMenuItem { rowAvailable: root.uiState.stackFeaturesVisible; text: "측정 (Measure)"; enabled: root.uiState.loadFlow.recordReady; onTriggered: root.fileBridge.imagej.execute("command", "Measure", "", false) }
-        AppMenuItem { rowAvailable: root.uiState.stackFeaturesVisible; text: "측정 항목…"; onTriggered: root.hostWindow.imagejCommand("Set Measurements...", "area mean standard min centroid perimeter shape redirect=None decimal=3") }
-        AppMenuItem { rowAvailable: root.uiState.stackFeaturesVisible; text: "히스토그램"; enabled: root.uiState.loadFlow.recordReady; onTriggered: root.hostWindow.imagejStatistics("Histogram") }
-        AppMenuItem { rowAvailable: root.uiState.stackFeaturesVisible; text: "선 프로파일"; enabled: root.uiState.loadFlow.recordReady; onTriggered: root.hostWindow.imagejStatistics("Profile") }
-        AppMenuItem { rowAvailable: root.uiState.stackFeaturesVisible; text: "입자 분석…"; onTriggered: root.hostWindow.imagejCommand("Analyze Particles...", "size=0-Infinity circularity=0.00-1.00 show=Nothing display clear") }
-        AppMenuItem { objectName: "stackMeasurementMenuItem"; rowAvailable: root.uiState.stackFeaturesVisible; text: "스케일 · 길이 / 면적 / 개수 측정…"; action: root.actions.advanced.measurement }
+        AppMenuItem { rowAvailable: root.uiState.imagejFeaturesVisible; text: "측정 (Measure)"; enabled: root.uiState.loadFlow.imagejReady; onTriggered: root.fileBridge.imagej.execute("command", "Measure", "", false) }
+        AppMenuItem { rowAvailable: root.uiState.imagejFeaturesVisible; text: "측정 항목…"; onTriggered: root.hostWindow.imagejCommand("Set Measurements...", "area mean standard min centroid perimeter shape redirect=None decimal=3") }
+        AppMenuItem { rowAvailable: root.uiState.imagejFeaturesVisible; text: "히스토그램"; enabled: root.uiState.loadFlow.imagejReady; onTriggered: root.hostWindow.imagejStatistics("Histogram") }
+        AppMenuItem { rowAvailable: root.uiState.imagejFeaturesVisible; text: "선 프로파일"; enabled: root.uiState.loadFlow.imagejReady; onTriggered: root.hostWindow.imagejStatistics("Profile") }
+        AppMenuItem { rowAvailable: root.uiState.imagejFeaturesVisible; text: "입자 분석…"; onTriggered: root.hostWindow.imagejCommand("Analyze Particles...", "size=0-Infinity circularity=0.00-1.00 show=Nothing display clear") }
+        AppMenuItem { objectName: "stackMeasurementMenuItem"; rowAvailable: root.uiState.imagejFeaturesVisible; text: "스케일 · 길이 / 면적 / 개수 측정…"; action: root.actions.advanced.measurement }
         AppMenuItem { text: "ROI 관리자"; action: root.actions.advanced.roiManager }
-        AppMenuItem { rowAvailable: root.uiState.stackFeaturesVisible; text: "결과표"; action: root.actions.advanced.results }
+        AppMenuItem { rowAvailable: root.uiState.imagejFeaturesVisible; text: "결과표"; action: root.actions.advanced.results }
         MenuSeparator {}
-        AppMenuItem { objectName: "menuRoiTool"; action: root.actions.roi; shortcutLabel: "R" }
-        AppMenuItem { action: root.actions.clearRoi }
+        AppMenuItem { rowAvailable: !root.uiState.tiffMode; objectName: "menuRoiTool"; action: root.actions.roi; shortcutLabel: "R" }
+        AppMenuItem { rowAvailable: !root.uiState.tiffMode; action: root.actions.clearRoi }
         MenuSeparator {}
-        AppMenuItem { objectName: "menuRunAnalysis"; action: root.actions.run; iconName: "run"; ToolTip.text: root.uiState.analysisReason; ToolTip.visible: hovered }
-        AppMenuItem { objectName: "menuCancelAnalysis"; action: root.actions.cancelAnalysis }
-        AppMenuItem { text: "결과 보기"; enabled: root.uiState.hasResult; onTriggered: root.hostWindow.openContext("result") }
+        AppMenuItem { rowAvailable: !root.uiState.tiffMode; objectName: "menuRunAnalysis"; action: root.actions.run; iconName: "run"; ToolTip.text: root.uiState.analysisReason; ToolTip.visible: hovered }
+        AppMenuItem { rowAvailable: !root.uiState.tiffMode; objectName: "menuCancelAnalysis"; action: root.actions.cancelAnalysis }
+        AppMenuItem { rowAvailable: !root.uiState.tiffMode; action: root.actions.modelInfo }
+        AppMenuItem { rowAvailable: !root.uiState.tiffMode; action: root.actions.modelUpdates }
+        AppMenuItem { rowAvailable: !root.uiState.tiffMode; text: "결과 보기"; enabled: root.uiState.hasResult; onTriggered: root.hostWindow.openContext("result") }
     }
     AppMenu {
-        id: toolsMenu; objectName: "toolsMenu"; title: "플러그인 (Plugins)"; available: root.uiState.stackFeaturesVisible
+        id: toolsMenu; objectName: "toolsMenu"; title: "플러그인 (Plugins)"; available: root.uiState.imagejFeaturesVisible
         AppMenuItem { objectName: "menuMacroItem"; text: "매크로 편집 / 실행…"; action: root.actions.advanced.macro }
         AppMenuItem { objectName: "menuPluginItem"; text: "Java 플러그인 등록 / 실행…"; action: root.actions.advanced.plugin }
         AppMenuItem { objectName: "menuFijiItem"; text: "Fiji / ImageJ2 명령…"; action: root.actions.advanced.modern }
         AppMenuItem { objectName: "menuImagejCommandsItem"; text: "명령 검색…"; action: root.actions.advanced.catalog }
         AppMenuItem { text: "도구 옵션…"; action: root.actions.advanced.tools }
-        AppMenuItem { action: root.actions.modelInfo }
-        AppMenuItem { action: root.actions.modelUpdates }
+
     }
     AppMenu {
         id: settingsMenu; objectName: "settingsMenu"; title: "창 (Window)"
@@ -196,7 +197,7 @@ MenuBar {
             AppMenuItem { text: "이미지 정합"; onTriggered: root.hostWindow.selectWorkspace(2) }
             AppMenuItem { text: "3D 뷰어"; onTriggered: root.hostWindow.selectWorkspace(3) }
         }
-        AppMenuItem { rowAvailable: root.uiState.stackFeaturesVisible; text: "ImageJ 작업창"; action: root.actions.advanced.results }
+        AppMenuItem { rowAvailable: root.uiState.imagejFeaturesVisible; text: "ImageJ 작업창"; action: root.actions.advanced.results }
         AppMenuItem { action: root.actions.resetLayout }
     }
     AppMenu {

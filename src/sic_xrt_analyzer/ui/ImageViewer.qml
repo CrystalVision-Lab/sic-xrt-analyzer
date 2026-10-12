@@ -91,6 +91,7 @@ Rectangle {
         function onActiveToolChanged() { root.cancelToolDrawing() }
         function onRoiEditModeChanged() { root.cancelToolDrawing() }
         function onPageIndexChanged() { root.cancelToolDrawing() }
+        function onStackChanged() { if (root.uiState.stack.requestedPage !== root.uiState.pageIndex || root.uiState.stack.busy) root.cancelToolDrawing() }
         function onOpeningChanged() { if (uiState.opening) root.cancelToolDrawing() }
         function onResearchChanged() { if (!uiState.research.selection.id) focusAnimation.stop() }
         function onHasResultChanged() { if (!uiState.hasResult) focusAnimation.stop() }
