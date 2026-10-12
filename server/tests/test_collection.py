@@ -498,3 +498,23 @@ def test_corrupt_crop_is_validation_error_and_never_asset(api, project):
             )
             == 0
         )
+
+
+def test_project_metadata_and_per_device_source_version(api, project):
+    body, ack = upload(api, project)
+    http, _app, _sessions, _user, client, token, _admin, _cred = api
+    summary = http.get(
+        f"/api/v1/projects/{project.project_id}/summary", headers=headers(token)
+    ).json()
+    assert (
+        summary["project_name"] == project.project_name
+        and summary["schema_version"] == project.schema_version
+    )
+    assert summary["source_version"][0]["client_id"] == client
+    assert (
+        summary["source_version"][0]["project_snapshot"]
+        == body["project"]
+        == ack["project_snapshot"]
+    )
+    assert summary["source_version"][0]["project_revision"] == project.revision
+    assert summary["server_received_at"]

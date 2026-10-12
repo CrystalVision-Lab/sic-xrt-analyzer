@@ -14,7 +14,7 @@ from sic_xrt_analyzer.sync.protocol import MAX_BYTES, SPECS, read_json, safe_id
 from .assets import store_crop
 from .auth import audit, authenticate, authorize, grant, issue
 from .db import connect
-from .models import ENTITIES, Asset, Audit, Batch, Credential, Device, User
+from .models import ENTITIES, Asset, Audit, Batch, Credential, Device, Snapshot, User
 from .service import collect, review_summary, rows_for
 
 
@@ -164,8 +164,41 @@ def create_app(url=None, asset_dir=None):
         with sessions() as s:
             p = authorize(s, pair[0], safe_id(project_id))
             rows = rows_for(s, p.id)
+            versions = []
+            devices = set()
+            for snapshot in s.scalars(
+                select(Snapshot)
+                .where(Snapshot.project_id == p.id)
+                .order_by(Snapshot.revision.desc(), Snapshot.client_id)
+            ):
+                if snapshot.client_id in devices:
+                    continue
+                devices.add(snapshot.client_id)
+                batch = s.get(Batch, snapshot.batch_id)
+                versions.append(
+                    {
+                        "client_id": snapshot.client_id,
+                        "project_revision": snapshot.revision,
+                        "snapshot_hash": snapshot.snapshot_hash,
+                        "project_snapshot": batch.receipt.get("project_snapshot"),
+                        "server_received_at": batch.received_at.isoformat(),
+                    }
+                )
             return {
                 "project_id": p.id,
+                **{
+                    key: (p.payload or {}).get(key)
+                    for key in (
+                        "project_name",
+                        "schema_version",
+                        "created_at",
+                        "updated_at",
+                    )
+                },
+                "source_version": versions,
+                "server_received_at": s.scalar(
+                    select(func.max(Batch.received_at)).where(Batch.project_id == p.id)
+                ),
                 "counts": {k: len(v) for k, v in rows.items()},
                 "crops": s.scalar(
                     select(func.count())

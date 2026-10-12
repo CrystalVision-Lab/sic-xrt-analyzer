@@ -128,6 +128,7 @@ def collect(session, user, device, project, value):
         "payload_hash": value["payload_hash"],
         "snapshot_hash": value["snapshot_hash"],
         "project_revision": root["revision"],
+        "project_snapshot": root,
         "status": "ACKNOWLEDGED",
         "accepted": inserted,
         "inventory": value["inventory"],

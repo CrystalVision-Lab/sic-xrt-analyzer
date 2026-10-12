@@ -243,7 +243,7 @@ required=json.loads(pathlib.Path('/backup/asset_refs.json').read_text())
 if any(expected.get(key)!=value for key,value in required.items()):raise ValueError('DB asset reference mismatch')
 with tarfile.open('/backup/assets.tar') as archive:
  for entry in archive:
-  if not entry.isfile() or entry.size>4*1024**2 or not re.fullmatch('[0-9a-f]{64}\\.png',entry.name):raise ValueError('Unsafe archive entry')
+  if not entry.isfile() or entry.size>4*1024**2 or not re.fullmatch(r'[0-9a-f]{64}\\.png',entry.name):raise ValueError('Unsafe archive entry')
   content=archive.extractfile(entry).read()
   sha=hashlib.sha256(content).hexdigest()
   if expected.get(entry.name)!=sha or entry.name!=sha+'.png':raise ValueError('Asset hash mismatch')
@@ -320,8 +320,11 @@ def main():
         compose(
             args.project,
             [
-                "exec",
-                "-T",
+                "run",
+                "--rm",
+                "--no-deps",
+                "-v",
+                str(PRIVATE) + ":/private",
                 "api",
                 "python",
                 "-m",

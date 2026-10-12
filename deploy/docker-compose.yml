@@ -23,7 +23,7 @@ services:
       XRT_ASSET_DIR: /data/assets
     secrets: [db_password]
     ports: ["127.0.0.1:${XRT_API_PORT:-18766}:8000"]
-    volumes: [assets:/data/assets, "${XRT_PRIVATE_DIR:-../artifacts/sync106-private}:/private"]
+    volumes: [assets:/data/assets]
     depends_on:
       postgres:
         condition: service_healthy
