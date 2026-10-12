@@ -149,6 +149,7 @@ AppShell {
         confirmRoiDiscard(function() { fileBridge.projects.manualImageRequested(); window.startImageLoad(url) })
     }
     function startImageLoad(url) {
+        uiState.selectingRoi = false
         uiState.roiEditMode = false
         uiState.opening = true; uiState.loadError = ""; uiState.statusText = "파일 여는 중…"
         fileBridge.requestImage(url)

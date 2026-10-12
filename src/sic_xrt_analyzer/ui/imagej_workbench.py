@@ -72,6 +72,7 @@ class ImageJWorkbench(QObject):
         return self.windows
 
     def require_stack(self):
+        """Legacy helper name: validate the TIFF workbench, including single pages."""
         frame = self.frame()
         if frame.source.metadata.format != 'TIFF':
             raise ValueError('이 기능은 TIFF 이미지에서 사용하세요')

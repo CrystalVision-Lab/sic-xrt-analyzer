@@ -28,7 +28,7 @@ ColumnLayout {
         }
         Text { objectName: "tiffMeasurementSummary"; Layout.fillWidth: true; wrapMode: Text.Wrap; color: theme.text; font.pixelSize: theme.smallSize
             property var measurements: fileBridge.stackMeasurements.state
-            text: measurements.error || (measurements.rows.length ? "측정 · " + measurements.rows[measurements.rows.length - 1].metric + " " + Number(measurements.rows[measurements.rows.length - 1].value).toFixed(3) + " " + measurements.rows[measurements.rows.length - 1].unit + " · 페이지 " + measurements.rows[measurements.rows.length - 1].page : "측정은 원본 XY 좌표 기준 · 눈금 미설정 시 pixel 단위")
+            text: measurements.error || (measurements.rows.length ? "최근 측정 · " + measurements.rows[measurements.rows.length - 1].file + " · " + measurements.rows[measurements.rows.length - 1].metric + " " + Number(measurements.rows[measurements.rows.length - 1].value).toFixed(3) + " " + measurements.rows[measurements.rows.length - 1].unit + " · 페이지 " + measurements.rows[measurements.rows.length - 1].page : "측정은 원본 XY 좌표 기준 · 눈금 미설정 시 pixel 단위")
         }
         AppButton { theme: root.theme; action: root.actions.advanced.measurement; text: "측정 결과 · 눈금 설정…"; quiet: true }
         AppButton { theme: root.theme; action: root.actions.advanced.catalog; text: "ImageJ 고급 도구…"; quiet: true }

@@ -160,7 +160,7 @@ MenuBar {
         AppMenuItem { text: "모든 ImageJ 명령…"; action: root.actions.advanced.catalog }
     }
     AppMenu {
-        id: analysisMenu; objectName: "analysisMenu"; title: "분석 (Analyze)"
+        id: analysisMenu; objectName: "analysisMenu"; title: root.uiState.tiffMode ? "측정 (Analyze)" : "분석 (Analyze)"
         AppMenuItem { rowAvailable: root.uiState.imagejFeaturesVisible; text: "측정 (Measure)"; enabled: root.uiState.loadFlow.imagejReady; onTriggered: root.fileBridge.imagej.execute("command", "Measure", "", false) }
         AppMenuItem { rowAvailable: root.uiState.imagejFeaturesVisible; text: "측정 항목…"; onTriggered: root.hostWindow.imagejCommand("Set Measurements...", "area mean standard min centroid perimeter shape redirect=None decimal=3") }
         AppMenuItem { rowAvailable: root.uiState.imagejFeaturesVisible; text: "히스토그램"; enabled: root.uiState.loadFlow.imagejReady; onTriggered: root.hostWindow.imagejStatistics("Histogram") }

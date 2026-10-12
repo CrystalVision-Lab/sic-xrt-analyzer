@@ -252,6 +252,7 @@ Rectangle {
                         return
                     }
                     if (["Pan", "ROI"].indexOf(uiState.activeTool) < 0) {
+                        if (!uiState.loadFlow.imagejReady) { uiState.statusText = "현재 페이지 준비 후 ImageJ 도구를 사용하세요."; return }
                         var t = root.toolPoint(mouse)
                         if (["Polygon", "Polyline", "Angle"].indexOf(uiState.activeTool) >= 0) {
                             root.toolPoints = root.toolPoints.concat([t])

@@ -15,6 +15,7 @@ QtObject {
         return root[tool.charAt(0).toLowerCase() + tool.slice(1)]
     }
     function selectTool(tool) {
+        uiState.selectingRoi = false
         uiState.feedbackVisible = false
         uiState.roiEditMode = false
         uiState.activeTool = tool
