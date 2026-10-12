@@ -20,6 +20,54 @@ from sic_xrt_analyzer.results import AnalysisProject, ProjectStore
 from sic_xrt_analyzer.results.workspace import add_source
 
 
+def instrument(stages):
+    """Validation-only timing wrappers. Same library objects/results; no production changes."""
+    from sic_xrt_analyzer.imaging.prepared_image import PreparedPixels
+    from sic_xrt_analyzer.registration import engine
+
+    def timed(name, function):
+        def call(*args, **kwargs):
+            ts = time.perf_counter()
+            try:
+                return function(*args, **kwargs)
+            finally:
+                stages.setdefault(name, []).append((time.perf_counter() - ts) * 1000)
+
+        return call
+
+    def detector_factory(factory):
+        def create(*args, **kwargs):
+            detector = factory(*args, **kwargs)
+
+            class Detector:
+                detectAndCompute = staticmethod(
+                    timed("feature_extraction_ms", detector.detectAndCompute)
+                )
+
+            return Detector()
+
+        return create
+
+    original_matcher = cv2.BFMatcher
+
+    def matcher(*args, **kwargs):
+        instance = original_matcher(*args, **kwargs)
+
+        class Matcher:
+            knnMatch = staticmethod(timed("matching_ms", instance.knnMatch))
+
+        return Matcher()
+
+    cv2.SIFT_create = detector_factory(cv2.SIFT_create)
+    cv2.ORB_create = detector_factory(cv2.ORB_create)
+    cv2.BFMatcher = matcher
+    cv2.findTransformECC = timed("ecc_ms", cv2.findTransformECC)
+    cv2.phaseCorrelate = timed("phase_ms", cv2.phaseCorrelate)
+    JpegImageSource.read_sampled = timed("preview_ms", JpegImageSource.read_sampled)
+    PreparedPixels.jpeg = timed("native_decode_cache_ms", PreparedPixels.jpeg)
+    engine._fit = timed("transform_fit_ms", engine._fit)
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--project", type=Path)
@@ -75,6 +123,8 @@ def main():
     science_before = {name: getattr(p, name) for name in science_fields}
     p, a = add_source(p, JpegImageSource(args.before))
     p, b = add_source(p, JpegImageSource(args.after))
+    stages = {}
+    instrument(stages)
     session = None
     try:
         session = ComparisonSession(a, b)
@@ -105,6 +155,7 @@ def main():
         sizes = [(s.width, s.height) for s in session.records]
         chosen = None
         for method in ("sift", "orb", "phase", "ecc"):
+            stage_start = {k: len(v) for k, v in stages.items()}
             ts = time.perf_counter()
             try:
                 result = estimate(
@@ -151,6 +202,11 @@ def main():
                 new = assets.append(p, asset)
                 ProjectStore().save(path, new, expected_revision=p.revision)
                 p = new
+            report["algorithms"][-1]["stage_timings_ms"] = {
+                k: v[stage_start.get(k, 0) :]
+                for k, v in stages.items()
+                if len(v) > stage_start.get(k, 0)
+            }
         report["accepted_automatically"] = False
         if chosen:
             matrix = chosen["matrix"]
@@ -202,6 +258,7 @@ def main():
         )
         report["asset_count"] = len(p.image_relationships)
         report["source_crop_checks"] = []
+        report["stage_timings_ms"] = stages
         report["engine_peak_rss_mib"] = max(samples) / 1024**2
         report["oracle_memory_in_total_peak"] = True
         # Native pixel oracle: exact cache sample is compared with existing JPEG original Reader.
