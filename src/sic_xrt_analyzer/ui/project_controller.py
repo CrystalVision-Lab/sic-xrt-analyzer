@@ -246,6 +246,8 @@ class ProjectController(QObject):
         self._begin('open',read,publish)
 
     def _activate(self, project, path, availability, assets):
+        registration=getattr(self.bridge,"registration_controller",None)
+        if registration:registration.resetProject()
         review=getattr(self.bridge,'review_controller',None)
         if review:review.cancel()
         self.project=self.saved_snapshot=project;self.path=str(path);self.dirty=False;self.read_only=False

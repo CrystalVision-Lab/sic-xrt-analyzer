@@ -122,3 +122,21 @@ def test_cancel_switch_and_tiff_gate(workspace, qt_app, pair):
     spin(qt_app, lambda: c.reader.task is None)
     assert c.asset is None and not c.busy
     assert not warnings, warnings
+
+
+def test_same_project_reload_restores_disk_registration(workspace, qt_app):
+    bridge, c, _window, warnings, path = workspace
+    c.prepare()
+    spin(qt_app, lambda: not c.busy and not c.render_busy)
+    c.run("sift", "translation")
+    spin(qt_app, lambda: not c.busy and not c.render_busy)
+    c.approveAndSave("qa-only")
+    spin(qt_app, lambda: not c.busy)
+    registered = c.asset["registration_id"]
+    c.beginLandmarks()
+    spin(qt_app, lambda: not c.render_busy)
+    assert c.asset is None
+    bridge.projects.open(str(path))
+    spin(qt_app, lambda: not bridge.projects.busy and not c.busy and not c.render_busy)
+    assert c.asset["registration_id"] == registered and c.asset["status"] == "ACCEPTED"
+    assert not warnings, warnings

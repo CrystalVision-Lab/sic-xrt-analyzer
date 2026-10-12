@@ -62,6 +62,18 @@ class RegistrationController(QObject):
         self.metrics = {}
         self.projects.changed.connect(self._project_changed)
 
+    def resetProject(self):
+        """Explicit manifest activation also resets a reload of the same project ID."""
+        self.cancel()
+        self.session = None
+        self.asset = None
+        self.frame = None
+        self.before_id = self.after_id = ""
+        self.latest_id = ""
+        self.landmarks = []
+        self.pending_point = None
+        self.clear_images()
+
     def _project_changed(self):
         p = self.projects.project
         identifier = p.project_id if p else ""
