@@ -31,13 +31,13 @@ class_mapping: {BPD:0,TED:1,TSD:2}. preprocessing_contract는 다음 객체와 �
 {"shape":[3,128,128],"source":"uint8_RGB","conversion":"uint8_RGB_to_NCHW_div255","crop_policy":"exact_128_no_resize","local_contrast_inside_model":true}
 ```
 
-`schema=verified_xrt_dataset`, `schema_version=1`. Manifest에는 dataset_id/version, created_at/by, project/source/review/approval/group ID inventory, seed, rows, files, split_class_counts, eligibility_report, readiness, dataset_hash, file_manifest_hash를 저장한다. Row에는 sample/project/asset/source/run/target/review ID, 승인 ID·revision·관리자·시각·사유·상태·검수 헤드 hash, Mapping ID·revision·evidence, class_label, source/crop/pixel SHA, source 크기, 원본 crop[x,y,128,128], image_path, ModelProvenance, 그룹 메타데이터, data_origin, 권한, evaluation_only, split/split_group_id, dHash를 저장한다.
+`schema=verified_xrt_dataset`, `schema_version=1`. Manifest에는 dataset_id/version, created_at/by, project/source/review/approval/group ID inventory, seed, rows, files, split_class_counts, eligibility_report, readiness, dataset_hash, file_manifest_hash를 저장한다. Row에는 sample/project/asset/source/run/target/review ID, 승인 ID·revision·관리자·시각·사유·상태·검수 헤드 hash, Mapping ID·revision·evidence, class_label, source/crop/pixel SHA, source 크기, 원본 crop[x,y,128,128], image_path, ModelProvenance, 그룹 메타데이터, data_origin, 권한, evaluation_only, split/split_group_id, 중복 제외 전 leakage_component, dHash를 저장한다.
 
 Canonical JSON: UTF-8, ensure_ascii=false, sort_keys=true, separators=(",",":"), allow_nan=false. dataset_hash는 해당 필드만 제외한 전체 Manifest SHA-256. file_manifest_hash는 상대경로→PNG SHA dictionary의 canonical SHA-256. Manifest row는 sample_id 순서로 정렬하며 inventory는 정렬·중복 제거한다. JSONL은 Manifest의 해당 split row와 정확히 일치한다.
 
 ## 분할과 적격성
 
-같은 source_hash, run_id, target_id, wafer_id, group_id, provider_group, before_after_group, duplicate_group, pixel_hash를 union한다. 원본 동일 이미지의 ROI는 분리하지 않는다. 64-bit grayscale dHash Hamming distance ≤4도 같은 그룹으로 합친다. 연결된 그룹은 함께 이동하며 어느 하나가 평가 전용이면 전체를 test에 둔다. exact pixel 중복은 하나만 포함하고 서로 다른 승인 라벨이 붙은 중복은 모두 DUPLICATE_LABEL_CONFLICT로 제외한다.
+같은 source_hash, run_id, target_id, wafer_id, group_id, provider_group, before_after_group, duplicate_group, pixel_hash를 union한다. 원본 동일 이미지의 ROI는 분리하지 않는다. 64-bit grayscale dHash Hamming distance ≤4도 같은 그룹으로 합친다. 연결된 그룹은 함께 이동하며 어느 하나가 평가 전용이면 전체를 test에 둔다. 중복을 제외하기 전에 모든 승인 자료의 관계 성분을 계산해 leakage_component와 평가 전용 상태를 전파한다. 제거된 중복의 원본 연결 때문에 다른 Crop가 train/test로 갈라지지 않도록 한다. exact pixel 중복은 하나만 포함하고 서로 다른 승인 라벨이 붙은 중복은 모두 DUPLICATE_LABEL_CONFLICT로 제외한다.
 
 그룹은 seed와 정렬된 sample ID hash로 결정적으로 정렬한다. 비고정 그룹의 약 15%를 validation, 전체 그룹의 약 15%에서 고정 test 그룹 수를 뺀 수를 추가 test, 나머지를 train으로 배정한다(필요한 split은 최소 한 그룹). 작은 표본은 클래스별 비율이나 충분한 train을 보장하지 않으므로 적격성 검사를 통과하지 못할 수 있다. seed 변경은 새 버전을 요구한다.
 

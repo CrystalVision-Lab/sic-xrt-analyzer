@@ -412,37 +412,14 @@ def eligibility(session, project_ids, root):
                         else "IMAGE_DECODE_ERROR",
                     }
                 )
-    unique = {}
-    conflicting_pixels = {
-        h
-        for h in {r["pixel_hash"] for r in included}
-        if len({r["class_label"] for r in included if r["pixel_hash"] == h}) > 1
-    }
-    for row in included:
-        if row["pixel_hash"] in conflicting_pixels:
-            excluded.append(
-                {
-                    "project_id": row["project_id"],
-                    "asset_id": row["asset_id"],
-                    "reason": "DUPLICATE_LABEL_CONFLICT",
-                }
-            )
-            continue
-        if row["pixel_hash"] in unique:
-            excluded.append(
-                {
-                    "project_id": row["project_id"],
-                    "asset_id": row["asset_id"],
-                    "reason": "DUPLICATE_PIXELS",
-                }
-            )
-        else:
-            unique[row["pixel_hash"]] = row
-    included = sorted(unique.values(), key=lambda r: r["sample_id"])
+    included, duplicate_exclusions = deduplicate(included)
+    excluded.extend(duplicate_exclusions)
     return {
         "collected_crops": total,
         "approved_usable_crops": len(included),
-        "class_counts": dict(Counter(r["class_label"] for r in included)),
+        "class_counts": {
+            c: sum(r["class_label"] == c for r in included) for c in CLASSES
+        },
         "exclusion_counts": dict(Counter(r["reason"] for r in excluded)),
         "included": included,
         "excluded": excluded,
@@ -473,8 +450,9 @@ def split_rows(rows, seed):
             "before_after_group",
             "duplicate_group",
             "pixel_hash",
+            "leakage_component",
         ):
-            if row[key] is not None:
+            if row.get(key) is not None:
                 token = (key, row[key])
                 if token in seen:
                     parents[find(i)] = find(seen[token])
@@ -511,6 +489,41 @@ def split_rows(rows, seed):
         gid = digest(sorted(r["sample_id"] for r in group))
         result.extend({**r, "split": name, "split_group_id": gid} for r in group)
     return sorted(result, key=lambda r: r["sample_id"])
+
+
+def deduplicate(rows):
+    # Form connectivity BEFORE exclusions. A duplicate from a held-out Source must not
+    # disappear and let its training twin (or related Source crops) cross the test boundary.
+    connected = split_rows(rows, 0)
+    pinned = {r["split_group_id"] for r in connected if r["evaluation_only"]}
+    labels = {}
+    for r in connected:
+        labels.setdefault(r["pixel_hash"], set()).add(r["class_label"])
+    unique, excluded = {}, []
+    for r in connected:
+        reason = (
+            "DUPLICATE_LABEL_CONFLICT"
+            if len(labels[r["pixel_hash"]]) > 1
+            else "DUPLICATE_PIXELS"
+            if r["pixel_hash"] in unique
+            else None
+        )
+        if reason:
+            excluded.append(
+                {
+                    "project_id": r["project_id"],
+                    "asset_id": r["asset_id"],
+                    "reason": reason,
+                }
+            )
+            continue
+        group = r["split_group_id"]
+        unique[r["pixel_hash"]] = {
+            **{k: v for k, v in r.items() if k not in {"split", "split_group_id"}},
+            "leakage_component": group,
+            "evaluation_only": group in pinned,
+        }
+    return sorted(unique.values(), key=lambda r: r["sample_id"]), excluded
 
 
 def create_version(session, user, body, root):
@@ -601,10 +614,13 @@ def version_status(session, record, root):
     restricted = []
     for row in record.payload["rows"]:
         new = available.get(row["sample_id"])
-        if not new or (new["approval_id"], new["group_mapping_id"]) != (
-            row["approval_id"],
-            row["group_mapping_id"],
-        ):
+        fields = (
+            "approval_id",
+            "group_mapping_id",
+            "leakage_component",
+            "evaluation_only",
+        )
+        if not new or any(new[k] != row[k] for k in fields):
             restricted.append(row["sample_id"])
     return {
         "usage_status": "RESTRICTED" if restricted else "AVAILABLE",

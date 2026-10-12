@@ -24,6 +24,7 @@ from sic_xrt_analyzer.results.contracts import (
     VerifiedContentHash,
 )
 from sic_xrt_analyzer.results.review_workspace import append_review
+from sic_xrt_analyzer.results.reviews import ReviewRepository
 from sic_xrt_analyzer.sync.client import make_crop
 from sic_xrt_analyzer.sync.protocol import digest
 
@@ -113,7 +114,13 @@ def approval(p, asset, status="APPROVED", previous=None):
         "asset_id": asset,
         "status": status,
         "approved_class": "TED",
-        "review_ids": [r.review_id for r in p.review_events],
+        "review_ids": sorted(
+            i
+            for ids in ReviewRepository()
+            .current(p, ReviewTarget.OBSERVATION, p.observations[0].observation_id)
+            .tips_by_reviewer.values()
+            for i in ids
+        ),
         "reason": "Synthetic functional test only",
         "resolve_conflict": False,
         "previous_event_id": previous,
@@ -578,3 +585,74 @@ def test_uncertain_label_origin_and_crop_duplicates(api, project, tmp_path):
         api[0].post(PREFIX + "/groups", json=bad, headers=headers(api[6])).status_code
         == 422
     )
+
+
+def test_authenticated_local_export_cli(api, project, tmp_path, monkeypatch, capsys):
+    import sys
+
+    from xrt_server import dataset_admin
+    from xrt_server.db import connect
+
+    p = large(project, tmp_path)
+    asset = register(api, p)
+    post(api, "/groups", mapping(p))
+    post(api, "/approvals", approval(p, asset))
+    manifest = post(
+        api,
+        "",
+        {"version": "cli-" + str(uuid4()), "project_ids": [p.project_id], "seed": 9},
+    )
+    monkeypatch.setattr(
+        dataset_admin, "connect", lambda: connect(api[1].state.engine.url)
+    )
+    monkeypatch.setenv("XRT_ASSET_DIR", str(api[1].state.asset_dir))
+    credential = tmp_path / "synthetic-private-admin.json"
+    credential.write_text(json.dumps({"credential": api[6]}))
+
+    def invoke(output):
+        monkeypatch.setattr(
+            sys,
+            "argv",
+            [
+                "dataset_admin",
+                "--credential-file",
+                str(credential),
+                "--dataset-id",
+                manifest["dataset_id"],
+                "--output",
+                str(output),
+            ],
+        )
+        dataset_admin.main()
+
+    invoke(tmp_path / "cli-export")
+    assert api[6] not in capsys.readouterr().out
+    assert json.loads((tmp_path / "cli-export/manifest.json").read_text()) == manifest
+    credential.write_text(json.dumps({"credential": api[5]}))
+    with pytest.raises(HTTPException) as error:
+        invoke(tmp_path / "denied-cli")
+    assert error.value.status_code == 403 and not (tmp_path / "denied-cli").exists()
+
+
+def test_duplicate_before_exclusion_preserves_source_links_and_holdout():
+    from xrt_server.datasets import deduplicate
+
+    rows = [
+        {**row(i), "project_id": "synthetic", "asset_id": str(i), "class_label": "TED"}
+        for i in range(6)
+    ]
+    rows[1]["pixel_hash"] = rows[0]["pixel_hash"]
+    rows[1]["source_hash"] = rows[2]["source_hash"]
+    rows[1]["evaluation_only"] = True
+    rows[0]["source_hash"] = rows[3]["source_hash"]
+    kept, excluded = deduplicate(rows)
+    assert len(kept) == 5 and len(excluded) == 1
+    assert all(r["evaluation_only"] for r in kept if r["sample_id"] in {"0", "2", "3"})
+    result = split_rows(kept, 2026)
+    assert all(
+        r["split"] == "test" for r in result if r["sample_id"] in {"0", "2", "3"}
+    )
+    rows[1]["class_label"] = "BPD"
+    kept, excluded = deduplicate(rows)
+    assert all(r["sample_id"] not in {"0", "1"} for r in kept)
+    assert sum(r["reason"] == "DUPLICATE_LABEL_CONFLICT" for r in excluded) == 2

@@ -2,7 +2,7 @@
 
 ## Overall Status
 
-엔지니어링 최종 검증 진행 중. 실제 정답 DATA_NOT_READY / 실제 학습 NOT_RUN / 독립 평가 NOT_AVAILABLE / 성능 향상 NOT_VERIFIED. 합성 Fixture의 학습·평가·ONNX 산출은 기능 확인이며 과학적 성능 검증이 아니다.
+로컬 엔지니어링 PASS, 최종 CI 확인 중. 실제 정답 DATA_NOT_READY / 실제 학습 NOT_RUN / 독립 평가 NOT_AVAILABLE / 성능 향상 NOT_VERIFIED. 합성 Fixture의 학습·평가·ONNX 산출은 기능 확인이며 과학적 성능 검증이 아니다.
 
 ## Analyzer Dataset Pipeline
 
@@ -14,7 +14,7 @@ ML Issue #45에서 원격 main의 빈 구조를 기반으로 새 로더·소형 
 
 ## Git / PR
 
-Analyzer 시작 feat/106-central-research-sync@a6605088eb6cf54526da5d07f82a61433e83d926, Issue #108, branch feat/108-verified-dataset-export. 기존 Draft #107과 stacked parent를 merge/rebase/retarget하지 않았다. ML 시작 원격 main@cc0cbabb6640ddd2899ecee9b9195ee450f45f4f, Issue #45, branch feat/45-training-evaluation-pipeline. 미병합 로컬 ML feat/43@446d7fb는 보존했다. 사용자 AGENTS.md 변경은 stage하지 않았다. 최종 PR/CI/HEAD는 완료 후 기록한다.
+Analyzer 시작 feat/106-central-research-sync@a6605088eb6cf54526da5d07f82a61433e83d926, Issue #108, branch feat/108-verified-dataset-export. 기존 Draft #107과 stacked parent를 merge/rebase/retarget하지 않았다. ML 시작 원격 main@cc0cbabb6640ddd2899ecee9b9195ee450f45f4f, Issue #45, branch feat/45-training-evaluation-pipeline. 미병합 로컬 ML feat/43@446d7fb는 보존했다. 사용자 AGENTS.md 변경은 stage하지 않았다. Analyzer Draft [#109](https://github.com/CrystalVision-Lab/sic-xrt-analyzer/pull/109), ML Draft [#46](https://github.com/CrystalVision-Lab/sic-xrt-ml/pull/46). 최종 HEAD와 CI는 각 PR에 기록한다.
 
 ## Current Ground Truth Availability
 
@@ -54,8 +54,17 @@ ML의 신규 baseline 구조·seed·optimizer·scheduler·validation-only select
 
 ## ML Tests / Windows Regression / CI
 
-현재 PostgreSQL 55 PASS, ML CPU 32 PASS. 기존 Windows offscreen/basic 전체 574 PASS / 기존 platform skip5(885.21s). 새 skip이나 기존 timeout 변경은 없다. 실제 saved JPG Full/ROI·반복 Export, TIFF4 first/mid/last·uint16·분류 자동 실행 금지·원본/model/project SHA, Windows ImageJ/Fiji native plugin 및 Linux CI 최종 결과는 확인 중이다.
+현재 PostgreSQL 57 PASS, ML CPU 33 PASS. 기존 Windows offscreen/basic 전체 574 PASS / 기존 platform skip5(885.21s). 새 skip이나 기존 timeout 변경은 없다. 실제 saved JPG Full/ROI 각2회와 반복 Export PASS: Full2946(BPD245/TED1398/TSD1303), ROI791(BPD3/TED779/TSD9). TIFF4 first/mid/last(12 pages) 원본 uint16 대조 PASS, 분류 자동 실행0, 원본/model/project SHA 유지, QML warning0. Windows ImageJ/Fiji native GUI plugin4 PASS. Linux CI 최종 결과 확인 중이다.
 
 ## Scientific Validation Status / Known Limitations / Next TD
 
 현재 실제 GT0: DATA_NOT_READY / REAL_TRAINING NOT_RUN / INDEPENDENT_EVALUATION NOT_AVAILABLE / IMPROVEMENT NOT_VERIFIED. 기능 PASS와 합치지 않는다. 실제 사용 권한·검증된 Wafer/독립 그룹·전문가 승인·충분한 클래스 표본을 축적한 후 새 Dataset Version에서 실제 학습·동일 독립셋 비교를 수행한다. 최소 표본 수가 충분한 과학적 검증 설계를 의미하지 않는다. 조직 차원의 test 접근 통제·offline 철회·원본 촬영 근거 검증은 운영 절차가 필요하다. CURATOR 역할·범용 Dataset 변환·배경 클래스·검출/Segmentation·3D·TD08 모델 배포는 포함하지 않는다.
+
+
+## Producer / Consumer Acceptance
+
+전용 PostgreSQL에서 생성·승인·반출한 synthetic_fixture 9개(각 split BPD/TED/TSD1개)를 ML의 strict 로더로 읽고 CPU 2-epoch 학습·명시적 평가·실제 기존 frozen ONNX의 같은 입력 비교·새 후보 산출을 검증했다. 초기 batch/N 심볼 호환 오류는 ML PR에서 수정했고 기존 ONNX 파일은 유지했다. checker와 CPU parity는 batch1 최대오차0, batch7 2.9802322387695312e-08. 같은 기간 localhost health GET12회 모두 HTTP200. 이는 합성 기능 검증이며 기존 모델 accuracy나 향상을 증명하지 않는다.
+
+최종 검토에서 중복 제외가 원본 연결을 끊어 held-out 자료의 twin이 train으로 갈 수 있는 위험을 확인했다. 중복 제외 전에 관계 성분·holdout을 계산하고 ML에도 leakage_component 검증을 추가했다. duplicate alias·같은 원본의 다른 Crop가 test 밖으로 나가지 않는 회귀를 포함한다. 해당 최종 변경의 Producer→Consumer는 새 private Artifact로 재확인한다.
+
+초기 Fixture 필드·review run/leaf 지정 오류, 전역 CONTRACT 공유 오류, helper import 오류, 버전 제한 비교 항목 추가 오류를 테스트로 찾아 수정했다. 초기 실패·최종 로그는 ignored artifacts에 남긴다. 운영 DB의 실제 검수를 수정한 실패가 아니다. Credential·실제 Dataset·모델 파일은 보고서/Git에 포함하지 않는다.
