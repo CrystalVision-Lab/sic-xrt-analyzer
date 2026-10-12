@@ -330,7 +330,8 @@ def test_tiff_keeps_viewer_but_rejects_experiment_analysis_ui(workbench, tmp_pat
     assert not c.loading and not c.rows and '3D' in c.error
     assert w.bridge.pipeline.result is None
     assert not w.state.property('inputCompatible')
-    choose(w, 'result')
+    assert not invoke(w.window, 'requestContext', 'result', 'MANUAL')
+    assert w.panel.property('requestedContext') == 'viewer'
     assert not w.item('importExperiment').isVisible()
     assert not w.item('resultTotal').isVisible()
     assert w.item('imageViewer').isVisible()
