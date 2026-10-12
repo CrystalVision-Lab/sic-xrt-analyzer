@@ -2,7 +2,7 @@
 
 ## Overall Status
 
-**검증 마무리 중.** Local E2E **PASS**, External Deployment **NOT DEPLOYED**. 최종 TIFF 페이지 대조와 GitHub CI 결과는 아래 완료 기록에서 확정한다.
+**PASS**. Local E2E **PASS**, External Deployment **NOT DEPLOYED**. Windows/실제 데이터/PostgreSQL/백업 복원 및 Linux CI 두 작업을 모두 통과했다. 문서만 추가한 최종 HEAD CI는 아래 PR Checks로 별도 확인하며 선행 실행을 최종 실행으로 바꾸어 보고하지 않는다.
 
 실제 Windows Desktop → localhost FastAPI → PostgreSQL 영속 저장 → ACK → 재시작 조회를 검증했다. Mock DB/HTTP만으로 판정하지 않았다. 연구 데이터와 Credential은 Git에 넣지 않았다.
 
@@ -12,7 +12,7 @@
 - Work: `feat/106-central-research-sync`, [Issue #106](https://github.com/CrystalVision-Lab/sic-xrt-analyzer/issues/106).
 - 기존 stacked PR에 merge/rebase/retarget 하지 않았다. 사용자 AGENTS.md는 stage하지 않았고 SHA256 `97fd9e0886957e532cfd5bafd525263462dc6e90652cf2b43ce6d3404fc04eaf`를 유지했다.
 - 기능별 커밋: 과학적 동기화 계약/Outbox, 인증 서버/백업, Desktop UI, 기기 출처/비밀 격리, 최종 문서/검증 도구.
-- Final HEAD, Draft PR, 최종 CI는 이 문서의 마지막 Git 검증 기록 및 PR에서 확인한다.
+- [Draft PR #107](https://github.com/CrystalVision-Lab/sic-xrt-analyzer/pull/107), base는 TD05 branch 유지. 현재 코드 검증 revision `4cf81d0a05874ee9c6a5bcfe4ceafd0104822fca`. 최종 문서 포함 HEAD는 PR head 및 완료 보고에서 확인한다.
 
 ## System Architecture / Server Components / Docker Compose
 
@@ -61,11 +61,11 @@ SQLite Outbox의 immutable canonical payload/digest/BatchID와 PENDING/SENT/RETR
 
 프로젝트 작업 영역의 중앙 서버 버튼 → origin/client/Credential 설정 → 연결 테스트 → 디스크 저장 후 서버와 동기화. 자동 동기화 OFF, 미저장/dirty/pending review/read-only 상태는 전송하지 않는다. Credential 입력은 저장 후 지운다. QSettings에는 origin만 저장하고 sync()로 새 OS 프로세스에도 유지한다.
 
-서버 미설정/중지/인증 실패/권한 거부/충돌/재시도 대기/ACK 상태를 구분한다. network/encode/SQLite 작업은 worker에서 수행한다. 로컬 검수·저장과 독립적이다. 실제 창 캡처에서 Crop 숫자 입력 폭 부족으로 첫 자릿수가 잘리는 것을 확인하여 입력 폭을 130px로 늘렸다. Crop 동의는 자동 체크하지 않으며 앱 재시작 후에도 다시 명시적으로 동의하여 대기 건을 전송한다.
+서버 미설정/중지/인증 실패/권한 거부/충돌/재시도 대기/ACK 상태를 구분한다. 대량 projection/encode, 네트워크, Project 디스크 읽기 및 Outbox 전송 처리는 worker에서 수행한다. 시작 시 작은 Outbox schema 초기화와 설정/OS Vault 조작은 GUI 경로이며 모든 SQLite 호출을 worker로 옮겼다고 주장하지 않는다. 로컬 검수·저장과 독립적이다. 실제 창 캡처에서 Crop 숫자 입력 폭 부족으로 첫 자릿수가 잘리는 것을 확인하여 입력 폭을 130px로 늘렸다. Crop 동의는 자동 체크하지 않으며 앱 재시작 후에도 다시 명시적으로 동의하여 대기 건을 전송한다.
 
 ## Geometry Preservation / ReviewEvent Preservation / Source Metadata
 
-POINT/BOUNDING_BOX/POLYLINE/POLYGON/MASK_REFERENCE/BRANCHED_GRAPH 계약과 HUMAN/자동 출처, 모델 Prediction/raw score/좌표/해시, existence/class/geometry decision, parent reviews/corrected geometry와 provenance를 보존했다. 원본 Geometry/Prediction은 overwrite하지 않는다. 수동 객체와 CandidateObservation 수를 구분한다. MaskReference metadata는 전달하지만 mask binary는 자동 업로드하지 않는다.
+POINT/BOUNDING_BOX/POLYLINE/POLYGON/MASK_REFERENCE/BRANCHED_GRAPH 계약과 HUMAN/자동 출처, 모델 Prediction/raw score/좌표/해시, existence/class/geometry decision, parent reviews/corrected geometry와 provenance를 보존했다. 원본 Geometry/Prediction은 overwrite하지 않는다. 기존 linked Observation 검수 목록에서 typed ObservationLink를 dict key로 사용하던 조회를 observation_id 접근으로 고쳤고 실제 연결 정보/QML 회귀 검사를 추가했다. 엔터티/좌표를 변경하는 수정은 아니다. 수동 객체와 CandidateObservation 수를 구분한다. MaskReference metadata는 전달하지만 mask binary는 자동 업로드하지 않는다.
 
 TIFF는 원본 metadata 등록/Stack 탐색 전용이며 JPG 검수·Crop·ONNX 자동 실행에 사용하지 않는다. ImageJ frames를 공간 Z로 확정하지 않는다.
 
@@ -97,7 +97,7 @@ TIFF는 원본 metadata 등록/Stack 탐색 전용이며 JPG 검수·Crop·ONNX 
 
 서버 중지 중 새 검수를 로컬 저장했고 offline Batch를 같은 ID로 복구 후 ACK했다. 다른 RESEARCHER 계정/기기의 같은 대상 모순 판정은 별도 authenticated actor/local reviewer로 보존되고 충돌2, GT0이었다. crop app-close/restart 검사는 새 OS subprocess/native credential vault/동의 초기 OFF/Outbox receipt를 직접 확인했다.
 
-비공개 증거는 ignored artifacts 아래 report/log/screenshot/backup에 보존했다. 저장소에는 실제 source 경로/이미지/model/credential/outbox를 올리지 않는다. 검증 도구는 `tools/validate_central_sync.py`, `tools/validate_central_sync_retry.py`이며 자동 실행이 아닌 명시적 private QA용이다.
+비공개 증거는 ignored artifacts 아래 report/log/screenshot/backup에 보존했다. 저장소에는 실제 source 경로/이미지/model/credential/outbox를 올리지 않는다. 실제 offline crop 재시작/TIFF SHA 검사의 최종 private report `sync106-retry-real-native-v5`는 PASS이며 새 OS process 확인, 동일 queued ID ACK, crop 동의 OFF 초기값, 원본 보존을 기록했다. 검증 도구는 `tools/validate_central_sync.py`, `tools/validate_central_sync_retry.py`이며 자동 실행이 아닌 명시적 private QA용이다.
 
 ## Performance / Capacity
 
@@ -121,7 +121,7 @@ UI worker async 경로가 동작하나 CPU/GIL serialization 및 동시 작업�
 
 ## TIFF 4 Files Validation
 
-N119 3072×3012/158, No107 before/after 2922×2895/156, No22 2944×2745/156, 모두 uint16. 기존 실제 ImageJ/Fiji 회귀와 Stack 탐색을 유지했다. 최종 첫/중간/마지막 raw 픽셀 대조 결과는 마지막 완료 기록에 추가한다. 원본 SHA는 선행 TD05 reference와 비교한다. TIFF JPG 검수/Crop 차단, 자동 분석/전체 원본 업로드 없음.
+N119 3072×3012/158, No107 before/after 2922×2895/156, No22 2944×2745/156, 모두 uint16. 기존 실제 ImageJ/Fiji 회귀와 Stack 탐색을 유지했다. 실제 native Windows Viewer에서 N119의1/80/158, 나머지 세 파일의1/79/156페이지를 확인했다. 총12페이지의8×8 원본 region과 독립 tifffile page decode가 uint16 값별 동일하다. No107 Big-endian 원본 타입/byte order도 유지했다. JPG와 TIFF 네 파일 전체 SHA를 선행 TD05 reference와 다시 대조하여 모두 동일, 입력 Project JSON도 동일했다. pipeline.start 호출 guard count0, QML warning0. No22 준비 중 기존 display pyramid worker의 memmap.flush 대기가 관찰되어 faulthandler 진단을 남겼으나 실제 검사는 timeout 실패 없이 완료했다. 이 TD는 기존 TIFF warm-up 시간을 최적화했다고 주장하지 않는다. TIFF JPG 검수/Crop 차단, 자동 분석/전체 원본 업로드 없음.
 
 ## Windows Full Tests / PostgreSQL Integration Tests / GitHub CI
 
@@ -129,7 +129,7 @@ N119 3072×3012/158, No107 before/after 2922×2895/156, No22 2944×2745/156, 모
 - Native AWT/Swing plugin: **4 PASS / 5 deselected, 24.71s**, windows/basic/D3D11.
 - 실제 PostgreSQL integration: **33 PASS, 2.74s**, 전용 DB. TestClient httpx deprecation warning1은 기록하며 숨기지 않는다.
 - Ruff/compileall/desktop wheel: **PASS**. 독립 server Docker build/runtime: **PASS**.
-- Linux CI: desktop quality + native X11 plugin 및 별도 PostgreSQL17 job을 추가했다. 최종 head 결과는 완료 기록/PR에서 확정한다.
+- Linux CI: desktop quality + native X11 plugin 및 별도 PostgreSQL17 job을 추가했다. 코드 revision `4cf81d0`의 [CI run127](https://github.com/CrystalVision-Lab/sic-xrt-analyzer/actions/runs/38212963708) **PASS**: 실제 PostgreSQL17 **33 PASS / warning1,2.86s**, Linux 전체 **575 PASS / 기존4 SKIP,621.80s**, native X11 **4 PASS / 5 deselected,25.44s**. Ruff/import/compile/wheel/PR 정책 PASS. 문서 커밋까지 포함한 최종 HEAD의 실행은 [Draft #107 Checks](https://github.com/CrystalVision-Lab/sic-xrt-analyzer/pull/107/checks)와 PR 본문 SHA/run에서 확인한다.
 
 ### 초기 실패와 해결 근거
 

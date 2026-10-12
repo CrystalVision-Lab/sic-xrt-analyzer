@@ -14,7 +14,7 @@ Set-Location D:\capstone\sic-xrt-analyzer
 .\.venv\Scripts\python.exe tools/server_ops.py bootstrap
 ```
 
-API: `http://127.0.0.1:18766`. 기존 host port 충돌을 피하기 위해 8766 대신 18766을 사용한다. `XRT_API_PORT`, `XRT_PRIVATE_DIR`, `XRT_DB_PASSWORD_PATH`는 승인된 전용 경로로 설정할 수 있다. `.env.example`만 Git에 포함한다. 비밀은 `artifacts/sync106-private/db-password.txt`, bootstrap Credential은 같은 폴더 `admin.json`에 기록한다. 원문을 콘솔·Git·채팅에 출력하지 않는다. bootstrap은 이미 ADMIN이 있으면 거부한다.
+API: `http://127.0.0.1:18766`. 기존 host port 충돌을 피하기 위해 8766 대신 18766을 사용한다. `XRT_API_PORT`로 loopback port를 지정할 수 있다. Compose의 `XRT_DB_PASSWORD_PATH` override는 운영자가 별도 private secret을 직접 준비한 경우만 사용한다. 이 도구의 init/bootstrap/기본 backup 폴더는 프로젝트 아래 `artifacts/sync106-private`이다. `.env.example`만 Git에 포함한다. 비밀은 `artifacts/sync106-private/db-password.txt`, bootstrap Credential은 같은 폴더 `admin.json`에 기록한다. 원문을 콘솔·Git·채팅에 출력하지 않는다. bootstrap은 이미 ADMIN이 있으면 거부한다.
 
 API는 비특권 xrt 사용자, read-only root filesystem, `/tmp` tmpfs, no-new-privileges, 모든 Linux capabilities 제거를 사용한다. 비밀 password 파일은 read-only Docker secret bind mount이다. 전체 private 폴더는 bootstrap 일회성 컨테이너에만 마운트하며 상시 API에는 관리자 Credential·백업 폴더를 노출하지 않는다. ACL 변경 후 비특권 사용자 읽기와 API 정상 시작을 확인한다. DB/Asset named volume은 영속 유지된다.
 
