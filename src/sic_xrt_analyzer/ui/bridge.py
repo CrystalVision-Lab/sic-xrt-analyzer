@@ -438,6 +438,10 @@ class FileBridge(QObject):
 
     @Slot(str, int, int, int, int, "QVariantMap", result=bool)
     def requestAnalysis(self, scope, x, y, width, height, parameters):
+        if self.review_controller.pending:
+            self.review_controller.error="작성 중인 검수·영역을 기록하거나 취소한 뒤 분석하세요."
+            self.review_controller.changed.emit()
+            return False
         # Caller must choose scope explicitly. Presence of a viewer ROI never chooses it.
         if self.pipeline.adapter is None or not self.pipeline.adapter.available:
             return self.pipeline.reject(AnalysisError("MODEL_NOT_AVAILABLE", "승인된 모델이 연결되지 않았습니다"))

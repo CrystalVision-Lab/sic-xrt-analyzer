@@ -29,6 +29,10 @@ def digest(path):
     return sha.hexdigest()
 
 
+def progress(message):
+    print(message, flush=True)
+
+
 def settle(s):
     s.window.grabWindow()
     QTest.qWait(70)
@@ -93,8 +97,88 @@ class ReviewSession(Session):
         raise AssertionError(name)
 
 
+def replay_workspace(args, app, out):
+    original_sha = digest(args.project)
+    original = ProjectStore().load(args.project)
+    folder = out / "session"
+    folder.mkdir()
+    s = ReviewSession(app, folder)
+    report = {"status": "FAIL", "fresh_os_process": True, "new_model_inference": 0}
+    try:
+        c = s.bridge.projects
+        r = s.bridge.research
+        v = s.bridge.reviews
+        c.open(str(args.project.resolve()))
+        wait(s)
+        event = next(
+            e
+            for e in original.review_events
+            if e.target_type.value == "OBSERVATION"
+            and e.reviewer_id == "qa-researcher-a"
+            and e.class_decision.value == "TED"
+        )
+        c.selectRun(event.source_run_id)
+        wait(s)
+        spin(
+            app,
+            lambda: (
+                r.saved is not None
+                and r.pixels_available
+                and not s.bridge.stack_viewer.initial_loading
+            ),
+            240,
+        )
+        observation = next(
+            o for o in original.observations if o.observation_id == event.target_id
+        )
+        r.selectCandidate(observation.source_candidate_id)
+        v.setReviewer(event.reviewer_id)
+        assert v.enter() and v.state["history"] and v.classification == "TED"
+        assert v.state["selected"]["conflict"]
+        for e in original.review_events:
+            if e.corrected_geometry_reference:
+                v.cancel()
+                assert v.select(e.target_type.value, e.target_id)
+                assert any(
+                    g["geometry_id"] == e.corrected_geometry_reference
+                    for g in v.state["corrected"]
+                )
+        manual = next(
+            i
+            for i in original.defect_instances
+            if i.instance_status == "HUMAN" and not i.linked_observations
+        )
+        v.cancel()
+        assert v.select("DEFECT_INSTANCE", manual.instance_id)
+        assert v.state["selected"]["manual"] and v.state["history"]
+        assert (
+            c.project == original and not c.dirty and s.bridge.pipeline.result is None
+        )
+        assert digest(args.project) == original_sha and not s.warnings, s.warnings
+        report.update(
+            status="PASS",
+            review_events=len(original.review_events),
+            human_geometries=sum(
+                g.geometry_source.value == "HUMAN" for g in original.geometries
+            ),
+            manual_instances=sum(
+                i.instance_status == "HUMAN" for i in original.defect_instances
+            ),
+            conflict_restored=True,
+            manifest_sha_unchanged=True,
+            qml_warnings=s.warnings,
+        )
+    finally:
+        s.close()
+        (out / "report.json").write_text(
+            json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+    print(json.dumps(report), flush=True)
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("--replay-only", action="store_true")
     ap.add_argument("--project", type=Path, required=True)
     ap.add_argument("--model", type=Path)
     ap.add_argument(
@@ -109,6 +193,9 @@ def main():
     out.mkdir(parents=True, exist_ok=False)
     app = QApplication([])
     QQuickStyle.setStyle("Basic")
+    if args.replay_only:
+        replay_workspace(args, app, out)
+        return
     report = {
         "manual_mouse_acceptance": "PENDING",
         "tests": [],
@@ -150,6 +237,7 @@ def main():
     r = s.bridge.research
     v = s.bridge.reviews
     try:
+        progress("open verified project")
         c.open(str(args.project.resolve()))
         wait(s)
         c.save(str(out / "workspace.json"), "")
@@ -162,6 +250,7 @@ def main():
         assert len(runs) >= 2
         old_exports = {}
         for run in runs:
+            progress("saved run " + run.run_id)
             c.selectRun(run.run_id)
             wait(s)
             spin(
@@ -213,6 +302,7 @@ def main():
         invoke(s.window, "requestContext", "result", "MANUAL")
         s.window.setProperty("inspectorCollapsed", False)
         for width, height in ((1100, 700), (1440, 900), (1920, 1080)):
+            progress("actual review clicks " + str(width))
             v.cancel()
             r.selectCandidate(candidate["id"])
             s.window.resize(width, height)
@@ -268,6 +358,7 @@ def main():
         v.setReviewer("qa-researcher-a")
         # Imported TD02 structure corrections; all original nodes/edges remain unchanged.
         for kind in ("POLYLINE", "BRANCHED_GRAPH"):
+            progress("actual geometry drag " + kind)
             v.cancel()
             instance = next(
                 i
@@ -385,6 +476,7 @@ def main():
         c.open(c.path)
         wait(s)
         for run in runs:
+            progress("saved run " + run.run_id)
             c.selectRun(run.run_id)
             wait(s)
             spin(
@@ -402,6 +494,7 @@ def main():
             "original_predictions_scores_ids_runs_geometry_and_legacy_export_bytes"
         ] = True
         for path in args.tiff:
+            progress("tiff stack " + path.name)
             v.cancel()
             s.open(path.resolve())
             wait(s)
@@ -422,6 +515,7 @@ def main():
                     "stack_imagej_visible": True,
                 }
             )
+        progress("after SHA verification")
         assert all(digest(path) == sha for path, sha in originals.items())
         report["originals_sha_preserved"] = True
         report["scientific_reanalysis"] = False

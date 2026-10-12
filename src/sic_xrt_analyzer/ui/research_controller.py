@@ -87,6 +87,9 @@ class ResearchController(QObject):
 
     @Slot()
     def show_live(self):
+        reviews=getattr(self.bridge,"review_controller",None)
+        if reviews and reviews.pending:
+            reviews.error="작성 중인 검수를 먼저 기록하거나 취소하세요.";reviews.changed.emit();return
         self.saved = None
         self.result_identity = None
         self._pipeline_changed()

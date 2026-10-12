@@ -400,6 +400,10 @@ class ReviewController(QObject):
         self.projects.save("", "")
 
     def _saved(self, job, ok):
+        if job == "save" and ok and not self.projects.dirty:
+            self.error = ""
+            self.message = "프로젝트 디스크 저장 완료"
+            self.changed.emit()
         if job == "save" and self.next_after_save:
             self.next_after_save = False
             if ok and not self.projects.dirty:
@@ -744,5 +748,7 @@ class ReviewController(QObject):
             "total": len(self.filtered()),
             "badges": badges,
             "crop": self.crop,
-            "legacyEvents": self.bridge.feedback_controller.state.get("eventsCount", 0),
+            "legacyEvents": len(self.bridge.feedback_controller.data.get("events", ()))
+            if self.bridge.feedback_controller.data
+            else 0,
         }

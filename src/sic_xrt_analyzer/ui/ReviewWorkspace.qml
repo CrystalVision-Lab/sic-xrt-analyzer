@@ -62,10 +62,10 @@ ScrollView {
             Text { text: review.draft.kind==="BRANCHED_GRAPH" ? "점 추가: 선택 Node에서 새 Edge. 이동: Node 또는 Edge 제어점 선택." : "점 추가: 선택점 다음에 삽입. 이동: 꼭짓점을 드래그. 완성 후 검수 기록."; color: theme.muted; wrapMode: Text.Wrap; Layout.fillWidth: true }
             ColumnLayout {
                 visible: review.draft.kind==="BRANCHED_GRAPH"; Layout.fillWidth: true
-                AppComboBox { id: nodeA; objectName: "reviewGraphNodeA"; theme: root.theme; model: review.draft.nodes || []; textRole: "node_id"; Layout.fillWidth: true }
-                AppComboBox { id: nodeB; objectName: "reviewGraphNodeB"; theme: root.theme; model: review.draft.nodes || []; textRole: "node_id"; Layout.fillWidth: true }
+                AppComboBox { id: nodeA; objectName: "reviewGraphNodeA"; theme: root.theme; model: (review.draft.nodes || []).map(function(n,i) { return {node_id:n.node_id,label:"N"+(i+1)+" · ("+n.x.toFixed(1)+", "+n.y.toFixed(1)+")"} }); textRole: "label"; Layout.fillWidth: true }
+                AppComboBox { id: nodeB; objectName: "reviewGraphNodeB"; theme: root.theme; model: (review.draft.nodes || []).map(function(n,i) { return {node_id:n.node_id,label:"N"+(i+1)+" · ("+n.x.toFixed(1)+", "+n.y.toFixed(1)+")"} }); textRole: "label"; Layout.fillWidth: true }
                 AppButton { objectName: "reviewGraphAddEdge"; theme: root.theme; text: "선택 Node 간 Edge 추가"; enabled: nodeA.currentIndex>=0 && nodeB.currentIndex>=0 && nodeA.currentIndex!==nodeB.currentIndex; onClicked: fileBridge.reviews.edge(review.draft.nodes[nodeA.currentIndex].node_id,review.draft.nodes[nodeB.currentIndex].node_id,false) }
-                AppComboBox { id: edges; objectName: "reviewGraphEdge"; theme: root.theme; model: review.draft.edges || []; textRole: "edge_id"; Layout.fillWidth: true }
+                AppComboBox { id: edges; objectName: "reviewGraphEdge"; theme: root.theme; model: (review.draft.edges || []).map(function(e,i) { var nodes=review.draft.nodes || []; return {edge_id:e.edge_id,label:"Edge "+(i+1)+" · N"+(nodes.findIndex(function(n){return n.node_id===e.start_node})+1)+" → N"+(nodes.findIndex(function(n){return n.node_id===e.end_node})+1)} }); textRole: "label"; Layout.fillWidth: true }
                 RowLayout {
                     AppButton { objectName: "reviewGraphPath"; theme: root.theme; text: "Edge 경로 점 추가"; enabled: edges.currentIndex>=0; onClicked: fileBridge.reviews.selectEdge(review.draft.edges[edges.currentIndex].edge_id) }
                     AppButton { objectName: "reviewGraphDeleteEdge"; theme: root.theme; text: "Edge 삭제"; enabled: edges.currentIndex>=0; onClicked: fileBridge.reviews.edge(review.draft.edges[edges.currentIndex].edge_id,"",true) }
@@ -101,9 +101,20 @@ ScrollView {
             Text { text: review.total + "개"; color: theme.text }
             AppButton { objectName: "reviewNext"; theme: root.theme; text: "다음 →"; enabled: !review.pending; onClicked: fileBridge.reviews.step(1) }
         }
-        Repeater {
-            model: review.rows
-            AppButton { required property var modelData; objectName: "reviewRow"+modelData.id; theme: root.theme; quiet: true; text: (modelData.manual ? "수동" : "모델 " + modelData.label) + " #" + modelData.number + " · " + modelData.badge; enabled: !review.pending; Layout.fillWidth: true; onClicked: fileBridge.reviews.select(modelData.type,modelData.id) }
+        ListView {
+            id: reviewList; objectName: "projectReviewList"
+            Layout.fillWidth: true; Layout.preferredHeight: 180; clip: true
+            model: review.rows; ScrollBar.vertical: ScrollBar {}
+            delegate: ItemDelegate {
+                required property var modelData
+                objectName: "reviewRow"+modelData.id
+                width: reviewList.width; height: 32
+                text: (modelData.manual ? "수동" : "모델 " + modelData.label) + " #" + modelData.number + " · " + modelData.badge
+                enabled: !review.pending
+                onClicked: fileBridge.reviews.select(modelData.type,modelData.id)
+                contentItem: Text { text: parent.text; color: root.theme.text; elide: Text.ElideRight; verticalAlignment: Text.AlignVCenter; font.pixelSize: root.theme.smallSize }
+                background: Rectangle { color: parent.hovered ? root.theme.hover : "transparent" }
+            }
         }
         Text { visible: review.total>100; text:"앞 100개 표시 · 다음/이전으로 계속 탐색"; color:theme.muted }
     }

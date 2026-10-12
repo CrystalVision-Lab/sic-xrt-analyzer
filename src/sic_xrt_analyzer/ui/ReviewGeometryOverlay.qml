@@ -34,7 +34,7 @@ Canvas {
         if (g.kind==="BRANCHED_GRAPH") {
             var nodes={};(g.nodes || []).forEach(function(n){nodes[n.node_id]=n})
             ;(g.edges || []).forEach(function(e){var a=nodes[e.start_node],b=nodes[e.end_node];if(a&&b)path(e.points && e.points.length ? e.points : [[a.x,a.y],[b.x,b.y]],false)})
-            ;(g.nodes || []).forEach(function(n){mark(n.x,n.y)})
+            ;(g.nodes || []).forEach(function(n,i){mark(n.x,n.y);if(marker==="square"){ctx.font="11px sans-serif";ctx.fillText("N"+(i+1),imageX+n.x*imageScale+7,imageY+n.y*imageScale-7)}})
         } else if (g.kind==="MASK_REFERENCE" || g.kind==="BOUNDING_BOX") {
             if(g.bbox){var b=g.bbox;path([[b[0],b[1]],[b[0]+b[2],b[1]],[b[0]+b[2],b[1]+b[3]],[b[0],b[1]+b[3]]],true)}
         } else {
