@@ -1,5 +1,8 @@
 # 내부 XRT TIFF 스택 뷰어
 
+> 최신 작업공간: [XRT-RESULT-TD-09](result/XRT-RESULT-TD-09-TIFF-IMAGEJ-UX.md). TIFF 기본 ImageJ 선택·측정·처리는 단일 페이지에도 연결하며, 스택 전용 작업은 다중 페이지/전체 준비 조건을 따른다. JPG 모델 분석과 TIFF ImageJ 작업을 분리한다.
+
+
 Issue #13 · PR #12의 원본 소스/분석 계약 기반 위에 구현했습니다.
 외부 ImageJ/Fiji를 실행하지 않습니다. 이번 범위는 **2D 페이지 탐색**입니다. JPG·대형 단일 TIFF·ImageJ ROI는 [2D 이미지·ROI 문서](2d-image-roi-viewer.md), 사전 준비·ROI 편집은 [후속 문서](prepared-viewer-roi-editor.md)를 참고하세요. 현재 로딩 상태와 조작 조건은 [TD-07](ux/XRT-UX-TD-07-TIFF-LOADING.md)을 따릅니다. 아래 구현·검사 수는 이전 스택 개발 당시의 기록입니다.
 

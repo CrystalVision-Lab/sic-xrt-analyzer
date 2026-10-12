@@ -34,7 +34,7 @@ python -m venv .venv
 
 큰 이미지의 원본·표시 계층을 처음에 준비하여 확대·축소·스택 드래그 때 저해상도 화면으로 돌아가는 동작을 제거했습니다. 사진의 ImageJ 도구와 익숙한 메뉴 순서, 측정·히스토그램·선 프로파일, 필터·LUT, IJM 매크로 및 Java `PlugIn`/`PlugInFilter` 실행을 제공합니다. 처리 결과는 원본을 보존한 작업 복사본으로 내부 뷰어에 표시합니다. `Ctrl+S`로 새 이미지 파일 복사본을 저장하고 파일 메뉴에서 측정 결과 TSV를 저장합니다.
 
-**고급 도구는 여러 페이지가 있는 TIFF 스택에서만 표시합니다.** JPG·단일 TIFF·데모에서는 처리/플러그인 메뉴와 드롭다운의 ImageJ 전용 항목을 숨기고 측정 버튼을 비활성화합니다. 스택에서 만든 작업 복사본에는 도구를 유지하고, 별도 2D 파일을 열면 다시 숨깁니다. 파일명이나 ImageJ frames를 근거로 물리 공간 Z를 추측하지 않습니다.
+**TIFF는 ImageJ 선택·측정·처리 작업공간, JPG는 모델 분석 작업공간입니다.** Reader가 판별한 형식으로 Toolbar를 전환합니다. TIFF에서는 분석하기 버튼과 분석 ROI를 숨기고 사각형·타원·다각형·자유 영역·선·점·완드 아이콘을 제공합니다. 단일 TIFF도 기본 선택·측정·현재 페이지 ImageJ 처리를 지원하며 다중 페이지 스택 작업은 전체 준비 후 별도로 실행합니다. [TD-09 기능 매핑·화면·검증·제약](docs/result/XRT-RESULT-TD-09-TIFF-IMAGEJ-UX.md). JPG의 분석·결과·검수·프로젝트·모델 관리 흐름은 유지합니다. ImageJ frames를 물리 Z로 추측하지 않습니다.
 
 스택을 연 뒤 **측정**에서 기준선의 픽셀 거리·실제 거리·단위를 설정하고 길이·면적·점 개수·각도를 측정합니다. 결과를 Excel에 붙여 넣거나 새 TSV로 저장할 수 있습니다. **플러그인 → Java 플러그인 등록 / 실행**에서 `플러그인 설정창 사용 (AWT/Swing)`을 켜면 해당 Java 창을 앱 내부에 연결합니다. Windows와 Linux X11/XWayland에서 지원합니다.
 
@@ -48,7 +48,7 @@ Fiji/ImageJ2는 다음 명령으로 Java 라이브러리를 설치하고, 작업
 
 선택한 ROI를 Fiji Overlay로 전달하여 선택 영역을 사용하는 명령을 실행합니다. 사각형·타원·다각형·자유영역·선·점을 원본 좌표로 연결하며, Dataset만 처리하는 명령은 ROI를 무시할 수 있습니다. 실제 3D XRT TIFF 4개에서 첫·중간·마지막 페이지, 밝기·대비, 연속 탐색, 확대·이동, Fiji ROI 처리와 재열기·캐시 정리를 확인했습니다. [시간·메모리·제약과 검증 재현](docs/stack-validation.md).
 
-**현재 RC 판정: FAIL / NOT RC READY.** 실제 TIFF 4개와 RGB 모델 분석을 검증했지만 Windows 파일 선택창 반복 열기·취소에서 접근 위반 종료가 재현됐습니다. [TD-09 검증 결과·재현·제약](docs/ux/XRT-UX-TD-09-RC-VALIDATION.md). 신규 검사 3개를 포함한 회귀 검사 수는 **261개**, Windows AWT/Swing/ImageJ 창 검사 **4개**, 총 **265개**입니다. 최종 HEAD의 검사·CI 완료 결과는 TD-09 PR에 기록합니다. [TD-08 시각 위계](docs/ux/XRT-UX-TD-08-VISUAL-DENSITY.md) · [TD-07 로딩 검증](docs/ux/XRT-UX-TD-07-TIFF-LOADING.md). 아래 이전 단계의 테스트 수는 당시 기록입니다.
+**XRT-UX-TD-09 당시 RC 판정: FAIL / NOT RC READY.** 실제 TIFF 4개와 RGB 모델 분석을 검증했지만 Windows 파일 선택창 반복 열기·취소에서 접근 위반 종료가 재현됐습니다. [TD-09 검증 결과·재현·제약](docs/ux/XRT-UX-TD-09-RC-VALIDATION.md). 신규 검사 3개를 포함한 회귀 검사 수는 **261개**, Windows AWT/Swing/ImageJ 창 검사 **4개**, 총 **265개**입니다. 최종 HEAD의 검사·CI 완료 결과는 TD-09 PR에 기록합니다. [TD-08 시각 위계](docs/ux/XRT-UX-TD-08-VISUAL-DENSITY.md) · [TD-07 로딩 검증](docs/ux/XRT-UX-TD-07-TIFF-LOADING.md). 아래 이전 단계의 테스트 수는 당시 기록입니다.
 
 ## 화면과 조작
 
@@ -62,7 +62,7 @@ Context 제목 15px, 본문 13px, 보조 12px, 기술 정보 11px로 통일했�
 
 화면을 **전체 명령 메뉴 · 뷰어 조작 Toolbar · 작업/파일 탐색 · 중앙 이미지 · 우측 작업 Context · 하단 상태**의 6개 영역으로 분리했습니다. 왼쪽의 현재 이미지로 이미지 작업 영역에 복귀하고, 오른쪽 분석 Context에서 공유 실행/취소 Action을 사용합니다. 5개 Context는 아래 TD-03의 작업 선택 메뉴로 접근합니다. [컴포넌트 구조·기능 중복 Inventory·후속 TD](docs/ux/XRT-UX-TD-01-IA.md).
 
-### Toolbar 단순화 (XRT-UX-TD-02)
+### Toolbar 단순화 (XRT-UX-TD-02 당시 기록)
 
 상단 왼쪽은 **열기 | Pan · Zoom · 화면 맞춤 | ROI ▾ · 측정 ▾ | ⋯**, 오른쪽은 **패널 ▾ · 분석하기**로 구성합니다. ROI 메뉴에서 분석 영역(`R`) 또는 스택의 사각형·타원·다각형·자유영역·점·완드를 선택합니다. 측정 메뉴에는 선·각도·점·텍스트·화살표와 측정/보정 창이 있습니다. 선택한 도구는 기존 Accent와 이름·아이콘으로 표시하며 메뉴를 닫은 뒤 이미지에서 바로 사용합니다. `H`로 Pan, Zoom 도구에서 클릭으로 확대·Alt+클릭으로 축소합니다.
 

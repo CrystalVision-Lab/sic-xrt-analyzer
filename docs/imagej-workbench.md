@@ -1,5 +1,8 @@
 # 선명한 뷰어와 ImageJ 작업창 (Issue #29)
 
+> 최신 작업공간: [XRT-RESULT-TD-09](result/XRT-RESULT-TD-09-TIFF-IMAGEJ-UX.md). TIFF 기본 ImageJ 선택·측정·처리는 단일 페이지에도 연결하며, 스택 전용 작업은 다중 페이지/전체 준비 조건을 따른다. JPG 모델 분석과 TIFF ImageJ 작업을 분리한다.
+
+
 ## 실행
 
 Python 3.11+, Java **17 이상**, 64비트 환경을 사용합니다. Java 실행 파일이 PATH에 있어야 합니다. ImageJ 엔진은 선택 의존성입니다. 엔진을 설치하지 않아도 이미지 보기와 일반 선택·ROI 편집은 동작합니다.

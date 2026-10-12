@@ -1,0 +1,369 @@
+{
+  "kind": "synthetic QML capture; QTest input, not physical acceptance",
+  "layout": [
+    {
+      "size": [
+        1100,
+        700
+      ],
+      "dpr": 1.0,
+      "targets": [
+        {
+          "name": "toolbarOpen",
+          "x": 10.0,
+          "y": 34.0,
+          "width": 66.0,
+          "height": 32.0
+        },
+        {
+          "name": "toolbarPan",
+          "x": 97.0,
+          "y": 34.0,
+          "width": 62.0,
+          "height": 32.0
+        },
+        {
+          "name": "toolbarZoom",
+          "x": 163.0,
+          "y": 34.0,
+          "width": 74.0,
+          "height": 32.0
+        },
+        {
+          "name": "toolbarFit",
+          "x": 241.0,
+          "y": 34.0,
+          "width": 96.0,
+          "height": 32.0
+        },
+        {
+          "name": "tiffToolRectangle",
+          "x": 375.0,
+          "y": 34.0,
+          "width": 34.0,
+          "height": 32.0
+        },
+        {
+          "name": "tiffToolOval",
+          "x": 412.0,
+          "y": 34.0,
+          "width": 34.0,
+          "height": 32.0
+        },
+        {
+          "name": "tiffToolPolygon",
+          "x": 449.0,
+          "y": 34.0,
+          "width": 34.0,
+          "height": 32.0
+        },
+        {
+          "name": "tiffToolLine",
+          "x": 486.0,
+          "y": 34.0,
+          "width": 34.0,
+          "height": 32.0
+        },
+        {
+          "name": "tiffToolPoint",
+          "x": 523.0,
+          "y": 34.0,
+          "width": 34.0,
+          "height": 32.0
+        },
+        {
+          "name": "tiffToolWand",
+          "x": 560.0,
+          "y": 34.0,
+          "width": 34.0,
+          "height": 32.0
+        },
+        {
+          "name": "tiffMeasure",
+          "x": 598.0,
+          "y": 34.0,
+          "width": 42.0,
+          "height": 32.0
+        },
+        {
+          "name": "tiffContrast",
+          "x": 644.0,
+          "y": 34.0,
+          "width": 71.0,
+          "height": 32.0
+        },
+        {
+          "name": "tiffProcess",
+          "x": 719.0,
+          "y": 34.0,
+          "width": 53.0,
+          "height": 32.0
+        },
+        {
+          "name": "tiffMore",
+          "x": 776.0,
+          "y": 34.0,
+          "width": 66.0,
+          "height": 32.0
+        },
+        {
+          "name": "tiffStack",
+          "x": 846.0,
+          "y": 34.0,
+          "width": 53.0,
+          "height": 32.0
+        },
+        {
+          "name": "toolbarContextTools",
+          "x": 1037.0,
+          "y": 34.0,
+          "width": 53.0,
+          "height": 32.0
+        }
+      ]
+    },
+    {
+      "size": [
+        1440,
+        900
+      ],
+      "dpr": 1.0,
+      "targets": [
+        {
+          "name": "toolbarOpen",
+          "x": 10.0,
+          "y": 34.0,
+          "width": 66.0,
+          "height": 32.0
+        },
+        {
+          "name": "toolbarPan",
+          "x": 97.0,
+          "y": 34.0,
+          "width": 62.0,
+          "height": 32.0
+        },
+        {
+          "name": "toolbarZoom",
+          "x": 163.0,
+          "y": 34.0,
+          "width": 74.0,
+          "height": 32.0
+        },
+        {
+          "name": "toolbarFit",
+          "x": 241.0,
+          "y": 34.0,
+          "width": 96.0,
+          "height": 32.0
+        },
+        {
+          "name": "tiffToolRectangle",
+          "x": 375.0,
+          "y": 34.0,
+          "width": 34.0,
+          "height": 32.0
+        },
+        {
+          "name": "tiffToolOval",
+          "x": 412.0,
+          "y": 34.0,
+          "width": 34.0,
+          "height": 32.0
+        },
+        {
+          "name": "tiffToolPolygon",
+          "x": 449.0,
+          "y": 34.0,
+          "width": 34.0,
+          "height": 32.0
+        },
+        {
+          "name": "tiffToolLine",
+          "x": 523.0,
+          "y": 34.0,
+          "width": 34.0,
+          "height": 32.0
+        },
+        {
+          "name": "tiffToolPoint",
+          "x": 597.0,
+          "y": 34.0,
+          "width": 34.0,
+          "height": 32.0
+        },
+        {
+          "name": "tiffToolWand",
+          "x": 634.0,
+          "y": 34.0,
+          "width": 34.0,
+          "height": 32.0
+        },
+        {
+          "name": "tiffMeasure",
+          "x": 672.0,
+          "y": 34.0,
+          "width": 42.0,
+          "height": 32.0
+        },
+        {
+          "name": "tiffContrast",
+          "x": 718.0,
+          "y": 34.0,
+          "width": 71.0,
+          "height": 32.0
+        },
+        {
+          "name": "tiffProcess",
+          "x": 793.0,
+          "y": 34.0,
+          "width": 53.0,
+          "height": 32.0
+        },
+        {
+          "name": "tiffMore",
+          "x": 850.0,
+          "y": 34.0,
+          "width": 66.0,
+          "height": 32.0
+        },
+        {
+          "name": "tiffStack",
+          "x": 920.0,
+          "y": 34.0,
+          "width": 53.0,
+          "height": 32.0
+        },
+        {
+          "name": "toolbarContextTools",
+          "x": 1377.0,
+          "y": 34.0,
+          "width": 53.0,
+          "height": 32.0
+        }
+      ]
+    },
+    {
+      "size": [
+        1920,
+        1080
+      ],
+      "dpr": 1.0,
+      "targets": [
+        {
+          "name": "toolbarOpen",
+          "x": 10.0,
+          "y": 34.0,
+          "width": 66.0,
+          "height": 32.0
+        },
+        {
+          "name": "toolbarPan",
+          "x": 97.0,
+          "y": 34.0,
+          "width": 62.0,
+          "height": 32.0
+        },
+        {
+          "name": "toolbarZoom",
+          "x": 163.0,
+          "y": 34.0,
+          "width": 74.0,
+          "height": 32.0
+        },
+        {
+          "name": "toolbarFit",
+          "x": 241.0,
+          "y": 34.0,
+          "width": 96.0,
+          "height": 32.0
+        },
+        {
+          "name": "tiffToolRectangle",
+          "x": 375.0,
+          "y": 34.0,
+          "width": 34.0,
+          "height": 32.0
+        },
+        {
+          "name": "tiffToolOval",
+          "x": 412.0,
+          "y": 34.0,
+          "width": 34.0,
+          "height": 32.0
+        },
+        {
+          "name": "tiffToolPolygon",
+          "x": 449.0,
+          "y": 34.0,
+          "width": 34.0,
+          "height": 32.0
+        },
+        {
+          "name": "tiffToolLine",
+          "x": 523.0,
+          "y": 34.0,
+          "width": 34.0,
+          "height": 32.0
+        },
+        {
+          "name": "tiffToolPoint",
+          "x": 597.0,
+          "y": 34.0,
+          "width": 34.0,
+          "height": 32.0
+        },
+        {
+          "name": "tiffToolWand",
+          "x": 634.0,
+          "y": 34.0,
+          "width": 34.0,
+          "height": 32.0
+        },
+        {
+          "name": "tiffMeasure",
+          "x": 672.0,
+          "y": 34.0,
+          "width": 42.0,
+          "height": 32.0
+        },
+        {
+          "name": "tiffContrast",
+          "x": 718.0,
+          "y": 34.0,
+          "width": 71.0,
+          "height": 32.0
+        },
+        {
+          "name": "tiffProcess",
+          "x": 793.0,
+          "y": 34.0,
+          "width": 53.0,
+          "height": 32.0
+        },
+        {
+          "name": "tiffMore",
+          "x": 850.0,
+          "y": 34.0,
+          "width": 66.0,
+          "height": 32.0
+        },
+        {
+          "name": "tiffStack",
+          "x": 920.0,
+          "y": 34.0,
+          "width": 53.0,
+          "height": 32.0
+        },
+        {
+          "name": "toolbarContextTools",
+          "x": 1857.0,
+          "y": 34.0,
+          "width": 53.0,
+          "height": 32.0
+        }
+      ]
+    }
+  ],
+  "qmlWarnings": []
+}
