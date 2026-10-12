@@ -14,7 +14,7 @@ Desktop packaged `model_updates/trusted-keys.json`의 초기 origins는 비어 �
 
 Private Key는 32-byte raw 파일, 공개키는 Base64 raw32bytes. 일회성 `key-create --output <new-directory> --key-id <id>`는 새 private/public 파일을 만든다. 개인 서명 관리자만 Private Key를 보관한다. 일반 API ADMIN 권한에는 키 접근이 포함되지 않는다. API에 Private Key·관리자 파일을 마운트하지 않는다. sign CLI는 네트워크 배포 작업을 하지 않는다.
 
-키 교체: 새 ID로 생성 → 별도 검증 경로로 Desktop Trust에 새 공개키 추가 → 서버에 공개키 등록 → 새 Release를 새 키로 서명 → 관찰 → 필요 시 이전 키 revoke. 폐기 시 서버의 키 Event와 Desktop Trust의 status를 모두 REVOKED로 바꾼다. 신뢰 설정은 자동 다운로드하지 않는다. API DB를 복원해도 Private Key는 복원되지 않는다. 키 유출은 기존 Release 폐기·별도 Trust 배포·새 키 발급과 재서명이 필요하다.
+키 교체: 새 ID로 생성 → 별도 검증 경로로 Desktop Trust에 새 공개키 추가 → 서버에 공개키 등록 → 새 Release를 새 키로 서명 → 관찰 → 필요 시 이전 키 revoke. 폐기 시 서버의 키 Event와 Desktop Trust의 status를 모두 REVOKED로 바꾼다. 신뢰 설정은 자동 다운로드하지 않는다. Desktop 목록 검증은 폐기·미신뢰·손상된 과거 항목을 건너뛰어 새 신뢰 키의 정상 Release 조회를 유지한다. 현재 설치 모델의 키·파일 검증 실패는 별도 경고한다. API DB를 복원해도 Private Key는 복원되지 않는다. 키 유출은 기존 Release 폐기·별도 Trust 배포·새 키 발급과 재서명이 필요하다.
 
 ## Replay와 오프라인
 
