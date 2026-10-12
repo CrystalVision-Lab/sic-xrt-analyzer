@@ -229,7 +229,7 @@ def main():
             ts = time.perf_counter()
             root.setProperty("opacityValue", float(value))
             window.update()
-            spin(lambda: frame_count[0] > before_frames)
+            spin(lambda count=before_frames: frame_count[0] > count)
             responses.append((time.perf_counter() - ts) * 1000)
         render_count = c.revision
         root.setProperty("mode", "split")
@@ -242,7 +242,7 @@ def main():
             ts = time.perf_counter()
             root.setProperty("divider", float(value))
             window.update()
-            spin(lambda: frame_count[0] > before_frames)
+            spin(lambda count=before_frames: frame_count[0] > count)
             split_responses.append((time.perf_counter() - ts) * 1000)
         assert c.revision == split_revision, "divider must not decode/warp again"
         qt_performance = {
