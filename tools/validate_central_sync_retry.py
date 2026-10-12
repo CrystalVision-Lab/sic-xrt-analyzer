@@ -257,7 +257,11 @@ def main():
                         return file.pages[page].asarray()[:8, :8].copy()
 
                 expected = worker(app, original)
-                assert pixels.dtype == np.uint16 and np.array_equal(pixels, expected), (
+                assert (
+                    pixels.dtype.kind == "u"
+                    and pixels.dtype.itemsize == 2
+                    and np.array_equal(pixels, expected)
+                ), (
                     source.display_name,
                     page,
                     Path(frame.source.path).name,

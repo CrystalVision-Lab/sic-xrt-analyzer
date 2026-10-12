@@ -61,7 +61,7 @@ SQLite Outbox의 immutable canonical payload/digest/BatchID와 PENDING/SENT/RETR
 
 프로젝트 작업 영역의 중앙 서버 버튼 → origin/client/Credential 설정 → 연결 테스트 → 디스크 저장 후 서버와 동기화. 자동 동기화 OFF, 미저장/dirty/pending review/read-only 상태는 전송하지 않는다. Credential 입력은 저장 후 지운다. QSettings에는 origin만 저장하고 sync()로 새 OS 프로세스에도 유지한다.
 
-서버 미설정/중지/인증 실패/권한 거부/충돌/재시도 대기/ACK 상태를 구분한다. network/encode/SQLite 작업은 worker에서 수행한다. 로컬 검수·저장과 독립적이다. Crop 동의는 자동 체크하지 않으며 앱 재시작 후에도 다시 명시적으로 동의하여 대기 건을 전송한다.
+서버 미설정/중지/인증 실패/권한 거부/충돌/재시도 대기/ACK 상태를 구분한다. network/encode/SQLite 작업은 worker에서 수행한다. 로컬 검수·저장과 독립적이다. 실제 창 캡처에서 Crop 숫자 입력 폭 부족으로 첫 자릿수가 잘리는 것을 확인하여 입력 폭을 130px로 늘렸다. Crop 동의는 자동 체크하지 않으며 앱 재시작 후에도 다시 명시적으로 동의하여 대기 건을 전송한다.
 
 ## Geometry Preservation / ReviewEvent Preservation / Source Metadata
 
@@ -135,7 +135,7 @@ N119 3072×3012/158, No107 before/after 2922×2895/156, No22 2944×2745/156, 모
 
 실패 로그도 비공개 artifacts에 보존했다. 첫 전체 Windows 시도는 기존 Wand async test timeout1: 573 PASS/1 FAIL/기존5 SKIP,1484.59s. 기본 native/threaded 환경과 실제 TIFF QA 동시 실행 조건이었다. TD05의 offscreen/basic 전체 검사 조건으로 다시 실행하여574 PASS, native plugin은 별도 실제 windows 검사4 PASS였다. 테스트/timeout/skip/native dialog 코드를 바꾸지 않았다. 조건이 여러 개 바뀌었으므로 timeout 원인을 측정으로 확정했다고 주장하지 않는다.
 
-실제 초기 수집은 canonical sorted key로 child Review가 parent보다 앞서 domain validation422가 났다. DAG topological validation 복원으로 payload를 변경하지 않고 수정, 부모/순환/누락 회귀 검사로 확인했다. 서버 fixture metadata 누락, QA observation source lookup 및 selection을 취소하여 crop 버튼이 비활성화된 helper 오류도 수정했다. pending batch fixture는 같은 snapshot을 재사용하도록 고쳤고 asset quota test는 해당 Project count를 검사하도록 고쳤다. TIFF helper의 파일 전환 대기는 frame path/page까지 확인하도록 강화했다. 이는 실패를 PASS로 숨기거나 검사를 삭제한 것이 아니다.
+실제 초기 수집은 canonical sorted key로 child Review가 parent보다 앞서 domain validation422가 났다. DAG topological validation 복원으로 payload를 변경하지 않고 수정, 부모/순환/누락 회귀 검사로 확인했다. 서버 fixture metadata 누락, QA observation source lookup 및 selection을 취소하여 crop 버튼이 비활성화된 helper 오류도 수정했다. pending batch fixture는 같은 snapshot을 재사용하도록 고쳤고 asset quota test는 해당 Project count를 검사하도록 고쳤다. TIFF helper의 파일 전환 대기는 frame path/page까지 확인하도록 강화했다. No107 Big-endian uint16을 native-endian numpy 타입과 직접 비교하던 QA 조건은 원본 byte order를 유지한 unsigned 2-byte 판정으로 수정했다. 최초 GitHub PostgreSQL job은 운영 URL 변수만 설정하여 전용 `_test` DB 명시 guard가32건을 차단했다(1 PASS/32 ERROR). CI를 XRT_TEST_DATABASE_URL로 수정했고 guard/테스트는 완화하지 않았다. 이는 실패를 PASS로 숨기거나 검사를 삭제한 것이 아니다.
 
 ## Known Limitations / Operational Readiness
 

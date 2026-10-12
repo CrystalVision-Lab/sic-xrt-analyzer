@@ -45,7 +45,7 @@ SurfaceDialog {
                 Repeater { model: ["X","Y","너비","높이"]
                     ColumnLayout { required property string modelData; required property int index
                         Text { text: modelData; color: theme.muted }
-                        SpinBox { objectName: ["syncCropX","syncCropY","syncCropWidth","syncCropHeight"][index]; from: index<2 ? 0 : 1; to: index<2 ? 100000 : 1024; value: index<2 ? 0 : 128; editable:true; Layout.preferredWidth:100; onValueModified: root.rectangle[index]=value }
+                        SpinBox { objectName: ["syncCropX","syncCropY","syncCropWidth","syncCropHeight"][index]; from: index<2 ? 0 : 1; to: index<2 ? 100000 : 1024; value: index<2 ? 0 : 128; editable:true; Layout.preferredWidth:130; onValueModified: root.rectangle[index]=value }
                     }
                 }
             }
