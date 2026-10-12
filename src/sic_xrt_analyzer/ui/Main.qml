@@ -7,6 +7,7 @@ AppShell {
     id: window
     objectName: "mainWindow"
     visible: true; width: 1440; height: 900; minimumWidth: 1100; minimumHeight: 700
+    readonly property bool editingText: !!activeFocusItem && (activeFocusItem instanceof TextInput || activeFocusItem instanceof TextEdit)
     title: "SiC XRT Analyzer"
     shellTheme: theme; shellState: uiState; shellActions: window.commands; shellBridge: window.desktopBridge
     onProjectRequested: projectWorkflow.show()
@@ -237,8 +238,8 @@ AppShell {
     Action { id: demoAction; text: "합성 데모 이미지 보기"; enabled: !uiState.loading; onTriggered: window.showDemo() }
     Action { id: closeImageAction; objectName: "closeImageAction"; text: "현재 이미지 닫기"; shortcut: StandardKey.Close; enabled: uiState.hasImage || uiState.loading; onTriggered: window.closeImage() }
     Action { id: quitAction; text: "종료"; shortcut: "Ctrl+Q"; onTriggered: window.close() }
-    Action { id: panAction; objectName: "panAction"; text: "Pan"; shortcut: "H"; checkable: true; checked: uiState.activeTool === "Pan" && !uiState.roiEditMode; enabled: uiState.canNavigateImage; onTriggered: { uiState.roiEditMode = false; uiState.activeTool = "Pan" } }
-    Action { id: roiAction; objectName: "roiAction"; text: "ROI 선택"; shortcut: "R"; checkable: true; checked: uiState.activeTool === "ROI" && !uiState.roiEditMode; enabled: uiState.canNavigateImage && !uiState.analysisRunning; onTriggered: { uiState.roiEditMode = false; uiState.activeTool = "ROI"; Qt.callLater(function() { viewer.focusView() }) } }
+    Action { id: panAction; objectName: "panAction"; text: "Pan"; shortcut: window.editingText ? "" : "H"; checkable: true; checked: uiState.activeTool === "Pan" && !uiState.roiEditMode; enabled: uiState.canNavigateImage; onTriggered: { uiState.roiEditMode = false; uiState.activeTool = "Pan" } }
+    Action { id: roiAction; objectName: "roiAction"; text: "ROI 선택"; shortcut: window.editingText ? "" : "R"; checkable: true; checked: uiState.activeTool === "ROI" && !uiState.roiEditMode; enabled: uiState.canNavigateImage && !uiState.analysisRunning; onTriggered: { uiState.roiEditMode = false; uiState.activeTool = "ROI"; Qt.callLater(function() { viewer.focusView() }) } }
     Action { id: clearRoiAction; objectName: "clearRoiAction"; text: "ROI 초기화"; enabled: uiState.hasRoi && !uiState.loading && !uiState.analysisRunning; onTriggered: window.clearRoi() }
     Action { id: copyRoiAction; objectName: "copyRoiAction"; text: "ROI 좌표 복사"; enabled: uiState.hasRoi && !uiState.loading; onTriggered: window.copyRoiInfo() }
     Action { id: zoomInAction; objectName: "zoomInAction"; text: "확대"; shortcut: "Ctrl++"; enabled: uiState.canNavigateImage && uiState.effectiveZoom < 16; onTriggered: viewer.zoomIn() }

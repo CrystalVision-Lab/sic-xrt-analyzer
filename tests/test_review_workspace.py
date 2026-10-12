@@ -614,3 +614,31 @@ def test_graph_opaque_node_edge_ids_keep_colons(project):
     d.delete()
     d.undo()
     assert d.finish().edges[0].edge_id == "edge:original"
+
+
+def test_actual_review_typing_does_not_trigger_global_r_h_shortcuts(
+    workbench, tmp_path
+):
+    w = workbench
+    _c, _r, v, _path = prepare(w, tmp_path)
+    assert v.enter()
+    render(w)
+    note = w.item("reviewComment")
+    note.forceActiveFocus()
+    render(w)
+    assert w.window.property("editingText")
+    for char in "research review: bpd to ted":
+        QTest.keyClick(
+            w.window,
+            Qt.Key(ord(char.upper())),
+            Qt.ShiftModifier if char.isupper() else Qt.NoModifier,
+        )
+    render(w)
+    assert v.comment == "research review: bpd to ted", (
+        v.comment,
+        note.property("text"),
+    )
+    assert w.state.property("activeTool") == "Pan" and note.property("activeFocus")
+    v.decisions("PRESENT", "TED", "ACCEPTED", v.comment)
+    assert v.commit(False)
+    assert _c.project.review_events[-1].comment == "research review: bpd to ted"
