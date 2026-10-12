@@ -78,3 +78,8 @@ Linux CI에서 독립 서버 패키지와 PostgreSQL 검사를 통과시키지�
 출력은 새 경로이며 ACL 보호 private 폴더 아래여야 한다. Artifact는 지정한 폴더의 dataset/ 아래에 생성된다. 일회성 관리 컨테이너에 관리자 Credential 파일은 read-only, 지정 출력 폴더만 writable로 마운트한다. 상시 API에는 관리자 파일·반출 폴더를 마운트하지 않는다. 인증값을 출력하지 않는다. 반출 실패 시 partial 폴더를 재사용하지 않고 새 경로를 지정한다. public 다운로드·자동 업로드는 없다.
 
 학습 전 GET datasets/<id>의 usage_status=AVAILABLE을 다시 확인한다. 철회 시 이전 사본은 불변으로 보존하되 사용을 중단한다. 학습은 별도 ML 프로세스로 실행한다. [Artifact 계약](VERIFIED-DATASET-CONTRACT.md)과 ML TD-07 문서를 따른다.
+
+
+## 모델 Registry 및 업데이트 (TD-08)
+
+start 시 Alembic 0003이 불변 모델 테이블을 추가한다. 기존 연구·Dataset 자료는 보존한다. 상시 API는 Model Volume read-only, ONNX 검증은 별도 model-admin 일회성 프로세스다. 운영 신규 승인 모델은0개다. [모델 Registry 운영](MODEL-REGISTRY.md), [Release 보안](MODEL-RELEASE-SECURITY.md), [Desktop 모델 관리](../desktop/MODEL-UPDATES.md)를 따른다. 백업은 xrt-server-backup-2로 DB/Crop/모델·서명을 포함하며 Private Key는 별도 보호한다.
