@@ -111,7 +111,17 @@ Item {
                 Layout.fillWidth: true; Layout.fillHeight: true
                 ListView {
                     objectName: "projectSourceList"; Layout.preferredWidth: 230; Layout.fillHeight: true; clip: true; model: project.sources; ScrollBar.vertical: ScrollBar {}
-                    delegate: ItemDelegate { required property var modelData; required property int index; width: ListView.view.width; height: 56; objectName: "projectSource" + index; text: modelData.name + "\n" + (modelData.format === "TIFF" ? "스택 데이터 · " + modelData.pages + "페이지" : "분석 이력 " + modelData.runs + "회"); highlighted: modelData.id === root.chosenSource; onClicked: root.chosenSource = modelData.id }
+                    delegate: ItemDelegate {
+                        required property var modelData; required property int index
+                        width: ListView.view.width; height: 56; objectName: "projectSource" + index
+                        highlighted: modelData.id === root.chosenSource; onClicked: root.chosenSource = modelData.id
+                        ToolTip.visible: hovered; ToolTip.text: modelData.path
+                        contentItem: Column {
+                            spacing: 3
+                            Text { width: parent.width; textFormat: Text.PlainText; text: modelData.name; elide: Text.ElideMiddle; color: theme.text; font.pixelSize: theme.bodySize }
+                            Text { width: parent.width; text: modelData.format === "TIFF" ? "스택 데이터 · " + modelData.pages + "페이지" : "분석 이력 " + modelData.runs + "회"; color: theme.muted; font.pixelSize: theme.captionSize }
+                        }
+                    }
                 }
                 ColumnLayout {
                     Layout.fillWidth: true; Layout.fillHeight: true

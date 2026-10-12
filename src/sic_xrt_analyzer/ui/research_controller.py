@@ -76,7 +76,7 @@ class ResearchController(QObject):
     @property
     def pixels_available(self):
         if self.saved is None:
-            return self.bridge.original_source is not None
+            return self.bridge.pipeline.source is not None
         source = self.saved.source
         return source is not None and self.bridge.original_source is not None and source.identity == self.bridge.original_source.identity
 
