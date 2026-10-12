@@ -112,6 +112,10 @@ class ProjectController(QObject):
         self.changed.emit()
 
     def _analysis_busy(self):
+        registration=getattr(self.bridge,"registration_controller",None)
+        if registration and registration.job=="approve-save":
+            self.error="정합 승인 저장 완료 후 프로젝트를 전환하세요."
+            self.changed.emit();return True
         review=getattr(self.bridge,"review_controller",None)
         if review and review.pending:
             self.error="작성 중인 검수·영역 초안을 기록하거나 취소하세요."

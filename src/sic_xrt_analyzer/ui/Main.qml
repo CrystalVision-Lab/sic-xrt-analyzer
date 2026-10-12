@@ -107,7 +107,7 @@ AppShell {
     function openImageDialog() { openDialog.open() }
     function selectWorkspace(index) {
         uiState.workspaceIndex = index
-        uiState.statusText = index === 0 ? "이미지 뷰어 화면" : ["", "Wafer Map", "이미지 정합", "3D 뷰어"][index] + " · 미연결"
+        uiState.statusText = index === 0 ? "이미지 뷰어 화면" : index === 2 ? "어닐링 전·후 JPG 정합" : ["", "Wafer Map", "이미지 정합", "3D 뷰어"][index] + " · 미연결"
     }
     function openContext(key) { inspectorCollapsed = false; return contextPanel.showContext(key) }
     function requestContext(key, reason) { return contextPanel.requestContext(key, reason) }

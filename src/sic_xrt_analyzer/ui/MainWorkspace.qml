@@ -41,24 +41,19 @@ RowLayout {
             id: viewer; theme: root.theme; uiState: root.uiState; actions: root.actions
             onFileDropped: function(url) { root.fileDropped(url) }
         }
-        Repeater {
-            model: ["Wafer Map", "이미지 정합", "3D 뷰어"]
-            Rectangle {
-                required property int index
-                required property string modelData
-                objectName: "workspacePlaceholder" + (index + 1)
-                color: root.theme.viewer
-                ColumnLayout {
-                    anchors.centerIn: parent; spacing: theme.spacingMd
-                    Text { text: modelData; color: root.theme.text; font.pixelSize: theme.emptyTitleSize }
-                    Text { text: "해당 작업 영역은 아직 연결되지 않았습니다"; color: root.theme.muted; font.pixelSize: theme.bodySize }
-                }
-            }
+        Rectangle {
+            objectName: "workspacePlaceholder1"; color: root.theme.viewer
+            Text { anchors.centerIn:parent; text:"Wafer Map · 미연결"; color:root.theme.muted }
+        }
+        RegistrationWorkspace { theme: root.theme; uiState: root.uiState }
+        Rectangle {
+            objectName: "workspacePlaceholder3"; color: root.theme.viewer
+            Text { anchors.centerIn:parent; text:"3D 뷰어 · 미연결"; color:root.theme.muted }
         }
     }
     RightContextPanel {
         id: contextPanel; theme: root.theme; uiState: root.uiState; actions: root.actions
-        visible: !root.contextCollapsed
+        visible: !root.contextCollapsed && root.uiState.workspaceIndex === 0
         Layout.preferredWidth: requestedContext === "feedback" ? 440 : requestedContext === "result" ? 380 : root.theme.panelWidth
         Layout.fillHeight: true
         onOverviewRequested: viewer.fitView()
