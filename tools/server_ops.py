@@ -285,11 +285,13 @@ def main():
             "backup",
             "restore",
             "test",
+            "dataset-export",
         ],
     )
     parser.add_argument("--project", default="xrt-research")
     parser.add_argument("--output")
     parser.add_argument("--backup")
+    parser.add_argument("--dataset-id")
     parser.add_argument("--port", type=int, default=18767)
     args = parser.parse_args()
     if args.action == "init":
@@ -334,6 +336,47 @@ def main():
                 "/private/admin.json",
             ],
         )
+    elif args.action == "dataset-export":
+        if not args.output or not args.dataset_id:
+            parser.error("--output and --dataset-id required")
+        output = Path(args.output).absolute()
+        private_root = PRIVATE.resolve()
+        if (
+            output.exists()
+            or not output.resolve().is_relative_to(private_root)
+            or output == private_root
+            or any(
+                p.is_symlink() or (hasattr(p, "is_junction") and p.is_junction())
+                for p in (output, *output.parents)
+            )
+        ):
+            raise ValueError(
+                "New destination under the ACL-protected private folder required"
+            )
+        output.mkdir(parents=True)
+        compose(
+            args.project,
+            [
+                "run",
+                "--rm",
+                "--no-deps",
+                "-v",
+                str(output) + ":/export",
+                "-v",
+                str(PRIVATE / "admin.json") + ":/private/admin.json:ro",
+                "api",
+                "python",
+                "-m",
+                "xrt_server.dataset_admin",
+                "--credential-file",
+                "/private/admin.json",
+                "--dataset-id",
+                args.dataset_id,
+                "--output",
+                "/export/dataset",
+            ],
+        )
+        print("Explicit private export complete; no network publication")
     elif args.action == "backup":
         backup(args.project, args.output or str(PRIVATE / "backups" / str(uuid4())))
     elif args.action == "restore":

@@ -1,6 +1,6 @@
 from datetime import UTC, datetime
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -131,4 +131,31 @@ class Audit(Base):
     actor_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
     project_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
     detail: Mapped[dict] = mapped_column(JSONB, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+
+
+class DatasetEvent(Base):
+    """Immutable administrator assertions; never overwrite individual reviews."""
+
+    __tablename__ = "dataset_events"
+    __table_args__ = (UniqueConstraint("project_id", "kind", "subject_id", "revision"),)
+    id: Mapped[str] = mapped_column(String(128), primary_key=True)
+    project_id: Mapped[str] = mapped_column(
+        ForeignKey("research_projects.id"), index=True
+    )
+    kind: Mapped[str] = mapped_column(String(16))
+    subject_id: Mapped[str] = mapped_column(String(128))
+    revision: Mapped[int] = mapped_column(Integer)
+    payload: Mapped[dict] = mapped_column(JSONB)
+    actor_id: Mapped[str] = mapped_column(ForeignKey("server_users.id"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+
+
+class DatasetVersion(Base):
+    __tablename__ = "dataset_versions"
+    id: Mapped[str] = mapped_column(String(128), primary_key=True)
+    version: Mapped[str] = mapped_column(String(80), unique=True)
+    digest: Mapped[str] = mapped_column(String(64))
+    payload: Mapped[dict] = mapped_column(JSONB)
+    actor_id: Mapped[str] = mapped_column(ForeignKey("server_users.id"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)

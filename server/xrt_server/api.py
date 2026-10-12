@@ -351,4 +351,7 @@ def create_app(url=None, asset_dir=None):
     def openapi(pair: Annotated[tuple, Depends(admin)]):
         return app.openapi()
 
+    from .dataset_api import register_dataset_routes
+
+    register_dataset_routes(app, sessions, admin)
     return app

@@ -10,7 +10,14 @@ depends_on = None
 
 
 def upgrade():
-    Base.metadata.create_all(op.get_bind())
+    Base.metadata.create_all(
+        op.get_bind(),
+        tables=[
+            t
+            for t in Base.metadata.sorted_tables
+            if t.name not in {"dataset_events", "dataset_versions"}
+        ],
+    )
 
 
 def downgrade():
