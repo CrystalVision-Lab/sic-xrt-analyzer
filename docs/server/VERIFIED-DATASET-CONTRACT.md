@@ -23,7 +23,7 @@ splits/test.jsonl
 images/<PNG-SHA256>.png
 ```
 
-최대 4,096 samples/version, Crop 파일 최대 4 MiB, 정확히 RGB8 PNG 128×128. 그 외 크기는 PATCH_CONTRACT_MISMATCH로 제외하며 자동 리샘플링하지 않는다. Manifest 밖의 파일, 경로 탈출, symlink/junction, 손상·과대 이미지와 잘못된 SHA는 ML이 거부한다. 전송 중 실패한 반출에는 manifest를 마지막에 쓰므로 미완성 디렉터리는 로드할 수 없다.
+최대 4,096 samples/version, Crop 파일 최대 4 MiB, 정확히 RGB8 PNG 128×128. PNG IHDR의 bit depth=8/color type=2도 검사하여 Pillow의 RGB16→RGB8 암묵적 디코딩을 허용하지 않는다. 그 외 크기는 PATCH_CONTRACT_MISMATCH로 제외하며 자동 리샘플링하지 않는다. Manifest 밖의 파일, 경로 탈출, symlink/junction, 손상·과대 이미지와 잘못된 SHA는 ML이 거부한다. 전송 중 실패한 반출에는 manifest를 마지막에 쓰므로 미완성 디렉터리는 로드할 수 없다.
 
 class_mapping: {BPD:0,TED:1,TSD:2}. preprocessing_contract는 다음 객체와 정확히 일치해야 한다.
 

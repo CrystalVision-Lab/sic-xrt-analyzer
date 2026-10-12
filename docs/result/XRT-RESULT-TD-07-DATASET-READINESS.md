@@ -54,7 +54,7 @@ ML의 신규 baseline 구조·seed·optimizer·scheduler·validation-only select
 
 ## ML Tests / Windows Regression / CI
 
-현재 PostgreSQL 57 PASS, ML CPU 33 PASS. 기존 Windows offscreen/basic 전체 574 PASS / 기존 platform skip5(885.21s). 새 skip이나 기존 timeout 변경은 없다. 실제 saved JPG Full/ROI 각2회와 반복 Export PASS: Full2946(BPD245/TED1398/TSD1303), ROI791(BPD3/TED779/TSD9). TIFF4 first/mid/last(12 pages) 원본 uint16 대조 PASS, 분류 자동 실행0, 원본/model/project SHA 유지, QML warning0. Windows ImageJ/Fiji native GUI plugin4 PASS. Linux CI 최종 결과 확인 중이다.
+현재 PostgreSQL 58 PASS, ML CPU 34 PASS. 기존 Windows offscreen/basic 전체 574 PASS / 기존 platform skip5(885.21s). 새 skip이나 기존 timeout 변경은 없다. 실제 saved JPG Full/ROI 각2회와 반복 Export PASS: Full2946(BPD245/TED1398/TSD1303), ROI791(BPD3/TED779/TSD9). TIFF4 first/mid/last(12 pages) 원본 uint16 대조 PASS, 분류 자동 실행0, 원본/model/project SHA 유지, QML warning0. Windows ImageJ/Fiji native GUI plugin4 PASS. Linux CI 최종 결과 확인 중이다.
 
 ## Scientific Validation Status / Known Limitations / Next TD
 
@@ -65,6 +65,16 @@ ML의 신규 baseline 구조·seed·optimizer·scheduler·validation-only select
 
 전용 PostgreSQL에서 생성·승인·반출한 synthetic_fixture 9개(각 split BPD/TED/TSD1개)를 ML의 strict 로더로 읽고 CPU 2-epoch 학습·명시적 평가·실제 기존 frozen ONNX의 같은 입력 비교·새 후보 산출을 검증했다. 초기 batch/N 심볼 호환 오류는 ML PR에서 수정했고 기존 ONNX 파일은 유지했다. checker와 CPU parity는 batch1 최대오차0, batch7 2.9802322387695312e-08. 같은 기간 localhost health GET12회 모두 HTTP200. 이는 합성 기능 검증이며 기존 모델 accuracy나 향상을 증명하지 않는다.
 
-최종 검토에서 중복 제외가 원본 연결을 끊어 held-out 자료의 twin이 train으로 갈 수 있는 위험을 확인했다. 중복 제외 전에 관계 성분·holdout을 계산하고 ML에도 leakage_component 검증을 추가했다. duplicate alias·같은 원본의 다른 Crop가 test 밖으로 나가지 않는 회귀를 포함한다. 해당 최종 변경의 Producer→Consumer는 새 private Artifact로 재확인한다.
+최종 검토에서 중복 제외가 원본 연결을 끊어 held-out 자료의 twin이 train으로 갈 수 있는 위험을 확인했다. 중복 제외 전에 관계 성분·holdout을 계산하고 ML에도 leakage_component 검증을 추가했다. duplicate alias·같은 원본의 다른 Crop가 test 밖으로 나가지 않는 회귀를 포함한다. 최종 Producer→Consumer 9개 합성 Artifact 재검증 PASS. 배치1/7 parity 최대오차 모두0, 동시 localhost health HTTP200 14회. 기존 Analyzer FrozenClassifier도 새 private 후보를 batch2로 그대로 로드·추론했다. 기존 모델 설정이나 파일은 교체하지 않았다.
 
 초기 Fixture 필드·review run/leaf 지정 오류, 전역 CONTRACT 공유 오류, helper import 오류, 버전 제한 비교 항목 추가 오류를 테스트로 찾아 수정했다. 초기 실패·최종 로그는 ignored artifacts에 남긴다. 운영 DB의 실제 검수를 수정한 실패가 아니다. Credential·실제 Dataset·모델 파일은 보고서/Git에 포함하지 않는다.
+
+
+## Final Verification Record
+
+- 로컬 PostgreSQL58 PASS / ML34 PASS, Windows 전체574 PASS/기존SKIP5, Windows native plugin4 PASS.
+- 실제 TIFF4 first/mid/last(12page) uint16 원본 대조와 JPG Full/ROI 각2회·반복 Export PASS. 새 실데이터 추론0 / QML warning0 / 원본·모델·프로젝트 SHA 유지.
+- 운영17개 기존 테이블의 count/ordered-row digest 동일, 실제 승인0/실제 Dataset Version0. 마지막 localhost eligibility도 BPD/TED/TSD 모두0.
+- PNG RGB8은 실제 IHDR로 검증한다. RGB16을 mode=RGB만 보고 받아들이는 암묵적 디코딩 위험을 새 합성 회귀로 차단했다. 기존 수집 API·원본 TIFF/JPG는 수정하지 않았다.
+- core a7cc3a7의 [Linux CI](https://github.com/CrystalVision-Lab/sic-xrt-analyzer/actions/runs/38222536997)는 desktop/server/X11/PR policy 모두 PASS. 최종 RGB encoding 검사 및 보고서 커밋의 HEAD/CI는 [Draft #109](https://github.com/CrystalVision-Lab/sic-xrt-analyzer/pull/109)에 최종 기록한다.
+- 사용자 AGENTS.md SHA97fd9e0886957e532cfd5bafd525263462dc6e90652cf2b43ce6d3404fc04eaf 보존, 해당 변경은 미커밋. 실제 연구자료·모델·Checkpoint·Credential·백업은 Git 미포함.

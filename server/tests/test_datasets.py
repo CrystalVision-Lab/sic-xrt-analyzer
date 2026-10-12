@@ -656,3 +656,48 @@ def test_duplicate_before_exclusion_preserves_source_links_and_holdout():
     kept, excluded = deduplicate(rows)
     assert all(r["sample_id"] not in {"0", "1"} for r in kept)
     assert sum(r["reason"] == "DUPLICATE_LABEL_CONFLICT" for r in excluded) == 2
+
+
+def test_rgb16_png_cannot_silently_become_rgb8_training_data(api, project, tmp_path):
+    import io
+    import struct
+    import zlib
+
+    p = large(project, tmp_path)
+    asset = register(api, p)
+    post(api, "/groups", mapping(p))
+
+    def chunk(kind, data):
+        return (
+            struct.pack(">I", len(data))
+            + kind
+            + data
+            + struct.pack(">I", zlib.crc32(kind + data) & 0xFFFFFFFF)
+        )
+
+    payload = b"".join(b"\0" + b"\x80\x00" * (128 * 3) for _ in range(128))
+    raw = (
+        b"\x89PNG\r\n\x1a\n"
+        + chunk(b"IHDR", struct.pack(">IIBBBBB", 128, 128, 16, 2, 0, 0, 0))
+        + chunk(b"IDAT", zlib.compress(payload))
+        + chunk(b"IEND", b"")
+    )
+    with Image.open(io.BytesIO(raw)) as image:
+        assert image.mode == "RGB"  # mode alone does not prove encoded 8-bit RGB
+        pixel_hash = hashlib.sha256(image.tobytes()).hexdigest()
+    with api[2].begin() as s:
+        a = s.get(Asset, (p.project_id, asset))
+        m = deepcopy(a.payload)
+        m["crop_hash"] = hashlib.sha256(raw).hexdigest()
+        m["pixel_hash"] = pixel_hash
+        a.payload = m
+        a.digest = m["crop_hash"]
+        a.storage_key = m["crop_hash"] + ".png"
+        (api[1].state.asset_dir / a.storage_key).write_bytes(raw)
+    assert report(api, p)["exclusion_counts"] == {"PNG_RGB8_ENCODING_REQUIRED": 1}
+    assert (
+        api[0]
+        .post(PREFIX + "/approvals", json=approval(p, asset), headers=headers(api[6]))
+        .status_code
+        == 422
+    )

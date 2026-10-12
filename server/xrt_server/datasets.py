@@ -225,6 +225,12 @@ def verify_asset(asset, rows, root):
         or asset.digest != m["crop_hash"]
     ):
         raise ValueError("CROP_HASH_MISMATCH")
+    if (
+        raw[:8] != b"\x89PNG\r\n\x1a\n"
+        or raw[12:16] != b"IHDR"
+        or raw[24:26] != b"\x08\x02"
+    ):
+        raise ValueError("PNG_RGB8_ENCODING_REQUIRED")
     with Image.open(io.BytesIO(raw)) as image:
         if image.format != "PNG" or image.mode != "RGB" or image.size != (128, 128):
             raise ValueError("CROP_FORMAT")
