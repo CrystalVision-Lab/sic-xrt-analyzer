@@ -14,7 +14,10 @@ class ProjectStore:
         path = Path(path)
         with path.open("rb") as stream:
             data = stream.read(MAX_PROJECT_BYTES + 1)
-        return loads(data)  # No source file access and no inference.
+        project = loads(data)
+        from sic_xrt_analyzer.registration.assets import validate_project_assets
+        validate_project_assets(path, project)
+        return project  # Metadata/assets only; never reads source pixels or runs inference.
 
     def save(self, path, project, *, expected_revision=None):
         path = Path(path).absolute()
@@ -32,6 +35,8 @@ class ProjectStore:
             raise ValueError("Cannot overwrite an original source with a project")
         if path.is_symlink() or lock_path.is_symlink():
             raise ValueError("Project/lock paths cannot be symlinks")
+        from sic_xrt_analyzer.registration.assets import validate_project_assets
+        validate_project_assets(path, project)
         encoded = dumps(project)
         path.parent.mkdir(parents=True, exist_ok=True)
         with _write_lock(lock_path):
