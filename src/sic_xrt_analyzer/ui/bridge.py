@@ -126,6 +126,8 @@ class FileBridge(QObject):
         self.review_controller = ReviewController(self)
         from .sync_controller import SyncController
         self.sync_controller = SyncController(self)
+        from .model_update_controller import ModelUpdateController
+        self.model_update_controller = ModelUpdateController(self)
         stored = self._settings.value("preferences", {})
         self._preferences = self._validated(stored if isinstance(stored, dict) else {})
         recent = self._settings.value("recentFiles", [])
@@ -637,6 +639,7 @@ class FileBridge(QObject):
 
     @Slot()
     def waitForLoads(self):
+        self.model_update_controller.shutdown()
         self.sync_controller.shutdown()
         self.project_controller.shutdown()
         self.review_controller.crop_reader.shutdown()
@@ -700,3 +703,7 @@ class FileBridge(QObject):
     @Property(QObject, constant=True)
     def centralSync(self):
         return self.sync_controller
+
+    @Property(QObject, constant=True)
+    def modelUpdates(self):
+        return self.model_update_controller

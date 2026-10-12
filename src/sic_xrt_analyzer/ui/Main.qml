@@ -84,7 +84,7 @@ AppShell {
         zoomIn: zoomInAction, zoomOut: zoomOutAction, fit: fitAction, actualSize: actualSizeAction,
         roiLayer: roiLayerAction, navigationPanel: navigationPanelAction, inspectorPanel: inspectorPanelAction,
         statusBar: statusBarAction, fullScreen: fullScreenAction, resetLayout: resetLayoutAction,
-        run: runAction, cancelAnalysis: cancelAnalysisAction, settings: settingsAction, modelInfo: modelInfoAction, guide: guideAction,
+        run: runAction, cancelAnalysis: cancelAnalysisAction, settings: settingsAction, modelInfo: modelInfoAction, modelUpdates: modelUpdatesAction, guide: guideAction,
         shortcutGuide: shortcutGuideAction, reportIssue: reportIssueAction, about: aboutAction,
         importRois: importRoisAction, viewerSettings: viewerSettingsAction, prepareAnalysis: prepareAnalysisAction, analysisInputInfo: analysisInputInfoAction, tools: toolCommands, advanced: advancedCommands
     })
@@ -258,6 +258,7 @@ AppShell {
     Action { id: prepareAnalysisAction; objectName: "prepareAnalysisAction"; text: "분석하기"; enabled: uiState.hasLoadedImage && !uiState.loading; onTriggered: { uiState.workspaceIndex = 0; window.openContext("analysis"); viewer.focusView() } }
     Action { id: analysisInputInfoAction; objectName: "analysisInputInfoAction"; text: "분석 입력 상세"; enabled: uiState.hasLoadedImage; onTriggered: window.showInfo("분석 입력", uiState.inputPreflight.currentInputDetail + "\n" + uiState.fileName + "\n" + uiState.filePath + "\n표시 밝기·배율과 별개로 원본 픽셀을 사용합니다.") }
     Action { id: modelInfoAction; text: "모델 정보"; onTriggered: window.showInfo("모델 정보", uiState.analysisFlow.modelStatus + "\n모델: " + (uiState.analysis.modelName || "—") + "\n버전: " + (uiState.analysis.modelVersion || "—") + "\n장치: " + (uiState.analysis.device || "—") + "\n모델 폴더: " + (uiState.research.bundle || "—") + (uiState.research.error ? "\n안내: " + uiState.research.error : "") + "\n\n" + uiState.inputPreflight.modelExpectedDetail) }
+    Action { id: modelUpdatesAction; objectName: "modelUpdatesAction"; text: "AI 모델 관리…"; onTriggered: modelUpdatesDialog.open() }
     Action { id: guideAction; text: "사용 안내"; onTriggered: window.showInfo("뷰어 사용 안내", "파일 메뉴에서 TIFF/JPG 또는 합성 데모를 여세요.\n상단 패널 메뉴의 뷰어·스택: 페이지 이동과 밝기·대비. ⋯ 메뉴에서도 표시 설정을 열 수 있습니다. 스택은 휠/방향키로 탐색하고 Ctrl+휠로 확대합니다.\nROI 관리: 대응하는 이미지의 .roi/RoiSet.zip 가져오기 및 표시.\nPan / ROI 도구, FIT 화면 맞춤, 100% 원본 픽셀 배율을 지원합니다. 확대 시 보이는 영역을 정밀 읽습니다.\nImageJ frames는 공간 Z축으로 해석하지 않습니다. 상단 분석하기를 누르면 분석 준비 패널을 엽니다. 전체 이미지 또는 ROI를 선택하고 연구 모델로 분석할 수 있습니다.") }
     Action { id: shortcutGuideAction; text: "단축키"; onTriggered: window.showInfo("단축키", "파일\n열기  Ctrl+O     닫기  Ctrl+W     종료  Ctrl+Q\n\n보기\n화면 맞춤  Ctrl+0     실제 크기  Ctrl+1\n확대·축소  Ctrl++ / Ctrl+-     전체 화면  F11\n\n도구\nPan  H     ROI  R\n\n메뉴\nAlt+F / E / V / W / A / T / S / H") }
     Action { id: reportIssueAction; text: "문제 보고"; onTriggered: { if (!fileBridge.openIssueTracker()) window.showInfo("문제 보고", "브라우저를 열지 못했습니다. GitHub 저장소의 Issues에서 보고해 주세요.") } }
@@ -265,6 +266,7 @@ AppShell {
     Connections { target: fileBridge.feedback; function onFocusRequested(x, y) { window.requestContext("feedback", "REVIEW_REQUESTED"); uiState.workspaceIndex = 0; Qt.callLater(function() { viewer.focusCandidate(x, y) }) } }
     Connections { target: fileBridge.research; function onFocusRequested(x, y) { window.requestContext("result", "CANDIDATE_SELECTED"); uiState.workspaceIndex = 0; uiState.updateCandidateRoi(); Qt.callLater(function() { viewer.focusCandidate(x, y) }) } }
     Connections { target: fileBridge.experiments; function onFocusRequested(x, y, w, h) { window.requestContext("result", "CANDIDATE_SELECTED"); uiState.workspaceIndex = 0; Qt.callLater(function() { viewer.focusGeometry(x, y, w, h) }) } }
+    ModelUpdatesDialog { id: modelUpdatesDialog; onLocalModelRequested: researchModelDialog.open() }
     SafeFolderDialog { id: researchModelDialog; objectName: "researchModelDialog"; title: "고정 모델 폴더 선택"; onAccepted: fileBridge.research.loadModel(selectedFolder.toString()) }
     SafeFileDialog { id: coordinatesDialog; title: "현재 영상의 좌표 CSV"; nameFilters: ["좌표 CSV (*.csv)"]; onAccepted: fileBridge.research.setCoordinates(selectedFile.toString()) }
     SafeFolderDialog { id: resultsDialog; title: "결과를 저장할 폴더"; onAccepted: fileBridge.research.exportResult(selectedFolder.toString()) }

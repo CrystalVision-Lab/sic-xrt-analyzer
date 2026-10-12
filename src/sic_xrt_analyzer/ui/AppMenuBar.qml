@@ -185,6 +185,7 @@ MenuBar {
         AppMenuItem { objectName: "menuImagejCommandsItem"; text: "명령 검색…"; action: root.actions.advanced.catalog }
         AppMenuItem { text: "도구 옵션…"; action: root.actions.advanced.tools }
         AppMenuItem { action: root.actions.modelInfo }
+        AppMenuItem { action: root.actions.modelUpdates }
     }
     AppMenu {
         id: settingsMenu; objectName: "settingsMenu"; title: "창 (Window)"

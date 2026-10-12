@@ -49,6 +49,8 @@ class ResearchController(QObject):
         self.loader = LatestReader(self)
         self.loader.ready.connect(self._loaded)
         self.loading = False
+        self._startup_model = False
+        self._startup_attempts = set()
         self.error = self.bundle = self.csv_path = self.csv_hash = self.export_path = ""
         self.points = []
         self.point_identity = None
@@ -97,8 +99,12 @@ class ResearchController(QObject):
     def load_saved(self):
         path = os.environ.get("SIC_XRT_MODEL_BUNDLE") or self.bridge._settings.value("researchModelBundle", "")
         if not path:
+            updates = getattr(self.bridge, "model_update_controller", None)
+            path = updates.startup_bundle() if updates else None
+        if not path:
             path = bundled_model_path()
         if path:
+            self._startup_model = True
             self.loadModel(str(path))
         else:
             self.error = "모델 폴더를 찾지 못했습니다. 분석 탭에서 연구 모델 폴더를 선택하세요."
@@ -110,11 +116,14 @@ class ResearchController(QObject):
             self.error = "분석을 취소한 뒤 모델을 변경하세요."
             self.changed.emit()
             return
+        updates=getattr(self.bridge,"model_update_controller",None)
+        if not self._startup_model and updates and updates.protected():
+            self.error="분석·검수·편집을 마치고 프로젝트를 저장한 뒤 모델을 변경하세요."
+            self.changed.emit();return
         path = local_path(folder)
-        self.bundle = str(path)
+        self._pending_bundle = str(path)
         self.loading, self.error = True, ""
-        self.bridge.pipeline.adapter = None
-        self.bridge.pipeline.invalidate()
+
         self.changed.emit()
         def load():
             from sic_xrt_analyzer.analysis.desktop_adapter import DesktopResearchAdapter
@@ -123,12 +132,23 @@ class ResearchController(QObject):
 
     def _loaded(self, adapter, error):
         self.loading = False
+        startup = self._startup_model
+        if error and self._startup_model:
+            self._startup_attempts.add(self._pending_bundle)
+            updates=getattr(self.bridge,"model_update_controller",None)
+            fallback=updates.startup_fallback(self._pending_bundle) if updates else None
+            if not fallback:fallback=bundled_model_path()
+            if fallback and str(fallback) not in self._startup_attempts:
+                self.loadModel(str(fallback));return
+        self._startup_model=False
         self.error = "모델을 읽지 못했습니다. manifest.json과 model.onnx가 있는 폴더를 확인하세요." if error else ""
         if not error:
+            self.bundle = self._pending_bundle
             self.bridge.pipeline.adapter = adapter
-            self.bridge._settings.setValue("researchModelBundle", self.bundle)
-            self.bridge._settings.sync()
-        self.bridge.pipeline.invalidate()
+            if not startup:
+                self.bridge._settings.setValue("researchModelBundle", self.bundle)
+                self.bridge._settings.sync()
+        self.bridge.pipeline.changed.emit()
         self.changed.emit()
 
     def _pipeline_changed(self):

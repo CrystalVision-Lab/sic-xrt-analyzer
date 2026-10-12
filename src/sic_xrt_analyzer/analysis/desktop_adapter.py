@@ -28,7 +28,8 @@ class DesktopResearchAdapter:
 
     def __init__(self, bundle, classifier=None):
         self.classifier = classifier if classifier is not None else FrozenClassifier(bundle)
-        self.model_id = self.classifier.manifest["bundle_id"]
+        self.model_id = self.classifier.manifest.get("bundle_id") or (
+            self.classifier.manifest["architecture"] + "-" + self.classifier.manifest["model_sha256"][:12])
         self.model_version = self.classifier.manifest["model_sha256"]
 
     def analyze_source(self, request, token):
