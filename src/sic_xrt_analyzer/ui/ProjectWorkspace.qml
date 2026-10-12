@@ -15,7 +15,8 @@ Item {
     property bool creating: false
     property string chosenSource: ""
     property string relinkId: ""
-    function guard(action) {
+    function guard(action) { hostWindow.confirmReviewDiscard(function() { root.guardProject(action) }) }
+    function guardProject(action) {
         if (uiState.analysisRunning) { hostWindow.showInfo("분석 진행 중", "분석을 완료하거나 취소한 뒤 프로젝트를 전환하세요."); return }
         if (project.busy) { hostWindow.showInfo("프로젝트 작업 중", "작업이 완료되거나 취소된 뒤 다시 시도하세요."); return }
         if (!project.dirty) { action(); return }
@@ -26,11 +27,12 @@ Item {
     function recentProject(path) { guard(function() { hostWindow.confirmRoiDiscard(function() { fileBridge.projects.open(path) }) }) }
     function closeProject() { guard(function() { hostWindow.confirmRoiDiscard(function() { fileBridge.projects.close() }) }) }
     function saveProject() {
+        if (uiState.projectReview.pending) { hostWindow.showInfo("검수 초안 작성 중", "판정·도형을 검수 기록으로 확정하거나 취소한 뒤 프로젝트를 저장하세요."); return }
         if (!project.active) { afterCaptureSave = true; fileBridge.projects.captureCurrent(); return }
         if (project.path) fileBridge.projects.save("", "")
         else { creating = false; editor.open() }
     }
-    function saveAs() { creating = false; editor.open() }
+    function saveAs() { if (uiState.projectReview.pending) { hostWindow.showInfo("검수 초안 작성 중", "검수 기록을 먼저 확정하거나 취소하세요."); return }; creating = false; editor.open() }
     function picked() { return project.sources.find(function(s) { return s.id === root.chosenSource }) || ({}) }
     function selectImage(id, run) {
         hostWindow.confirmRoiDiscard(function() { if (run) fileBridge.projects.selectRun(run); else fileBridge.projects.selectSource(id, "") })

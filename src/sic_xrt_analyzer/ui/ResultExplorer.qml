@@ -131,7 +131,14 @@ ColumnLayout {
         AppButton { objectName: "resultListToggle"; theme: root.theme; quiet: true; implicitHeight: 24; text: root.listExpanded ? "후보 목록 접기 ▴" : "후보 목록 펼치기 ▾"; onClicked: root.listExpanded = !root.listExpanded; Layout.fillWidth: true }
         Text { text: "살펴봄 " + presentation.count(results.viewedCount) + "개"; color: theme.muted; font.pixelSize: theme.captionSize }
     }
-    AppButton { objectName: "reviewSelectedCandidate"; theme: root.theme; text: "선택 후보 검수하기"; Layout.fillWidth: true; visible: !!selected.id; enabled: uiState.feedback.ready && !results.savedActive; onClicked: root.reviewRequested() }
+    RowLayout {
+        Layout.fillWidth: true
+        AppButton { objectName: "projectReviewEnter"; theme: root.theme; text: "프로젝트 검수"; enabled: !!selected.id || !!uiState.experiment.selected.id; onClicked: fileBridge.reviews.enter() }
+        AppComboBox { id: manualKind; objectName: "manualDefectKind"; theme: root.theme; model:["점","선","영역","분기"]; Layout.fillWidth: true }
+        AppButton { objectName: "projectManualAdd"; theme: root.theme; text: "결함 추가"; enabled: uiState.imageFormat === "JPEG"; onClicked: { uiState.roiEditMode=false; uiState.feedbackVisible=false; fileBridge.reviews.addManual(["POINT","POLYLINE","POLYGON","BRANCHED_GRAPH"][manualKind.currentIndex]) } }
+    }
+    Text { text: uiState.projectReview.error; visible: text.length>0; color: theme.warning; Layout.fillWidth: true; wrapMode: Text.Wrap }
+    AppButton { objectName: "reviewSelectedCandidate"; theme: root.theme; text: "Legacy 검수…"; Layout.fillWidth: true; visible: !!selected.id; enabled: uiState.feedback.ready && !results.savedActive; onClicked: root.reviewRequested() }
     ListView {
         id: candidates; objectName: "candidateList"
         visible: results.total > 0 && root.listExpanded
@@ -152,6 +159,7 @@ ColumnLayout {
                 Rectangle { width: 3; Layout.fillHeight: true; color: selected.id === modelData.id ? theme.accent : "transparent" }
                 Text { text: "#" + modelData.number; color: theme.text; font.pixelSize: theme.bodySize; font.bold: selected.id === modelData.id; Layout.fillWidth: true }
                 Text { text: modelData.type + " · " + presentation.confidence(modelData.score); color: theme.text; font.pixelSize: theme.bodySize }
+                Text { text: (uiState.projectReview.badges || ({}))[modelData.id] || "미검수"; color: theme.muted; font.pixelSize: theme.captionSize }
                 Text { text: modelData.viewed ? "●" : "○"; color: modelData.viewed ? theme.accent : theme.muted; font.pixelSize: theme.captionSize }
             }
         }

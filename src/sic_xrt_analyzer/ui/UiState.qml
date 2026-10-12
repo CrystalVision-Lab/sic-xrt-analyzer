@@ -53,6 +53,8 @@ QtObject {
     property var detail: fileBridge.detailState
     property string analysisScope: "FULL_IMAGE"
     property string analysisPointMode: "contrast_proposals"
+    property var projectReview: fileBridge.reviews.state
+    onProjectReviewChanged: { if (projectReview.editing) { roiEditMode=false; feedbackVisible=false; activeTool="Pan"; autoCandidateRoi=false; selectingRoi=false } }
     property var project: fileBridge.projects.state
     property var research: fileBridge.research.state
     property bool feedbackVisible: false
@@ -111,7 +113,7 @@ QtObject {
     onRoiYChanged: Qt.callLater(syncCurrentRoi)
     onRoiWidthChanged: Qt.callLater(syncCurrentRoi)
     onRoiHeightChanged: Qt.callLater(syncCurrentRoi)
-    readonly property bool projectModified: project.dirty === true
+    readonly property bool projectModified: project.dirty === true || projectReview.pending === true
     readonly property bool hasSelectedFile: filePath.length > 0
     readonly property bool hasLoadedImage: imageSource.length > 0 && hasSelectedFile
     readonly property bool stackFeaturesVisible: workspaceIndex === 0 && hasLoadedImage && imageFormat === "TIFF" && (pageCount > 1 || workingStackContext)

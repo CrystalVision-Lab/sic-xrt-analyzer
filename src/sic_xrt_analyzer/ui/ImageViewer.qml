@@ -126,6 +126,8 @@ Rectangle {
     }
     function zoomIn() { zoomAt(uiState.effectiveZoom * 1.25, viewport.width / 2, viewport.height / 2) }
     function zoomOut() { zoomAt(uiState.effectiveZoom / 1.25, viewport.width / 2, viewport.height / 2) }
+    function reviewPoint(x, y) { return Qt.point((x-imageFrame.x)/displayScale, (y-imageFrame.y)/displayScale) }
+    Connections { target: fileBridge.reviews; function onFocusRequested(x,y,w,h) { root.focusGeometry(x,y,w,h) } }
     function imagePoint(x, y) {
         return Qt.point(Math.max(0, Math.min(1, (x - imageFrame.x) / imageFrame.width)), Math.max(0, Math.min(1, (y - imageFrame.y) / imageFrame.height)))
     }
@@ -201,6 +203,13 @@ Rectangle {
                 anchors.fill: parent; enabled: uiState.canNavigateImage; hoverEnabled: true
                 focus: true
                 Keys.onPressed: function(event) {
+                    if (uiState.projectReview.editing) {
+                        if (event.key===Qt.Key_Z && (event.modifiers & Qt.ControlModifier)) { fileBridge.reviews.undo(); event.accepted=true; return }
+                        if (event.key===Qt.Key_Delete) { fileBridge.reviews.deleteVertex(); event.accepted=true; return }
+                        if (event.key===Qt.Key_Escape) { fileBridge.reviews.cancel(); event.accepted=true; return }
+                        if ([Qt.Key_Left,Qt.Key_Right].indexOf(event.key)>=0) { event.accepted=true; return }
+                    }
+
                     if (uiState.pageCount === 1 && uiState.hasResult && !uiState.roiEditMode && [Qt.Key_Left, Qt.Key_Right].indexOf(event.key) >= 0) { fileBridge.research.stepCandidate(event.key === Qt.Key_Right ? 1 : -1); event.accepted = true; return }
                     if (event.key === Qt.Key_Escape) { fileBridge.feedback.setMode(""); root.toolPoints = []; root.drawingTool = false; toolPreview.requestPaint(); event.accepted = true; return }
                     if ((event.key === Qt.Key_Return || event.key === Qt.Key_Enter) && root.toolPoints.length) { root.finishTool(); event.accepted = true; return }
@@ -219,6 +228,9 @@ Rectangle {
                     forceActiveFocus()
                     if (uiState.analysisRunning && uiState.activeTool === "ROI" && !uiState.roiEditMode) return
                     root.pressX = mouse.x; root.pressY = mouse.y; root.pressPanX = root.panX; root.pressPanY = root.panY
+                    if (uiState.projectReview.editing && uiState.projectReview.tool !== "pan") {
+                        var rp=root.reviewPoint(mouse.x,mouse.y);fileBridge.reviews.press(rp.x,rp.y,8/root.displayScale);return
+                    }
                     root.reviewGesture = !!uiState.feedback.mode
                     if (uiState.feedback.mode) {
                         if (mouse.x >= imageFrame.x && mouse.x < imageFrame.x + imageFrame.width && mouse.y >= imageFrame.y && mouse.y < imageFrame.y + imageFrame.height) {
@@ -257,6 +269,10 @@ Rectangle {
                     }
                 }
                 onPositionChanged: function(mouse) {
+                    if (uiState.projectReview.editing && uiState.projectReview.tool !== "pan") {
+                        if (pressed) { var rp=root.reviewPoint(mouse.x,mouse.y);fileBridge.reviews.drag(rp.x,rp.y) }
+                        return
+                    }
                     if (root.reviewGesture) return
                     root.updateCursor(mouse.x, mouse.y)
                     var p = root.imagePoint(mouse.x, mouse.y)
@@ -284,6 +300,7 @@ Rectangle {
                 }
                 onExited: { uiState.cursorX = -1; uiState.cursorY = -1 }
                 onDoubleClicked: function(mouse) {
+                    if (uiState.projectReview.editing) return
                     if (["Polygon", "Polyline"].indexOf(uiState.activeTool) >= 0) { root.finishTool(); return }
                     if (uiState.roiEditMode) {
                         var p = root.imagePoint(mouse.x, mouse.y)
@@ -292,6 +309,7 @@ Rectangle {
                     }
                 }
                 onReleased: function(mouse) {
+                    if (uiState.projectReview.editing) { fileBridge.reviews.release(false); return }
                     if (root.reviewGesture) { root.reviewGesture = false; return }
                     if (uiState.feedbackVisible && uiState.activeTool === "Pan" && Math.hypot(mouse.x-root.pressX, mouse.y-root.pressY) < 4) {
                         var reviewPoints = uiState.feedback.rows, nearest = null, radius = 12
@@ -317,7 +335,7 @@ Rectangle {
                     }
                     if (root.drawingTool) root.finishTool(); uiState.selectingRoi = false; if (root.draggingVertex) fileBridge.finishRoiDrag(false); root.draggingVertex = false
                 }
-                onCanceled: { root.reviewGesture = false; root.toolPoints = []; root.drawingTool = false; toolPreview.requestPaint(); uiState.selectingRoi = false; if (root.draggingVertex) fileBridge.finishRoiDrag(true); root.draggingVertex = false }
+                onCanceled: { if (uiState.projectReview.editing) fileBridge.reviews.release(true); root.reviewGesture = false; root.toolPoints = []; root.drawingTool = false; toolPreview.requestPaint(); uiState.selectingRoi = false; if (root.draggingVertex) fileBridge.finishRoiDrag(true); root.draggingVertex = false }
                 onWheel: function(wheel) {
                     var delta = wheel.angleDelta.y || wheel.pixelDelta.y
                     if (delta === 0) return
@@ -329,6 +347,10 @@ Rectangle {
                     }
                     wheel.accepted = true
                 }
+            }
+            ReviewGeometryOverlay {
+                anchors.fill: parent; z: 5; review: uiState.projectReview
+                imageX: imageFrame.x; imageY: imageFrame.y; imageScale: root.displayScale
             }
             ImportedRoiOverlay {
                 z: 3

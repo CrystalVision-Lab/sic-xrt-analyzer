@@ -180,6 +180,9 @@ class ExperimentController(QObject):
 
     @Slot(str)
     def select(self, ident):
+        reviews=getattr(self.bridge,"review_controller",None)
+        if reviews and reviews.pending:
+            reviews.error="작성 중인 검수를 먼저 기록하거나 취소하세요.";reviews.changed.emit();return
         row = next((r for r in self.rows if r["id"] == ident), None)
         if row is None or self.source is None:
             return

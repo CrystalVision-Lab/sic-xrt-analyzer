@@ -20,8 +20,12 @@ ColumnLayout {
         text: root.uiState.imageFormat === "TIFF" && !root.uiState.hasResult ? "TIFF는 스택 탐색·3D용 데이터입니다." : root.message; color: root.theme.muted; font.pixelSize: theme.bodySize
         wrapMode: Text.Wrap; Layout.fillWidth: true
     }
+    ReviewWorkspace {
+        theme: root.theme; uiState: root.uiState; visible: uiState.projectReview.mode !== "EXPLORE"
+        Layout.fillWidth: true; Layout.fillHeight: true
+    }
     ResultExplorer {
-        visible: root.uiState.research.savedActive || (root.uiState.hasLoadedImage && (root.uiState.imageFormat !== "TIFF" || root.uiState.hasResult)); theme: root.theme; uiState: root.uiState
+        visible: uiState.projectReview.mode === "EXPLORE" && (root.uiState.research.savedActive || (root.uiState.hasLoadedImage && (root.uiState.imageFormat !== "TIFF" || root.uiState.hasResult))); theme: root.theme; uiState: root.uiState
         Layout.fillWidth: true; Layout.fillHeight: true
         onExportRequested: root.exportRequested(); onOverviewRequested: root.overviewRequested(); onReviewRequested: root.reviewRequested()
     }

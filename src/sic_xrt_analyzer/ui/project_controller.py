@@ -112,6 +112,10 @@ class ProjectController(QObject):
         self.changed.emit()
 
     def _analysis_busy(self):
+        review=getattr(self.bridge,"review_controller",None)
+        if review and review.pending:
+            self.error="작성 중인 검수·영역 초안을 기록하거나 취소하세요."
+            self.changed.emit();return True
         if self.bridge.pipeline.state == AnalysisState.RUNNING:
             self.error='분석 완료 또는 취소 후 프로젝트·저장 이력을 전환하세요.'
             self.changed.emit();return True
@@ -182,6 +186,9 @@ class ProjectController(QObject):
 
     @Slot(str, str)
     def save(self, filename='', name=''):
+        review=getattr(self.bridge,'review_controller',None)
+        if review and review.pending:
+            self.error='작성 중인 판정·도형을 검수 기록으로 확정한 뒤 프로젝트를 저장하세요.';self.changed.emit();return
         if self.busy:return
         snapshot=self.project
         if snapshot is None:
@@ -214,7 +221,14 @@ class ProjectController(QObject):
             self.dependencies=[];self.message='저장됨 · 원본 이미지는 포함하지 않습니다.'
             self._remember(p,path)
             self._save_view(p)
+            previous_availability=self.availability
+            prior_sources={s.source_id:s for s in snapshot.image_sources}
             self.availability={s.source_id:inspect_source(s) for s in p.image_sources}
+            for source in p.image_sources:
+                old=prior_sources.get(source.source_id)
+                prior_status=previous_availability.get(source.source_id)
+                if self.availability[source.source_id].pixels_available and source.content_hash and ((old and old.content_hash!=source.content_hash) or (prior_status and prior_status.status=="HASH_MATCH")):
+                    self.availability[source.source_id]=SourceAvailability("HASH_MATCH",True,"이 세션에서 SHA 검증된 원본입니다.")
         self._begin('save',write,publish,token)
 
     @Slot(str)
@@ -228,6 +242,8 @@ class ProjectController(QObject):
         self._begin('open',read,publish)
 
     def _activate(self, project, path, availability, assets):
+        review=getattr(self.bridge,'review_controller',None)
+        if review:review.cancel()
         self.project=self.saved_snapshot=project;self.path=str(path);self.dirty=False;self.read_only=False
         self.availability=availability;self.asset_status=assets;self.dependencies=[]
         self.selected_source=self.selected_run='';self.pending_source=None;self.deferred=[]
@@ -401,6 +417,7 @@ class ProjectController(QObject):
     def close(self):
         if self._analysis_busy():return
         if self.busy:return
+        self.bridge.review_controller.cancel()
         self.project=self.saved_snapshot=None;self.path='';self.dirty=False
         self.availability={};self.asset_status={};self.dependencies=[];self.deferred=[]
         self.selected_source=self.selected_run='';self.pending_source=None

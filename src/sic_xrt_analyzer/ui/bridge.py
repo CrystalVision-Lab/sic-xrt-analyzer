@@ -64,8 +64,11 @@ class TiffImageProvider(QQuickImageProvider):
         self.research_image = QImage()
         self.feedback_image = QImage()
         self.experiment_image = QImage()
+        self.project_review_image = QImage()
 
     def requestImage(self, image_id: str, size: QSize, requested_size: QSize) -> QImage:
+        if image_id.startswith('projectreview'):
+            return self.project_review_image
         if image_id.startswith('experiment'):
             return self.experiment_image
         if image_id.startswith('feedback'):
@@ -119,6 +122,8 @@ class FileBridge(QObject):
         self.project_controller = ProjectController(self)
         self.feedback_controller = FeedbackController(self)
         self.feedback_controller.changed.connect(self.research_controller.changed)
+        from .review_controller import ReviewController
+        self.review_controller = ReviewController(self)
         stored = self._settings.value("preferences", {})
         self._preferences = self._validated(stored if isinstance(stored, dict) else {})
         recent = self._settings.value("recentFiles", [])
@@ -627,6 +632,7 @@ class FileBridge(QObject):
     @Slot()
     def waitForLoads(self):
         self.project_controller.shutdown()
+        self.review_controller.crop_reader.shutdown()
         self.feedback_controller.loader.shutdown()
         self.feedback_controller.preview_loader.shutdown()
         self.native_dialogs.shutdown()
@@ -647,6 +653,10 @@ class FileBridge(QObject):
         self.pipeline.shutdown()
         self.research_controller.loader.shutdown()
         self.workbench.shutdown()
+
+    @Property(QObject, constant=True)
+    def reviews(self):
+        return self.review_controller
 
     @Property(QObject, constant=True)
     def projects(self):

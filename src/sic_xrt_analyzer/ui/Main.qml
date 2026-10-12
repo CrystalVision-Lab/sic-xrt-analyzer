@@ -34,7 +34,26 @@ AppShell {
     function saveMeasurements() { measurementsSaveDialog.open() }
     function imagejStatistics(kind) { if (uiState.stackFeaturesVisible) { imagejResults(); fileBridge.imagej.statistics(kind) } }
     function imagejStackCommand(command, options) { if (uiState.stackFeaturesVisible) { imagejDialog.showCommand(command, options); imagejDialog.wholeStack = true } }
-    function confirmRoiDiscard(callback) {
+    property var reviewDiscardNext: null
+    function confirmReviewDiscard(callback) {
+        if (!uiState.projectReview.pending) { callback(); return }
+        reviewDiscardNext=callback; reviewDiscardDialog.open()
+    }
+    SurfaceDialog {
+        id: reviewDiscardDialog; objectName: "reviewDiscardDialog"; parent: Overlay.overlay; modal: true
+        title: "작성 중인 검수·영역 초안"; width: 450; x:(parent.width-width)/2; y:(parent.height-height)/2
+        standardButtons: Dialog.NoButton
+        ColumnLayout {
+            anchors.fill: parent
+            Text { text: "작성 중인 판정과 도형을 버리고 이동할까요? 기록된 검수는 보존됩니다."; color: theme.text; wrapMode: Text.Wrap; Layout.fillWidth: true }
+            RowLayout {
+                AppButton { objectName: "reviewDiscardConfirm"; theme: theme; text: "초안 버리기"; onClicked: { fileBridge.reviews.cancel(); reviewDiscardDialog.close(); var action=window.reviewDiscardNext; window.reviewDiscardNext=null; if(action) action() } }
+                AppButton { objectName: "reviewDiscardCancel"; theme: theme; text: "계속 작성"; onClicked: { window.reviewDiscardNext=null; reviewDiscardDialog.close() } }
+            }
+        }
+    }
+    function confirmRoiDiscard(callback) { confirmReviewDiscard(function() { window.confirmRoiOnly(callback) }) }
+    function confirmRoiOnly(callback) {
         if (!uiState.importedRois.dirty) { callback(); return }
         discardNext = callback; roiDiscardDialog.open()
     }
@@ -44,6 +63,9 @@ AppShell {
     function exportResearchResult() { resultsDialog.open() }
     function openProjectWorkspace() { projectWorkflow.show() }
     onClosing: function(close) {
+        if (!allowQuit && uiState.projectReview.pending) {
+            close.accepted=false; confirmReviewDiscard(function() { window.close() }); return
+        }
         if (!allowQuit && (uiState.project.dirty || uiState.project.busy)) {
             close.accepted = false
             projectWorkflow.guard(function() { window.confirmRoiDiscard(function() { window.allowQuit = true; window.close() }) })
