@@ -99,7 +99,7 @@ def test_empty_opening_first_frame_and_ready_with_live_event_loop(load_case):
     assert phase(w) == 'READY' and w.item('pageSlider').property('enabled')
 
 
-@pytest.mark.parametrize('context', ['analysis', 'roi'])
+@pytest.mark.parametrize('context', ['viewer', 'roi'])
 def test_first_frame_pan_zoom_fit_pixel_roi_and_original_analysis(load_case, context):
     c, w = load_case, load_case.w
     analysis_gate = Event()
@@ -119,23 +119,19 @@ def test_first_frame_pan_zoom_fit_pixel_roi_and_original_analysis(load_case, con
         invoke(w.item('fitAction'), 'trigger')
         assert w.state.property('fitMode') and viewer.property('panX') == 0
         assert w.bridge.pixelValue(40, 50) == str(c.raw[0, 50, 40])
-        invoke(w.item('roiAction'), 'trigger')
-        draw(w, start=(40, 50), end=(140, 150))
-        assert w.state.property('hasRoi') and w.state.property('roiX') == pytest.approx(40, abs=1)
-        w.state.setProperty('analysisScope', 'ROI')
-        assert w.state.property('canAnalyze') and w.bridge.pipeline.source is w.bridge.original_source
-        invoke(w.item('runAction'), 'trigger')
-        spin(w.app, adapter.entered.is_set)
-        assert adapter.image.dtype == np.uint16
-        region = adapter.request.roi
-        np.testing.assert_array_equal(adapter.image, c.raw[0, region.y:region.y+region.height, region.x:region.x+region.width])
-        # Even programmatic rejected navigation must not invalidate an analysis.
-        analysis_id = adapter.request.analysis_id
+        invoke(w.item('toolRectangleAction'),'trigger')
+        draw(w,start=(40,50),end=(140,150))
+        assert not w.state.property('hasRoi')
+        record=w.bridge.roi_manager.records[-1]
+        assert record.tool=='Rectangle' and record.bbox[0]==pytest.approx(40,abs=1)
+        w.bridge.measurements.measure()
+        assert not w.bridge.measurements.error and w.bridge.measurements.rows[-1]['metric']=='Area'
+        assert not w.state.property('canAnalyze')
+        assert not w.bridge.requestAnalysis('ROI',40,50,100,100,{})
+        assert not adapter.entered.is_set()
         assert not w.bridge.requestPage(7)
-        QTest.keyClick(w.window, Qt.Key_End)
-        assert w.bridge.analysis['state'] == 'RUNNING'
-        assert w.bridge.pipeline._active.request.analysis_id == analysis_id
-        assert w.state.property('pageIndex') == 0
+        QTest.keyClick(w.window,Qt.Key_End)
+        assert w.state.property('pageIndex')==0
     finally:
         analysis_gate.set()
 
@@ -150,9 +146,11 @@ def test_stack_progress_labels_context_and_original_record_gates(load_case):
     assert '현재 페이지 1 / 8' == w.item('currentPageLabel').property('text')
     assert '4 / 8 페이지 준비' in w.item('preloadStatus').property('text')
     assert '전체 페이지 준비 후' in w.item('navigationReadyReason').property('text')
-    for name in ('nextPageButton', 'pageSlider', 'displayLowSlider', 'importRoisAction', 'toolRectangleAction', 'advancedMacroAction', 'imagejRunButton'):
+    for name in ('nextPageButton', 'pageSlider', 'displayLowSlider', 'importRoisAction'):
         assert not w.item(name).property('enabled'), name
-    assert w.item('roiAction').property('enabled')
+    assert not w.item('roiAction').property('enabled')
+    for name in ('toolRectangleAction','advancedMacroAction','imagejRunButton'):
+        assert w.item(name).property('enabled'),name
     c.finish()
     assert w.panel.property('requestedContext') == 'viewer'
     assert w.item('toolRectangleAction').property('enabled')

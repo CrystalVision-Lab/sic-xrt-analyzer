@@ -7,6 +7,7 @@ from roifile import ImagejRoi
 from test_analysis_flow import prepare, set_scope
 from test_analysis_pipeline import spin
 from test_context_panel import choose
+from test_desktop_research import create_jpeg_source
 from test_result_ux import analyzed
 from test_ui_analysis_contract import invoke
 
@@ -46,6 +47,7 @@ def imported(w, name='generated'):
 
 def test_no_image_and_empty_area_are_normal_states(workbench):
     w = workbench
+    w.open(create_jpeg_source(w.path.parent).path)
     choose(w, 'roi')
     assert flow(w, 'areaPhase') == 'NONE' and flow(w, 'imagejPhase') == 'EMPTY'
     assert '전체 이미지 분석' in w.item('analysisAreaHint').property('text')
@@ -134,8 +136,10 @@ def test_running_locks_area_actions_without_locking_pan_zoom(workbench):
 def test_shape_lifecycle_count_selection_geometry_and_context(workbench, tool, menu, style, points):
     w = workbench
     choose(w, 'roi')
-    button = 'roiToolDropdown' if menu.startswith('tool') else 'measurementToolDropdown'
-    w.select(button, menu)
+    if tool in ('Rectangle','Oval','Freehand','Polygon','Line','Polyline','Point'):
+        w.click('tiffTool'+tool)
+    else:
+        w.select('tiffMore','tiffMore'+tool)
     assert flow(w, 'imagejPhase') == 'EMPTY'  # Selecting a tool is not drawing.
     assert w.panel.property('requestedContext') == 'roi'
     assert tool in w.item('viewerToolMode').property('text')
@@ -170,7 +174,7 @@ def test_shape_lifecycle_count_selection_geometry_and_context(workbench, tool, m
 @pytest.mark.parametrize('end', ['escape', 'pan', 'zoom', 'roi', 'page'])
 def test_unfinished_polygon_does_not_leak_across_mode_or_page(workbench, end):
     w = workbench
-    choose(w, 'image'); w.select('roiToolDropdown', 'toolPolygon')
+    choose(w, 'image'); w.click('tiffToolPolygon')
     QTest.mouseClick(w.window, Qt.LeftButton, Qt.NoModifier, scene(w, 40, 40))
     assert flow(w, 'isDrawing')
     if end == 'escape':
@@ -180,7 +184,7 @@ def test_unfinished_polygon_does_not_leak_across_mode_or_page(workbench, end):
     elif end == 'zoom':
         w.click('toolbarZoom')
     elif end == 'roi':
-        w.select('roiToolDropdown', 'toolRectangle')
+        w.click('tiffToolRectangle')
     else:
         w.bridge.requestPage(1); spin(w.app, lambda: w.state.property('pageIndex') == 1)
     assert not flow(w, 'isDrawing')
@@ -254,10 +258,11 @@ def test_import_cancel_error_selection_edit_and_copy_serialization(workbench):
 
 def test_page_scope_visibility_and_new_image_reset(workbench):
     w = workbench
-    choose(w, 'roi'); w.select('roiToolDropdown', 'toolRectangle'); draw(w)
+    choose(w, 'roi'); w.click('tiffToolRectangle'); draw(w)
     page_roi_id = w.bridge.roi_manager.selected
     imported(w)  # Imported polygon without a page tag is image-wide.
-    w.click('roiSpecifyArea'); draw(w)
+    assert not w.item('roiSpecifyArea').property('visible')
+    assert not w.state.property('hasRoi')
     w.bridge.requestPage(1); spin(w.app, lambda: w.state.property('pageIndex') == 1)
     assert flow(w, 'areaPhase') == 'NONE'
     assert len(w.bridge.roiState['items']) == 2
@@ -281,6 +286,7 @@ def test_page_scope_visibility_and_new_image_reset(workbench):
 @pytest.mark.parametrize('size', [(1100, 700), (1440, 900)])
 def test_fixed_roi_status_selection_and_actions_in_bounds(workbench, size):
     w = workbench
+    w.open(create_jpeg_source(w.path.parent).path)
     w.window.resize(*size); QTest.qWait(40); choose(w, 'roi')
     imported(w)
     for name in ('analysisRoiState', 'roiSpecifyArea', 'imagejRoiState', 'selectedRoiSummary',
@@ -311,7 +317,7 @@ def test_result_selection_filter_and_analysis_area_survive_imagej_management(wor
 
 def test_wand_uses_existing_async_imagej_bridge(workbench):
     w = workbench
-    choose(w, 'roi'); w.select('roiToolDropdown', 'toolWand')
+    choose(w, 'roi'); w.click('tiffToolWand')
     QTest.mouseClick(w.window, Qt.LeftButton, Qt.NoModifier, scene(w, 80, 80))
     spin(w.app, lambda: not w.bridge.imagej.state['busy'])
     assert not w.bridge.imagej.state['error']

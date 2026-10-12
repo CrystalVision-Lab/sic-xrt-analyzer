@@ -6,7 +6,7 @@ import pytest
 from PySide6.QtTest import QTest
 from test_analysis_pipeline import spin
 from test_context_panel import choose
-from test_desktop_research import create_source
+from test_desktop_research import create_jpeg_source as create_source
 from test_result_ux import DistributedCandidates
 from test_roi_ux import draw
 from test_ui_analysis_contract import invoke
@@ -67,6 +67,7 @@ def test_invalid_open_recovers_without_reusing_result_or_coordinates(workbench):
     choose(w,'analysis'); w.click('contextRunAnalysis')
     spin(w.app,lambda:w.bridge.analysis['hasResult'])
     old_source = w.bridge.original_source
+    spin(w.app,lambda:not w.bridge.projects.busy)
     invoke(w.window,'selectImagePath',str(w.path.parent/'missing-original.tif'))
     spin(w.app,lambda:not w.state.property('opening'))
     assert w.state.property('loadError')

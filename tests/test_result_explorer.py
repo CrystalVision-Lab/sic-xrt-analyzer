@@ -7,7 +7,8 @@ from PySide6.QtQml import QQmlApplicationEngine
 from PySide6.QtQuickControls2 import QQuickStyle
 from PySide6.QtTest import QTest
 from test_analysis_pipeline import spin
-from test_desktop_research import Classifier, create_source
+from test_desktop_research import Classifier
+from test_desktop_research import create_jpeg_source as create_source
 from test_ui_analysis_contract import invoke
 
 from sic_xrt_analyzer.analysis.contracts import (

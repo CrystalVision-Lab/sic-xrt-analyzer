@@ -6,7 +6,7 @@ from PySide6.QtCore import Q_ARG, QMetaObject, QPointF, Qt
 from PySide6.QtTest import QTest
 from test_analysis_pipeline import spin
 from test_context_panel import LifecycleAdapter, choose
-from test_desktop_research import create_source
+from test_desktop_research import create_jpeg_source as create_source
 from test_ui_analysis_contract import invoke
 
 from sic_xrt_analyzer.analysis.contracts import AnalysisScope
@@ -28,7 +28,7 @@ def prepare(w, mode='success'):
     adapter = CountingAdapter(mode)
     w.bridge.pipeline.adapter = adapter
     w.open(create_source(w.path.parent).path)
-    assert w.panel.property('requestedContext') == 'viewer'
+    assert w.panel.property('requestedContext') == 'image'
     w.click('imagePrepareAnalysis')
     assert w.panel.property('requestedContext') == 'analysis'
     assert not adapter.entered.is_set()  # Navigation never starts inference.
@@ -65,6 +65,7 @@ def drag_area(w, start=(128, 128), end=(384, 384)):
 ])
 def test_not_ready_reasons_follow_existing_run_gates(workbench, case, reason):
     w = workbench
+    w.open(create_source(w.path.parent).path)
     choose(w, 'analysis')
     if case == 'no-image':
         invoke(w.window, 'closeImage')
@@ -239,6 +240,7 @@ def test_advanced_input_and_model_details_preserve_parameters(workbench, tmp_pat
 
 def test_only_supported_scopes_and_invalid_scope_explanation(workbench):
     w = workbench
+    w.open(create_source(w.path.parent).path)
     w.bridge.pipeline.adapter.input_contract = replace(w.bridge.pipeline.adapter.input_contract,
                                                       supported_scopes=(AnalysisScope.ROI,))
     w.bridge.pipeline.invalidate()
@@ -263,7 +265,7 @@ def test_new_image_keeps_settings_and_requires_a_new_area(workbench, tmp_path):
         replacement = tmp_path / 'replacement'
         replacement.mkdir()
         w.open(create_source(replacement).path)
-        assert w.panel.property('requestedContext') == 'viewer'
+        assert w.panel.property('requestedContext') == 'image'
         assert not w.bridge.analysis['hasResult'] and not w.bridge.research.state['selected']
         w.click('imagePrepareAnalysis')
         assert w.state.property('analysisScope') == 'ROI'

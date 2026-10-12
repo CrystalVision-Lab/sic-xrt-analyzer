@@ -7,7 +7,7 @@ from PySide6.QtQml import QQmlApplicationEngine, QQmlExpression
 from PySide6.QtQuickControls2 import QQuickStyle
 from PySide6.QtTest import QTest
 from test_analysis_pipeline import spin
-from test_desktop_research import create_source
+from test_desktop_research import create_jpeg_source as create_source
 from test_result_explorer import ManyCandidates
 from test_ui_analysis_contract import invoke
 
@@ -53,7 +53,7 @@ def test_shell_context_layout_and_shared_analysis_command(qt_app, tmp_path, brid
         source = create_source(tmp_path)
         invoke(window, 'selectImagePath', source.path)
         spin(qt_app, lambda: state.property('hasLoadedImage') and not state.property('loading') and not bridge.stack_viewer.initial_loading)
-        assert panel.property('activeContext') == 'viewer'  # TIFF opens its page/display controls.
+        assert panel.property('activeContext') == 'image'  # JPEG retains analysis image context.
         assert item('currentFileName').property('text') == Path(source.path).name
         for index, context in enumerate(('image', 'analysis', 'result', 'viewer', 'roi')):
             invoke(window, 'openContext', context)

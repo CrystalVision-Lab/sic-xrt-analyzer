@@ -35,6 +35,16 @@ def create_source(tmp_path):
     return OriginalImageSource(path)
 
 
+def create_jpeg_source(tmp_path):
+    """UI ML fixtures use the supported JPEG format; pixel-source TIFF tests stay TIFF."""
+    from PIL import Image
+    path = tmp_path / "image.jpg"
+    image = np.zeros((512, 512, 3), np.uint8)
+    image[250:258, 250:258] = 255
+    Image.fromarray(image).save(path, quality=100, subsampling=0)
+    return JpegImageSource(path)
+
+
 def test_source_adapter_preserves_coordinates_and_scope_without_full_read(tmp_path, monkeypatch):
     source = create_source(tmp_path)
     def forbidden(_):
@@ -73,7 +83,7 @@ def test_invalid_model_load_is_reported_without_ready_state(qt_app, tmp_path, br
 
 
 def test_csv_binding_export_and_replaced_image(qt_app, tmp_path, bridge_factory):
-    source = create_source(tmp_path)
+    source = create_jpeg_source(tmp_path)
     bridge = bridge_factory(settings=QSettings(str(tmp_path / "settings.ini"), QSettings.IniFormat))
     bridge.pipeline.adapter = DesktopResearchAdapter(None, Classifier())
     bridge.pipeline.set_source(source)
@@ -126,7 +136,13 @@ def test_real_qml_run_button_results_overlay_and_export(qt_app, tmp_path, suffix
             # Contrast changes are display-only and must not affect model pixels.
             bridge.setDisplayRange(0, 80)
             spin(qt_app, lambda: not bridge.stack_viewer.busy)
-        assert window.findChild(QObject, "runAction").property("enabled")  # TD-04 FULL_IMAGE default.
+        if suffix == "tif":
+            assert not window.findChild(QObject,"runAction").property("enabled")
+            assert not bridge.requestAnalysis("FULL_IMAGE",0,0,0,0,{})
+            assert not bridge.analysis["hasResult"]
+            assert not warnings,warnings
+            return
+        assert window.findChild(QObject, "runAction").property("enabled")
         state.setProperty("analysisScope", "FULL_IMAGE")
         run = window.findChild(QObject, "runAction")
         assert run.property("enabled")

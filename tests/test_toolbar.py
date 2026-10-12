@@ -4,13 +4,12 @@ from pathlib import Path
 import numpy as np
 import pytest
 import tifffile
-from PIL import Image
 from PySide6.QtCore import QObject, QPoint, QPointF, QSettings, Qt, QUrl
 from PySide6.QtQml import QQmlApplicationEngine, QQmlExpression
 from PySide6.QtQuickControls2 import QQuickStyle
 from PySide6.QtTest import QTest
 from test_analysis_pipeline import spin
-from test_desktop_research import create_source
+from test_desktop_research import create_jpeg_source as create_source
 from test_result_explorer import ManyCandidates
 from test_ui_analysis_contract import invoke
 
@@ -64,8 +63,13 @@ def workbench(qt_app, tmp_path, bridge_factory):
             self.click(menu_item)
 
         def open(self, path):
+            spin(qt_app, lambda: not bridge.projects.busy)
             invoke(window, 'selectImagePath', str(path))
-            spin(qt_app, lambda: self.state.property('hasLoadedImage') and not self.state.property('loading') and not bridge.stack_viewer.initial_loading)
+            try:
+                spin(qt_app, lambda: self.state.property('hasLoadedImage') and Path(self.state.property('filePath')) == Path(path) and not self.state.property('loading') and not bridge.stack_viewer.initial_loading)
+            except AssertionError as exc:
+                raise AssertionError({'target':str(path),'current':self.state.property('filePath'),'opening':self.state.property('opening'),'reviewPending':bridge.reviews.state['pending'],'roiDirty':bridge.roi_manager.dirty,'loadError':self.state.property('loadError'),'stackError':bridge.stack_viewer.error}) from exc
+            window.grabWindow()  # Settle the actual layout after format/width changes.
 
         def same_action(self, left, right):
             engine.rootContext().setContextProperty('leftCommandItem', self.item(left))
@@ -98,32 +102,27 @@ def test_dropdown_gestures_exclusive_state_and_focus(workbench):
         p = mouse.mapToScene(QPointF(frame.property('x') + x*scale, frame.property('y') + y*scale))
         return QPoint(round(p.x()), round(p.y()))
 
-    cases = [('Rectangle', 'roiToolDropdown', 'toolRectangle', 'drag'),
-             ('Oval', 'roiToolDropdown', 'toolOval', 'drag'),
-             ('Polygon', 'roiToolDropdown', 'toolPolygon', 'vertices'),
-             ('Freehand', 'roiToolDropdown', 'toolFreehand', 'drag'),
-             ('Point', 'roiToolDropdown', 'toolPoint', 'point'),
-             ('Line', 'measurementToolDropdown', 'measurementLine', 'drag'),
-             ('Polyline', 'measurementToolDropdown', 'measurementPolyline', 'vertices'),
-             ('FreeLine', 'measurementToolDropdown', 'measurementFreeLine', 'drag'),
-             ('Angle', 'measurementToolDropdown', 'measurementAngle', 'angle'),
-             ('Text', 'measurementToolDropdown', 'measurementText', 'point'),
-             ('Arrow', 'measurementToolDropdown', 'measurementArrow', 'drag')]
+    cases = [(tool, None if tool in ('Rectangle','Oval','Polygon','Freehand','Point','Line','Polyline') else 'tiffMore',
+              'tiffTool'+tool if tool in ('Rectangle','Oval','Polygon','Freehand','Point','Line','Polyline') else 'tiffMore'+tool,
+              gesture) for tool, gesture in [('Rectangle','drag'),('Oval','drag'),('Polygon','vertices'),
+              ('Freehand','drag'),('Point','point'),('Line','drag'),('Polyline','vertices'),
+              ('FreeLine','drag'),('Angle','angle'),('Text','point'),('Arrow','drag')]]
     for tool, button, menu_item, gesture in cases:
         count = len(w.bridge.roi_manager.records)
         context = w.panel.property('tabIndex')
-        w.select(button, menu_item)
+        w.select(button, menu_item) if button else w.click(menu_item)
         assert w.state.property('activeTool') == tool
         assert not w.state.property('roiEditMode')
         assert w.panel.property('tabIndex') == context
         assert mouse.property('activeFocus')  # Enter/arrows work after the popup closes.
         assert w.item(menu_item).property('checked')
-        indicator = w.item(menu_item).property('indicator')
-        assert indicator.x() + indicator.width() <= w.item(menu_item).property('leftPadding')
+        if button:
+            indicator = w.item(menu_item).property('indicator')
+            assert indicator.x() + indicator.width() <= w.item(menu_item).property('leftPadding')
         assert not w.item('toolbarPan').property('checked')
         assert not w.item('toolbarZoom').property('checked')
         # Selecting an already active action must not uncheck it.
-        w.select(button, menu_item)
+        w.select(button, menu_item) if button else w.click(menu_item)
         assert w.item(menu_item).property('checked') and w.state.property('activeTool') == tool
         if gesture == 'drag':
             QTest.mousePress(w.window, Qt.LeftButton, Qt.NoModifier, at(40, 40))
@@ -143,10 +142,8 @@ def test_dropdown_gestures_exclusive_state_and_focus(workbench):
         assert w.state.property('activeTool') == 'Pan'
         assert w.item('toolbarPan').property('checked') and not w.item(menu_item).property('checked')
 
-    w.select('roiToolDropdown', 'toolAnalysisRoi')
-    assert w.item('menuRoiTool').property('checked') and w.item('roiToolDropdown').property('checked')
-    QTest.keyClick(w.window, Qt.Key_H)
-    assert not w.item('menuRoiTool').property('checked')
+    assert not w.item('imagePrepareAnalysis').property('visible')
+    assert not w.item('roiToolDropdown').property('visible')
     w.click('toolbarZoom')
     before = w.state.property('effectiveZoom')
     QTest.mouseClick(w.window, Qt.LeftButton, Qt.NoModifier, at(50, 50))
@@ -157,59 +154,37 @@ def test_dropdown_gestures_exclusive_state_and_focus(workbench):
     assert w.state.property('fitMode') and w.state.property('activeTool') == 'Zoom'
     # External state changes (keyboard, imported ROI editing) remain authoritative.
     QTest.keyClick(w.window, Qt.Key_R)
-    assert w.item('menuRoiTool').property('checked')
+    assert w.state.property('activeTool') == 'Rectangle'
     w.state.setProperty('roiEditMode', True)
-    assert not w.item('menuRoiTool').property('checked')
-    assert not w.item('roiToolDropdown').property('checked')
+    assert not w.item('tiffToolRectangle').property('checked')
 
 
 def test_overflow_shared_commands_stack_access_and_gating(workbench, tmp_path):
     w = workbench
-    for left, right in [('toolbarOpen', 'menuOpenItem'), ('contextRunAnalysis', 'menuRunAnalysis'),
-                        ('contextCancelAnalysis', 'menuCancelAnalysis'), ('toolbarMeasureItem', 'stackMeasurementMenuItem'),
-                        ('toolbarMacro', 'menuMacroItem'), ('toolbarPlugin', 'menuPluginItem'),
-                        ('toolbarFiji', 'menuFijiItem'), ('toolbarImagejCommands', 'menuImagejCommandsItem')]:
-        w.same_action(left, right)
-    for item, page in [('toolbarLastPage', 2), ('toolbarFirstPage', 0), ('toolbarNextPage', 1), ('toolbarPreviousPage', 0)]:
-        w.click('advancedToolGroup')
-        invoke(w.item('toolbarStackMenu'), 'open')
-        QTest.qWait(30)
-        w.click(item)
+    w.same_action('toolbarOpen', 'menuOpenItem')
+    assert not w.item('imagePrepareAnalysis').property('visible')
+    assert not w.item('menuRunAnalysis').property('rowAvailable')
+    assert not w.item('roiAction').property('enabled')
+    assert not w.bridge.requestAnalysis('FULL_IMAGE',0,0,0,0,{})
+    for action, page in [('advancedLastAction',2),('advancedFirstAction',0),('advancedNextAction',1),('advancedPreviousAction',0)]:
+        w.item(action).trigger(None)
         spin(w.app, lambda page=page: w.state.property('pageIndex') == page and not w.state.property('pageLoading'))
-    for item, mode, tab in [('toolbarMacro', 'macro', 0), ('toolbarPlugin', 'plugin', 0), ('toolbarFiji', None, 4)]:
-        w.select('advancedToolGroup', item)
-        dialog = w.item('imagejDialog')
+    for action, mode, tab in [('advancedMacroAction','macro',0),('advancedPluginAction','plugin',0),('advancedModernAction',None,4)]:
+        w.item(action).trigger(None)
+        dialog=w.item('imagejDialog')
         assert dialog.property('visible') and dialog.property('tabsIndex') == tab
-        if mode:
-            assert dialog.property('mode') == mode
-        invoke(dialog, 'close')
-    w.select('measurementToolDropdown', 'toolbarMeasureItem')
+        if mode: assert dialog.property('mode') == mode
+        invoke(dialog,'close')
+    w.item('advancedMeasurementAction').trigger(None)
     assert w.item('stackMeasurementDialog').property('visible')
-    invoke(w.item('stackMeasurementDialog'), 'close')
-    w.click('advancedToolGroup')
-    invoke(w.item('toolbarDrawingMenu'), 'open')
-    QTest.qWait(30)
-    w.click('toolBrush')
+    invoke(w.item('stackMeasurementDialog'),'close')
+    w.select('tiffMore','tiffMoreBrush')
     assert w.state.property('activeTool') == 'Brush'
-    w.select('advancedToolGroup', 'toolbarRecordCommands')
-    assert w.bridge.imagej.state['recording']
-    w.select('advancedToolGroup', 'toolbarRecordCommands')
-    assert not w.bridge.imagej.state['recording']
-    w.click('advancedToolGroup')
-    invoke(w.item('toolbarLutMenu'), 'open')
-    QTest.qWait(30)
-    w.click('toolbarLutFire')
-    assert w.item('imagejCommand').property('text') == 'Fire'
-    invoke(w.item('imagejDialog'), 'close')
-    # TIFF-derived working copies keep stack provenance, unrelated JPEG hides it.
-    jpg = tmp_path/'plain.jpg'
-    Image.fromarray(np.zeros((128, 128, 3), np.uint8)).save(jpg)
-    w.open(jpg)
-    assert not w.state.property('stackFeaturesVisible')
-    assert not w.item('measurementToolDropdown').property('enabled')
-    assert not w.item('toolbarStackMenu').property('available')
-    assert not w.item('toolbarLutMenu').property('available')
-    assert not w.item('toolRectangle').property('visible')
+    w.open(create_source(tmp_path).path)
+    assert not w.state.property('tiffMode')
+    assert w.item('imagePrepareAnalysis').property('visible')
+    assert w.item('roiToolDropdown').property('visible')
+    assert not w.item('stackViewerToolGroup').property('visible')
     assert w.item('toolAnalysisRoi').property('enabled')
     assert w.item('topToolbar').property('height') == 40
 
@@ -223,13 +198,13 @@ def test_toolbar_layout_and_analysis_menu_entry(workbench, size):
         w.state.setProperty('activeTool', tool)
         QTest.qWait(30)
         for name in ('toolbarOpen', 'toolbarPan', 'toolbarZoom', 'toolbarFit',
-                     'roiToolDropdown', 'measurementToolDropdown', 'advancedToolGroup'):
+                     'tiffToolRectangle', 'tiffToolOval', 'tiffToolPolygon', 'tiffToolLine', 'tiffToolPoint', 'tiffToolWand', 'tiffMeasure', 'tiffContrast', 'tiffMore'):
             obj = w.item(name)
             p = obj.mapToScene(QPointF())
             assert obj.property('visible') and obj.property('width') >= 32 and obj.property('height') >= 32
             assert 0 <= p.x() and p.x() + obj.property('width') <= size[0]
             assert 30 <= p.y() and p.y() + obj.property('height') <= 70
-            assert obj.property('tip')
+            assert obj.property('tip') or name.startswith('tiffTool')
     assert w.window.findChild(QObject, 'analysisToolGroup') is None
     # The synthetic research classifier uses an RGB input contract.
     w.open(create_source(w.path.parent).path)

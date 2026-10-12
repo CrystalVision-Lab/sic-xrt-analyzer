@@ -8,7 +8,7 @@ from PySide6.QtCore import QPoint, QPointF, Qt
 from PySide6.QtTest import QTest
 from roifile import ImagejRoi
 from test_analysis_pipeline import spin
-from test_desktop_research import create_source
+from test_desktop_research import create_jpeg_source as create_source
 from test_result_explorer import ManyCandidates
 from test_ui_analysis_contract import invoke
 
@@ -72,7 +72,8 @@ def test_manual_navigation_keyboard_focus_and_panel_bounds(workbench, size):
     w = workbench
     w.window.resize(*size)
     QTest.qWait(35)
-    assert w.panel.property('requestedContext') == 'viewer'
+    w.open(create_source(w.path.parent).path)
+    assert w.panel.property('requestedContext') == 'image'
     for key in KEYS:
         choose(w, key)
         QTest.qWait(35)
@@ -111,24 +112,21 @@ def test_manual_navigation_keyboard_focus_and_panel_bounds(workbench, size):
 def test_open_close_jpeg_and_explicit_stack_settings(workbench, tmp_path):
     w = workbench
     assert w.panel.property('lastReason') == 'OPEN_TIFF'
-    w.select('advancedToolGroup', 'toolbarViewerSettings')
+    w.click('tiffContrast')
     assert w.panel.property('requestedContext') == 'viewer'
     assert w.panel.property('lastReason') == 'VIEWER_SETTINGS'
     assert w.item('pageSlider').property('visible')
-    choose(w, 'result')
-    w.bridge.requestPage(1)
-    spin(w.app, lambda: w.state.property('pageIndex') == 1 and not w.state.property('pageLoading'))
-    assert w.panel.property('requestedContext') == 'result'
-    choose(w, 'analysis')
-    w.bridge.requestPage(2)
-    spin(w.app, lambda: w.state.property('pageIndex') == 2 and not w.state.property('pageLoading'))
-    assert w.panel.property('requestedContext') == 'analysis'
-    choose(w, 'result')
+    choose(w,'roi')
+    for page in (1,2):
+        w.bridge.requestPage(page)
+        spin(w.app,lambda page=page:w.state.property('pageIndex') == page and not w.state.property('pageLoading'))
+        assert w.panel.property('requestedContext') == 'roi'
+    assert not invoke(w.window,'requestContext','analysis','MANUAL')
     jpg = tmp_path / 'new.jpg'
     Image.fromarray(np.zeros((512, 512, 3), np.uint8)).save(jpg)
     invoke(w.window, 'selectImagePath', str(jpg))
     assert w.state.property('loading')
-    assert w.panel.property('requestedContext') == 'result'  # Loading/progress is not OPEN_IMAGE.
+    assert w.panel.property('requestedContext') == 'roi'  # Loading/progress is not OPEN_IMAGE.
     spin(w.app, lambda: w.state.property('imageFormat') == 'JPEG' and not w.state.property('loading'))
     assert w.panel.property('requestedContext') == 'image'
     assert w.state.property('imageFormat') == 'JPEG'
@@ -255,14 +253,13 @@ def test_candidate_selection_hover_pan_zoom_and_status_preserve_context(workbenc
 
 def test_roi_tools_manager_import_edit_and_whitelist(workbench, tmp_path):
     w = workbench
-    choose(w, 'result')
+    w.open(create_source(w.path.parent).path)
+    choose(w,'result')
     w.click('roiToolDropdown')
     assert w.panel.property('requestedContext') == 'result'
-    QTest.mouseMove(w.window, w.item('toolRectangle').mapToScene(QPointF(40, 12)).toPoint())
-    assert w.panel.property('requestedContext') == 'result'
-    w.click('toolRectangle')
-    assert w.panel.property('requestedContext') == 'result'
-    QTest.keyClick(w.window, Qt.Key_R)
+    w.click('toolAnalysisRoi')
+    QTest.keyClick(w.window,Qt.Key_R)
+    assert w.state.property('activeTool') == 'ROI'
     assert w.panel.property('requestedContext') == 'result'
     w.state.setProperty('hasRoi', True)
     w.state.setProperty('roiEndX', .25)

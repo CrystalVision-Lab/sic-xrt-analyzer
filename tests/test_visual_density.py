@@ -12,7 +12,7 @@ from PySide6.QtQml import QQmlEngine, QQmlExpression
 from PySide6.QtTest import QTest
 from test_analysis_pipeline import spin
 from test_context_panel import choose
-from test_desktop_research import create_source
+from test_desktop_research import create_jpeg_source as create_source
 from test_result_ux import analyzed
 from test_ui_analysis_contract import invoke
 
@@ -42,7 +42,7 @@ def test_shell_geometry_preserves_viewer_and_toolbar_targets(workbench, size):
     w = workbench
     w.window.resize(*size); QTest.qWait(50)
     choose(w, 'image')
-    for name in ('toolbarOpen','toolbarPan','toolbarZoom','toolbarFit','roiToolDropdown','measurementToolDropdown','advancedToolGroup'):
+    for name in ('toolbarOpen','toolbarPan','toolbarZoom','toolbarFit','tiffToolRectangle','tiffToolOval','tiffToolWand','tiffContrast','tiffMore'):
         node = in_window(w, name)
         assert node.property('height') >= 32 and node.property('width') >= 32
     for name in ('contextSwitcher','viewerHeader','viewerFileName','viewerPageMetadata'):
@@ -101,6 +101,7 @@ def test_result_summary_selection_and_export_in_bounds(workbench, size):
 @pytest.mark.parametrize('size', SIZES)
 def test_roi_summary_edit_and_list_remain_reachable(workbench, size):
     w = workbench
+    w.open(create_source(w.path.parent).path)
     w.window.resize(*size); QTest.qWait(50); choose(w, 'roi')
     w.bridge.workbench.gesture('Polygon', [[40,40],[150,40],[150,150],[40,150]])
     w.click('roiEditButton')
@@ -119,7 +120,7 @@ def test_roi_summary_edit_and_list_remain_reachable(workbench, size):
 
 
 @pytest.mark.parametrize('size', SIZES[:2])
-@pytest.mark.parametrize('button,menu', [('roiToolDropdown','toolbarRoiMenu'),('advancedToolGroup','toolbarMoreMenu')])
+@pytest.mark.parametrize('button,menu', [('tiffMore','tiffMoreMenu'),('tiffProcess','tiffProcessMenu')])
 def test_popup_rows_fit_and_keep_keyboard_focus(workbench, size, button, menu):
     w = workbench
     w.window.resize(*size); QTest.qWait(50); w.click(button)

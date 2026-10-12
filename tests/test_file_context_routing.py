@@ -27,7 +27,7 @@ def test_actual_format_routes_after_successful_open(workbench, suffix, format_, 
     else:
         Image.fromarray(np.full((300, 400, 3), 120, np.uint8)).save(path, format='JPEG')
     before = hashlib.sha256(path.read_bytes()).hexdigest()
-    choose(w, 'result')
+    choose(w, 'roi')
     w.open(path)
     QTest.qWait(35)
     assert w.state.property('workspaceIndex') == 0
@@ -49,15 +49,15 @@ def test_actual_format_routes_after_successful_open(workbench, suffix, format_, 
 def test_page_and_failed_open_do_not_override_manual_context(workbench):
     w = workbench
     assert w.panel.property('requestedContext') == 'viewer' and not w.panel.property('visible')
-    choose(w, 'result')
+    choose(w, 'roi')
     w.click('closeContextPanel')
     w.bridge.requestPage(1)
     spin(w.app, lambda: w.state.property('pageIndex') == 1 and not w.state.property('pageLoading'))
-    assert w.panel.property('requestedContext') == 'result' and not w.panel.property('visible')
+    assert w.panel.property('requestedContext') == 'roi' and not w.panel.property('visible')
     source = w.bridge.original_source
     broken = w.path.parent / 'broken.jpg'
     broken.write_bytes(b'not an image')
     invoke(w.window, 'selectImagePath', str(broken))
     spin(w.app, lambda: not w.state.property('opening'))
     assert w.state.property('loadError') and w.bridge.original_source is source
-    assert w.panel.property('requestedContext') == 'result' and not w.panel.property('visible')
+    assert w.panel.property('requestedContext') == 'roi' and not w.panel.property('visible')

@@ -5,7 +5,7 @@ from PIL import Image
 from PySide6.QtCore import QPointF
 from PySide6.QtTest import QTest
 from test_analysis_pipeline import spin
-from test_desktop_research import create_source
+from test_desktop_research import create_jpeg_source as create_source
 from test_ui_analysis_contract import invoke
 
 pytest_plugins = ('test_toolbar',)

@@ -313,8 +313,9 @@ def test_candidate_hit_testing_and_imported_roi_share_zoom_transform(viewer, tmp
     from test_result_explorer import ManyCandidates
 
     v = viewer
-    path = tmp_path / "rgb.tif"
-    tifffile.imwrite(path, np.zeros((480, 640, 3), np.uint8), photometric="rgb")
+    path = tmp_path / "rgb.jpg"
+    from PIL import Image
+    Image.fromarray(np.zeros((480,640,3),np.uint8)).save(path)
     v.bridge.pipeline.adapter = ManyCandidates()
     v.bridge.requestImage(QUrl.fromLocalFile(str(path)).toString())
     v.wait(lambda: v.ui.property("filePath") == str(path) and not v.ui.property("loading"))
