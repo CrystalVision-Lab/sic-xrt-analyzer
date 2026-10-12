@@ -477,11 +477,18 @@ def test_qml_stack_navigation_contrast_pixel_and_view(qt_app, stack_file, tmp_pa
             assert controls_origin.x() >= inspector_origin.x()
             assert controls_origin.x() + slider.property("width") <= inspector_origin.x() + inspector.property("width")
             # Manual Context navigation does not alter page, range or fit.
-            for index in (0, 1, 2, 3):
+            for index in (0, 3):
                 invoke(window, "openContext", ("image", "analysis", "result", "viewer")[index])
                 qt_app.processEvents()
                 assert inspector.property("tabIndex") == index
                 assert slider.property("visible") == (index == 3)
+                assert state.property("pageIndex") == 1 and state.property("fitMode")
+                assert (bridge.stackState["low"], bridge.stackState["high"]) == saved_range
+            # TIFF deliberately rejects JPG analysis/results/review contexts.
+            for key in ("analysis", "result", "feedback"):
+                invoke(window, "openContext", key)
+                qt_app.processEvents()
+                assert inspector.property("requestedContext") == "viewer"
                 assert state.property("pageIndex") == 1 and state.property("fitMode")
                 assert (bridge.stackState["low"], bridge.stackState["high"]) == saved_range
         assert not errors, "\n".join(errors)
