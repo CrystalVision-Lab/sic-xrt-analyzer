@@ -134,7 +134,7 @@ Qt AppLocalDataLocation/models 또는 `SIC_XRT_MODEL_DIR`의 새 staging에서 �
 
 실제 N119는1/80/158, No107 before/after 및 No22는1/79/156 페이지를 내부 Viewer로 탐색했다. 읽기 전용 uint16 원본과 tifffile oracle이 동일하고 TIFF 모델 분석은 비활성 상태였다. 자동 추론0, 학습 Crop 자동 생성 없음, 원본 SHA 보존, QML warning0. 새 Updater는 Viewer/원본 좌표 경로를 변경하지 않았다.
 
-Windows native 플러그인4개는 생성 TIFF를 사용하여 실제 AWT/Swing/GenericDialog와 QML 호스팅·결과 반환을 통과했다. 실제4개 TIFF의 같은 첫·중간·마지막12페이지를 기존 ImageJClient로 읽었다. ImageJ Multiply(value=1) 작업 복사본은 전체 uint16 oracle과 동일했고, Fiji MultiplyDataValuesBy(value=0.5)는 사각형 ROI의 half-up 정수 결과·영역 밖 모든 원본 픽셀과 정확히 일치했다. 검증 전후 전체 원본 SHA 동일. `artifacts/td110-real-tiff-engines/report.json` PASS. 작업 결과는 엔진 임시 폴더에서만 생성하고 종료 시 정리했다. 2.5~2.9GiB 전체 Fiji editable Dataset은 기존512MiB 한도로 지원하지 않으며 현재 페이지 작업만 대상으로 한다.
+Windows native 플러그인4개는 생성 TIFF를 사용하여 실제 AWT/Swing/GenericDialog와 QML 호스팅·결과 반환을 통과했다. 실제4개 TIFF의 같은 첫·중간·마지막12페이지를 기존 ImageJClient로 읽었다. ImageJ Multiply(value=1) 작업 복사본은 전체 uint16 oracle과 동일했고, Fiji MultiplyDataValuesBy(value=0.5)는 사각형 ROI의 half-up 정수 결과·영역 밖 모든 원본 픽셀과 정확히 일치했다. 검증 전후 전체 원본 SHA 동일. `artifacts/td110-real-tiff-engines/report.json` PASS. 작업 결과는 엔진 임시 폴더에서만 생성하고 종료 시 정리했다. 대용량 전체 TIFF의 Fiji editable Dataset은 기존512MiB 한도로 지원하지 않으며 현재 페이지 작업만 대상으로 한다.
 
 ## PostgreSQL Integration
 
@@ -159,7 +159,7 @@ backup-2는 DB·Crop·Model을 같은 수집 중지/Model mutator 잠금 구간�
 | Windows native plugin | 4 PASS /5 deselected | td110-native-plugin.log |
 | 전체 회귀 최종 | **610 PASS /기존5 SKIP /1080.83초** | td110-windows-full-v4.log |
 
-실패 로그도 보존했다. 최초 전체603 PASS/2 FAIL은 기존 모델 상세창을 대체한 영향이었다. 상세창을 복원하고 메뉴를 분리한 뒤 전체605 PASS/기존5 SKIP를 확인했다. 보강 후 전체608 PASS/1 FAIL/기존5 SKIP는 기존 ImageJ Wand의5초 대기 초과였고 동일 기준 ROI23개 재검사는 PASS였다. 마지막 전체 검사는 최신 코드로610 PASS를 확인했다. 테스트 삭제/비활성화/타임아웃 완화 없음. 기존 SKIP5개는 Windows symlink 권한1개와 offscreen에서 실행할 수 없는 native 창4개다. native4개는 별도 Windows 플랫폼에서 모두 통과했고 symlink 검사는 Linux CI에서 통과했다. traceback의 일부 C 경로는 이전 위치에서 생성된 bytecode 경로이며 실제 interpreter/package/updater는 D 경로임을 확인했다.
+실패 로그도 보존했다. 최초 전체603 PASS/2 FAIL은 기존 모델 상세창을 대체한 영향이었다. 상세창을 복원하고 메뉴를 분리한 뒤 전체605 PASS/기존5 SKIP를 확인했다. 보강 후 전체608 PASS/1 FAIL/기존5 SKIP는 기존 ImageJ Wand의5초 대기 초과였고 동일 기준 ROI23개 재검사는 PASS였다. 마지막 전체 검사는 최신 코드로610 PASS를 확인했다. 테스트 삭제/비활성화/타임아웃 완화 없음. 기존 SKIP5개는 Windows symlink 권한1개와 offscreen에서 실행할 수 없는 native 창4개다. native4개는 별도 Windows 플랫폼에서 모두 통과했고 symlink 검사는 Linux CI에서 통과했다. 일부 traceback에는 이전 C 경로가 표시됐으나 실제 interpreter/package/updater가 D 경로에서 로드됨을 확인했다.
 
 실제 TIFF 초기 병행 검사에서 No22 준비가240초를 넘었다. 다른 리소스 검사 종료 후 원래 조건으로 재실행하여4개 전체 PASS를 확인했다. 자원 경합은 관찰된 조건이며 계측 없이 정확한 원인으로 단정하지 않는다.
 
