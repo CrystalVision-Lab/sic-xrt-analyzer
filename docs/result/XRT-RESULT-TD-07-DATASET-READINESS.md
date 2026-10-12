@@ -2,7 +2,7 @@
 
 ## Overall Status
 
-로컬 엔지니어링 PASS, 최종 CI 확인 중. 실제 정답 DATA_NOT_READY / 실제 학습 NOT_RUN / 독립 평가 NOT_AVAILABLE / 성능 향상 NOT_VERIFIED. 합성 Fixture의 학습·평가·ONNX 산출은 기능 확인이며 과학적 성능 검증이 아니다.
+엔지니어링 기능 검증 PASS. 커밋별 최종 CI 판정은 아래 Git/PR 기록에서 확인한다. 실제 정답 DATA_NOT_READY / 실제 학습 NOT_RUN / 독립 평가 NOT_AVAILABLE / 성능 향상 NOT_VERIFIED. 합성 Fixture의 학습·평가·ONNX 산출은 기능 확인이며 과학적 성능 검증이 아니다.
 
 ## Analyzer Dataset Pipeline
 
@@ -54,7 +54,7 @@ ML의 신규 baseline 구조·seed·optimizer·scheduler·validation-only select
 
 ## ML Tests / Windows Regression / CI
 
-현재 PostgreSQL 58 PASS, ML CPU 34 PASS. 기존 Windows offscreen/basic 전체 574 PASS / 기존 platform skip5(885.21s). 새 skip이나 기존 timeout 변경은 없다. 실제 saved JPG Full/ROI 각2회와 반복 Export PASS: Full2946(BPD245/TED1398/TSD1303), ROI791(BPD3/TED779/TSD9). TIFF4 first/mid/last(12 pages) 원본 uint16 대조 PASS, 분류 자동 실행0, 원본/model/project SHA 유지, QML warning0. Windows ImageJ/Fiji native GUI plugin4 PASS. Linux CI 최종 결과 확인 중이다.
+현재 PostgreSQL 58 PASS, ML CPU 34 PASS. 기존 Windows offscreen/basic 전체 574 PASS / 기존 platform skip5(885.21s). 새 skip이나 기존 timeout 변경은 없다. 실제 saved JPG Full/ROI 각2회와 반복 Export PASS: Full2946(BPD245/TED1398/TSD1303), ROI791(BPD3/TED779/TSD9). TIFF4 first/mid/last(12 pages) 원본 uint16 대조 PASS, 분류 자동 실행0, 원본/model/project SHA 유지, QML warning0. Windows ImageJ/Fiji native GUI plugin4 PASS. Linux core CI도 desktop575 PASS/기존SKIP4, X11 native plugin4 PASS, 서버 검사를 통과했다. 최종 커밋의 CI URL·판정은 Draft PR에 기록한다.
 
 ## Scientific Validation Status / Known Limitations / Next TD
 
@@ -78,3 +78,12 @@ ML의 신규 baseline 구조·seed·optimizer·scheduler·validation-only select
 - PNG RGB8은 실제 IHDR로 검증한다. RGB16을 mode=RGB만 보고 받아들이는 암묵적 디코딩 위험을 새 합성 회귀로 차단했다. 기존 수집 API·원본 TIFF/JPG는 수정하지 않았다.
 - core a7cc3a7의 [Linux CI](https://github.com/CrystalVision-Lab/sic-xrt-analyzer/actions/runs/38222536997)는 desktop/server/X11/PR policy 모두 PASS. 최종 RGB encoding 검사 및 보고서 커밋의 HEAD/CI는 [Draft #109](https://github.com/CrystalVision-Lab/sic-xrt-analyzer/pull/109)에 최종 기록한다.
 - 사용자 AGENTS.md SHA97fd9e0886957e532cfd5bafd525263462dc6e90652cf2b43ce6d3404fc04eaf 보존, 해당 변경은 미커밋. 실제 연구자료·모델·Checkpoint·Credential·백업은 Git 미포함.
+
+## Code Revision / CI Evidence
+
+| 저장소 | 최종 기능 코드 HEAD | 확인된 CI | 문서 마감 이후 최종 HEAD/CI |
+|---|---|---|---|
+| Analyzer | `d875bbb129a55a07b2833afc83d6cc1bafb87dba` | [core 전체 PASS](https://github.com/CrystalVision-Lab/sic-xrt-analyzer/actions/runs/38222536997); [RGB8 guard 서버58 PASS](https://github.com/CrystalVision-Lab/sic-xrt-analyzer/actions/runs/38224353502) | [Draft #109](https://github.com/CrystalVision-Lab/sic-xrt-analyzer/pull/109) |
+| ML | `4e9200260b51add3f206f7f3780cf07a8dd92ef7` | [34 PASS / CI SUCCESS](https://github.com/CrystalVision-Lab/sic-xrt-ml/actions/runs/38224376912) | [Draft #46](https://github.com/CrystalVision-Lab/sic-xrt-ml/pull/46) |
+
+기능별 커밋: Analyzer `d2b3b10` 승인/반출, `03ffb9b` PostgreSQL 복원·누수 회귀, `e16bb4a` 계약/준비상태, `a7cc3a7` 중복 제외 전 holdout 보존, `d875bbb` 실제 PNG RGB8 인코딩 검사. ML `e4106a9` baseline, `cdcf0e0` 학습·평가·산출, `9178154` 회귀/CI, `9266672` loader 추적, `abddd22` 승인/그룹 근거, `97d94a9` batch 심볼 호환, `adf3f8e` holdout 보존, `4e92002` PNG RGB16 거부. 문서 마감 커밋은 위 기능 코드와 별도이며 최종 SHA는 PR 본문에 기록한다.
