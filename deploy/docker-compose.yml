@@ -1,0 +1,40 @@
+name: xrt-research
+services:
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: xrt
+      POSTGRES_DB: xrt
+      POSTGRES_PASSWORD_FILE: /run/secrets/db_password
+    secrets: [db_password]
+    volumes: [postgres_data:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U xrt -d xrt"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+    restart: unless-stopped
+  api:
+    build:
+      context: ..
+      dockerfile: server/Dockerfile
+    environment:
+      XRT_DB_PASSWORD_FILE: /run/secrets/db_password
+      XRT_ASSET_DIR: /data/assets
+    secrets: [db_password]
+    ports: ["127.0.0.1:${XRT_API_PORT:-18766}:8000"]
+    volumes: [assets:/data/assets, "${XRT_PRIVATE_DIR:-../artifacts/sync106-private}:/private"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    read_only: true
+    tmpfs: [/tmp]
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+secrets:
+  db_password:
+    file: ${XRT_DB_PASSWORD_PATH:-../artifacts/sync106-private/db-password.txt}
+volumes:
+  postgres_data:
+  assets:

@@ -1,0 +1,16 @@
+.git
+.venv
+artifacts
+sources
+data
+outputs
+docs
+.env
+.env.*
+**/__pycache__
+**/*.onnx
+**/*.tif
+**/*.tiff
+**/*.jpg
+**/*.jpeg
+**/*.png
