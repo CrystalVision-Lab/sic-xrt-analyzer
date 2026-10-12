@@ -28,6 +28,9 @@ class ComparisonSession:
         self.records = []
         self.frames = OrderedDict()
         self.decode_count = 0
+        self.overlay_key = None
+        self.overlay_project = None
+        self.overlay_rows = []
         started = time.perf_counter()
         try:
             for record in (before, after):
@@ -68,6 +71,97 @@ class ComparisonSession:
         self.caches = []
         self.previews = []
         self.frames.clear()
+
+    def overlays(self, project, before_id, after_id, frame, width, height, cancelled):
+        key = (id(project), before_id, after_id)
+        if self.overlay_project is not project or self.overlay_key != key:
+            rows = []
+
+            def add(side, points, kind):
+                if not points:
+                    return
+                xy = np.asarray(points, float)
+                lo = xy.min(0)
+                hi = xy.max(0)
+                rows.append(
+                    (side, [list(p) for p in points], kind, lo, hi)
+                )
+
+            for side, identifier in (("before", before_id), ("after", after_id)):
+                run = next(
+                    (
+                        r.run_id
+                        for r in reversed(project.analysis_runs)
+                        if r.source_id == identifier
+                    ),
+                    None,
+                )
+                for observation in project.observations:
+                    if observation.run_id == run and observation.x is not None:
+                        add(
+                            side,
+                            [(observation.x, observation.y)],
+                            observation.assigned_class or "unknown",
+                        )
+                for g in project.geometries:
+                    check(cancelled)
+                    if g.source_id != identifier or g.page_index != 0:
+                        continue
+                    if g.nodes:
+                        nodes = {n.node_id: (n.x, n.y) for n in g.nodes}
+                        for edge in g.edges:
+                            add(
+                                side,
+                                edge.points
+                                or (nodes[edge.start_node], nodes[edge.end_node]),
+                                g.kind.value,
+                            )
+                    elif g.points:
+                        points = g.points
+                        if g.kind.value == "POLYGON":
+                            points = (*points, points[0])
+                        add(side, points, g.kind.value)
+                    elif g.bbox:
+                        x, y, w, h = g.bbox
+                        if g.kind.value == "ELLIPSE":
+                            points = [
+                                (
+                                    x + w / 2 + w / 2 * np.cos(t),
+                                    y + h / 2 + h / 2 * np.sin(t),
+                                )
+                                for t in np.linspace(0, 2 * np.pi, 33)
+                            ]
+                        else:
+                            points = [
+                                (x, y),
+                                (x + w, y),
+                                (x + w, y + h),
+                                (x, y + h),
+                                (x, y),
+                            ]
+                        add(side, points, g.kind.value)
+            check(cancelled)
+            self.overlay_rows = rows
+            self.overlay_key = key
+            self.overlay_project = project
+        out = []
+        for side, points, kind, lo, hi in self.overlay_rows:
+            check(cancelled)
+            m = np.array(frame["mapping"][0 if side == "before" else 1])
+            corners = (
+                np.array([lo, [hi[0], lo[1]], hi, [lo[0], hi[1]]]) @ m[:2, :2].T
+                + m[:2, 2]
+            )
+            ll, hh = corners.min(0), corners.max(0)
+            if (
+                hh[0] >= -5
+                and hh[1] >= -5
+                and ll[0] < width + 5
+                and ll[1] < height + 5
+                and len(points) <= 4096
+            ):
+                out.append({"side": side, "points": points, "type": kind})
+        return out
 
     def render(self, centre, zoom, width, height, matrix=None, cancelled=lambda: False):
         self.validate()

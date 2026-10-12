@@ -424,6 +424,19 @@ class RegistrationController(QObject):
             else None
         )
 
+        project = self.projects.project
+        before_id = self.before_id
+        after_id = self.after_id
+
+        def work(cancelled):
+            frame = session.render(
+                centre, zoom, self.width, self.height, matrix, cancelled
+            )
+            frame["overlays"] = session.overlays(
+                project, before_id, after_id, frame, self.width, self.height, cancelled
+            )
+            return frame
+
         def publish(frame):
             self.frame = frame
             self.revision += 1
@@ -436,9 +449,7 @@ class RegistrationController(QObject):
 
         self._start(
             "render",
-            lambda cancelled: session.render(
-                centre, zoom, self.width, self.height, matrix, cancelled
-            ),
+            work,
             publish,
         )
 
@@ -586,80 +597,6 @@ class RegistrationController(QObject):
                         }
                     )
         rows = self.source_rows
-        if self.overlay_cache != (id(p), self.before_id, self.after_id):
-            self.overlay_cache = (id(p), self.before_id, self.after_id)
-            self.overlay_rows = []
-            if p:
-                source_by_run = {r.run_id: r.source_id for r in p.analysis_runs}
-                for side, identifier in (
-                    ("before", self.before_id),
-                    ("after", self.after_id),
-                ):
-                    latest_run = next(
-                        (
-                            r.run_id
-                            for r in reversed(p.analysis_runs)
-                            if r.source_id == identifier
-                        ),
-                        None,
-                    )
-                    for observation in p.observations:
-                        if (
-                            observation.run_id == latest_run
-                            and source_by_run.get(observation.run_id) == identifier
-                            and observation.x is not None
-                        ):
-                            self.overlay_rows.append(
-                                {
-                                    "side": side,
-                                    "points": [[observation.x, observation.y]],
-                                    "type": observation.assigned_class or "unknown",
-                                }
-                            )
-                    for geometry in p.geometries:
-                        if (
-                            geometry.source_id == identifier
-                            and geometry.page_index == 0
-                        ):
-                            points = geometry.all_points()
-                            if not points and geometry.bbox:
-                                x, y, w, h = geometry.bbox
-                                points = [
-                                    (x, y),
-                                    (x + w, y),
-                                    (x + w, y + h),
-                                    (x, y + h),
-                                    (x, y),
-                                ]
-                            self.overlay_rows.append(
-                                {
-                                    "side": side,
-                                    "points": [list(xy) for xy in points],
-                                    "type": geometry.kind.value,
-                                }
-                            )
-        visible_overlays = []
-        if self.frame:
-            from sic_xrt_analyzer.registration.engine import transform_bounds
-
-            for row in self.overlay_rows:
-                points = row["points"]
-                if not points:
-                    continue
-                m = self.frame["mapping"][0 if row["side"] == "before" else 1]
-                xy = np.asarray(points)
-                lo = xy.min(0)
-                hi = xy.max(0)
-                x, y, w, h = transform_bounds(m, (*lo, *(hi - lo)))
-                if (
-                    x + w >= -5
-                    and y + h >= -5
-                    and x < self.width + 5
-                    and y < self.height + 5
-                ):
-                    if len(points) > 4096:
-                        continue
-                    visible_overlays.append(row)
         a = self.asset
         return {
             "sources": rows,
@@ -678,7 +615,7 @@ class RegistrationController(QObject):
             "landmarks": self.landmarks,
             "pendingPoint": self.pending_point or [],
             "metrics": self.metrics,
-            "overlays": visible_overlays,
+            "overlays": self.frame.get("overlays", []) if self.frame else [],
             "levels": self.frame["levels"] if self.frame else [],
             "mapping": self.frame["mapping"] if self.frame else [],
             "history": [

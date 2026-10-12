@@ -315,3 +315,48 @@ def test_fit_view_matrix_is_not_registration_scale(pair):
         )
     finally:
         session.close()
+
+
+def test_graph_overlay_culling_does_not_invent_edges(pair):
+    from sic_xrt_analyzer.results.geometry import (
+        DefectGeometry,
+        DefectGeometryKind,
+        GraphEdge,
+        GraphNode,
+    )
+
+    p, a, b, m = pair
+    nodes = (
+        GraphNode("a", 240, 250),
+        GraphNode("b", 260, 250),
+        GraphNode("c", 240, 270),
+    )
+    edges = (GraphEdge("ab", "a", "b"), GraphEdge("ac", "a", "c"))
+    geometry = DefectGeometry(
+        "graph",
+        a.source_id,
+        0,
+        DefectGeometryKind.BRANCHED_GRAPH,
+        nodes=nodes,
+        edges=edges,
+    )
+    p = p.evolve(geometries=(geometry,))
+    session = ComparisonSession(a, b)
+    try:
+        frame = session.render([256, 256], 1, 128, 128, m)
+        rows = session.overlays(
+            p, a.source_id, b.source_id, frame, 128, 128, lambda: False
+        )
+        assert len(rows) == 2
+        assert rows[0]["points"] == [[240, 250], [260, 250]]
+        assert rows[1]["points"] == [[240, 250], [240, 270]]
+        assert geometry == p.geometries[0]
+        with pytest.raises(InterruptedError):
+            session.overlays(p, a.source_id, b.source_id, frame, 128, 128, lambda: True)
+        far = session.render([450, 450], 4, 128, 128, m)
+        assert (
+            session.overlays(p, a.source_id, b.source_id, far, 128, 128, lambda: False)
+            == []
+        )
+    finally:
+        session.close()

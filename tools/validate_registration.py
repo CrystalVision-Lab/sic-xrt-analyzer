@@ -22,6 +22,7 @@ from sic_xrt_analyzer.results.workspace import add_source
 
 def main():
     parser = argparse.ArgumentParser()
+    parser.add_argument("--project", type=Path)
     parser.add_argument("--before", type=Path, required=True)
     parser.add_argument("--after", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
@@ -57,16 +58,37 @@ def main():
         return h.hexdigest()
 
     originals = {str(p): digest(p) for p in (args.before, args.after)}
-    p = AnalysisProject("TD114 actual JPG experimental comparison")
+    p = (
+        ProjectStore().load(args.project)
+        if args.project
+        else AnalysisProject("TD114 actual JPG experimental comparison")
+    )
+    science_fields = (
+        "analysis_runs",
+        "observations",
+        "predictions",
+        "geometries",
+        "review_events",
+        "model_provenance",
+        "defect_instances",
+    )
+    science_before = {name: getattr(p, name) for name in science_fields}
     p, a = add_source(p, JpegImageSource(args.before))
     p, b = add_source(p, JpegImageSource(args.after))
     session = None
     try:
         session = ComparisonSession(a, b)
         a, b = session.records
-        p = p.evolve(image_sources=(a, b))
+        verified = {r.source_id: r for r in (a, b)}
+        p = p.evolve(
+            image_sources=tuple(verified.get(r.source_id, r) for r in p.image_sources)
+        )
         p = assets.assign_roles(p, a.source_id, b.source_id)
         path = args.output / "project.json"
+        from sic_xrt_analyzer.results.workspace import publish_dependencies
+
+        if args.project:
+            publish_dependencies(path, p, (), args.project)
         ProjectStore().save(path, p)
         report["source"] = [
             {
@@ -76,7 +98,7 @@ def main():
                 "sha256": s.content_hash.value,
                 "role": s.role.value,
             }
-            for s in p.image_sources
+            for s in (a, b)
         ]
         report["prepare_ms"] = session.prepare_ms
         report["decode_count"] = session.decode_count
@@ -172,6 +194,9 @@ def main():
                 }
             )
         report["reopen"] = ProjectStore().load(path) == p
+        report["existing_science_preserved"] = {
+            name: getattr(p, name) == science_before[name] for name in science_fields
+        }
         report["original_hash_preserved"] = all(
             digest(Path(k)) == v for k, v in originals.items()
         )
