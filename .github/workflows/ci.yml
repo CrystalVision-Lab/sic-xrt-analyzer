@@ -78,4 +78,5 @@ jobs:
         run: python -c "import importlib.util as u; assert all(u.find_spec(n) is None for n in ('PySide6','onnxruntime','jpype'))"
       - run: python -m pytest -q server/tests
         env:
+          XRT_TEST_PG_CLIENT_CONTAINER: ${{ job.services.postgres.id }}
           XRT_TEST_DATABASE_URL: postgresql+psycopg://xrt:isolated-ci-only@localhost:5432/xrt_ci_test

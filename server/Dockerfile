@@ -12,6 +12,7 @@ CMD ["sh", "-c", "alembic -c server/alembic.ini upgrade head && uvicorn xrt_serv
 
 FROM runtime AS testing
 USER root
+RUN apt-get update && apt-get install -y --no-install-recommends postgresql-client && rm -rf /var/lib/apt/lists/*
 RUN pip install --no-cache-dir pytest
 USER xrt
 FROM runtime AS production
