@@ -15,7 +15,7 @@ def upgrade():
         tables=[
             t
             for t in Base.metadata.sorted_tables
-            if t.name not in {"dataset_events", "dataset_versions"}
+            if t.name not in {"dataset_events", "dataset_versions", "model_candidates", "model_events", "model_releases"}
         ],
     )
 

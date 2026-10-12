@@ -8,7 +8,15 @@ from alembic import command
 from alembic.config import Config
 from sqlalchemy import create_engine, inspect, text
 from xrt_server.db import connect
-from xrt_server.models import DatasetEvent, DatasetVersion, Project, User
+from xrt_server.models import (
+    DatasetEvent,
+    DatasetVersion,
+    ModelCandidate,
+    ModelEvent,
+    ModelRelease,
+    Project,
+    User,
+)
 
 
 def test_populated_0001_upgrade_and_verified_registry_restore(database):
@@ -63,6 +71,40 @@ def test_populated_0001_upgrade_and_verified_registry_restore(database):
                     payload={"sentinel": "immutable fixture registry"},
                 )
             )
+        with sessions.begin() as s:
+            s.add(
+                ModelCandidate(
+                    id="qa-candidate",
+                    model_id="qa-restore",
+                    version="0.1",
+                    realm="INTERNAL_TEST",
+                    dataset_id="synthetic-version",
+                    actor_id="legacy-admin",
+                    payload={"sentinel": "CAS reference retained"},
+                )
+            )
+            s.flush()
+            s.add(
+                ModelEvent(
+                    id="qa-approval",
+                    subject_id="qa-candidate",
+                    revision=1,
+                    actor_id="legacy-admin",
+                    payload={"action": "APPROVED", "channel": "INTERNAL_TEST"},
+                )
+            )
+            s.add(
+                ModelRelease(
+                    id="qa-release",
+                    sequence=1,
+                    candidate_id="qa-candidate",
+                    channel="INTERNAL_TEST",
+                    actor_id="legacy-admin",
+                    payload={
+                        "signature": "synthetic sentinel, not a real signed release"
+                    },
+                )
+            )
         with sessions() as s:
             before = s.get(DatasetVersion, "synthetic-version").payload
         # Logical DB copy exercises Postgres schema, trigger and payload restoration, never operational DB.
@@ -101,6 +143,15 @@ def test_populated_0001_upgrade_and_verified_registry_restore(database):
             assert s.get(Project, "legacy-project").payload == {
                 "sentinel": "preserve TD06"
             }
+            assert s.get(ModelCandidate, "qa-candidate").payload == {
+                "sentinel": "CAS reference retained"
+            }
+            assert s.get(ModelEvent, "qa-approval").payload["action"] == "APPROVED"
+            assert (
+                s.get(ModelRelease, "qa-release")
+                .payload["signature"]
+                .startswith("synthetic sentinel")
+            )
         command.upgrade(config, "head")  # repeated upgrade is harmless
     finally:
         if previous is None:

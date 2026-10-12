@@ -1,12 +1,15 @@
 """Operate only the named XRT Compose stack; never publish or delete its volumes."""
 
 import argparse
+import contextlib
 import hashlib
 import json
 import os
+import queue
 import secrets
 import subprocess
 import sys
+import threading
 from pathlib import Path
 from uuid import uuid4
 
@@ -74,7 +77,70 @@ def initialize():
     print("Private password file ready; credential values are not printed")
 
 
+@contextlib.contextmanager
+def model_snapshot_lock(project):
+    """Hold the same PostgreSQL session lock used by every registry mutator."""
+    api = compose(
+        project, ["ps", "-aq", "api"], capture_output=True, text=True
+    ).stdout.strip()
+    image = (
+        compose(project, ["images", "-q", "api"], capture_output=True, text=True)
+        .stdout.strip()
+        .splitlines()[0]
+    )
+    script = "from xrt_server.db import connect; import sys; e,_=connect(); c=e.connect(); c.exec_driver_sql('SELECT pg_advisory_lock(11008)'); print('LOCKED',flush=True); sys.stdin.read(); c.close(); e.dispose()"
+    command = [
+        "docker",
+        "run",
+        "--rm",
+        "-i",
+        "--network",
+        project + "_default",
+        "--volumes-from",
+        api + ":ro",
+        "-e",
+        "XRT_DB_PASSWORD_FILE=/run/secrets/db_password",
+        image,
+        "python",
+        "-c",
+        script,
+    ]
+    child = subprocess.Popen(
+        command,
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.DEVNULL,
+        text=True,
+    )
+    ready = queue.Queue()
+    threading.Thread(
+        target=lambda: ready.put(child.stdout.readline()), daemon=True
+    ).start()
+    try:
+        try:
+            if ready.get(timeout=15).strip() != "LOCKED":
+                raise ValueError("Model snapshot lock failed")
+        except queue.Empty as exc:
+            raise TimeoutError(
+                "Model snapshot lock busy; retry after registration completes"
+            ) from exc
+        yield
+    finally:
+        child.stdin.close()
+        try:
+            child.wait(timeout=10)
+        except subprocess.TimeoutExpired:
+            child.kill()
+            child.wait(timeout=10)
+        child.stdout.close()
+
+
 def backup(project, output):
+    with model_snapshot_lock(project):
+        _backup(project, output)
+
+
+def _backup(project, output):
     output = Path(output).resolve()
     if output.exists():
         raise ValueError("Backup destination must be new")
@@ -159,8 +225,70 @@ pathlib.Path('/backup/assets.json').write_text(json.dumps(files,sort_keys=True))
                 script,
             ]
         )
+        # API remains stopped while collecting DB/Crop/model references and volumes.
+        exists = compose(
+            project,
+            [
+                "exec",
+                "-T",
+                "postgres",
+                "psql",
+                "-U",
+                "xrt",
+                "-d",
+                "xrt",
+                "-tAc",
+                "SELECT to_regclass('public.model_candidates') is not null",
+            ],
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+        refs = {}
+        if exists == "t":
+            records = compose(
+                project,
+                [
+                    "exec",
+                    "-T",
+                    "postgres",
+                    "psql",
+                    "-U",
+                    "xrt",
+                    "-d",
+                    "xrt",
+                    "-tAc",
+                    "SELECT coalesce(jsonb_agg(payload),'[]'::jsonb) FROM model_candidates",
+                ],
+                capture_output=True,
+                text=True,
+            ).stdout.strip()
+            for record in json.loads(records):
+                key = record["artifact_key"] + "/"
+                refs[key + "model.onnx"] = record["manifest"]["model_sha256"]
+                refs[key + "manifest.json"] = record["manifest_sha256"]
+                refs[key + "candidate-registry.json"] = record["registry_sha256"]
+        (output / "model_refs.json").write_text(
+            json.dumps(refs, sort_keys=True), encoding="utf-8"
+        )
+        from model_blob_backup import BACKUP
+
+        run(
+            [
+                "docker",
+                "run",
+                "--rm",
+                "--volumes-from",
+                api + ":ro",
+                "--mount",
+                "type=bind,source=" + str(output) + ",target=/backup",
+                image,
+                "python",
+                "-c",
+                BACKUP,
+            ]
+        )
         manifest = {
-            "format": "xrt-server-backup-1",
+            "format": "xrt-server-backup-2",
             "project": project,
             "files": {
                 name: hash_file(output / name)
@@ -169,6 +297,9 @@ pathlib.Path('/backup/assets.json').write_text(json.dumps(files,sort_keys=True))
                     "assets.tar",
                     "assets.json",
                     "asset_refs.json",
+                    "models.tar",
+                    "models.json",
+                    "model_refs.json",
                 )
             },
         }
@@ -185,12 +316,13 @@ def restore(project, backup_dir, port):
         raise ValueError("Restore requires a separate xrt-restore-* Compose project")
     source = Path(backup_dir).resolve()
     manifest = json.loads((source / "manifest.json").read_text())
-    if manifest["format"] != "xrt-server-backup-1" or set(manifest["files"]) != {
-        "postgres.dump",
-        "assets.tar",
-        "assets.json",
-        "asset_refs.json",
-    }:
+    allowed = {"postgres.dump", "assets.tar", "assets.json", "asset_refs.json"}
+    if manifest["format"] == "xrt-server-backup-2":
+        allowed |= {"models.tar", "models.json", "model_refs.json"}
+    if (
+        manifest["format"] not in ("xrt-server-backup-1", "xrt-server-backup-2")
+        or set(manifest["files"]) != allowed
+    ):
         raise ValueError("Backup manifest invalid")
     if any(hash_file(source / name) != sha for name, sha in manifest["files"].items()):
         raise ValueError("Backup hash mismatch")
@@ -266,6 +398,25 @@ if found!=set(expected):raise ValueError('Asset inventory mismatch')
             script,
         ],
     )
+    if manifest["format"] == "xrt-server-backup-2":
+        from model_blob_backup import RESTORE
+
+        compose(
+            project,
+            [
+                "run",
+                "--rm",
+                "--no-deps",
+                "-v",
+                str(source) + ":/backup:ro",
+                "-v",
+                project + "_models:/data/models",
+                "api",
+                "python",
+                "-c",
+                RESTORE,
+            ],
+        )
     compose(project, ["up", "-d", "api"])
     print("Restored to isolated Compose stack; original stack and volumes preserved")
 
@@ -286,12 +437,17 @@ def main():
             "restore",
             "test",
             "dataset-export",
+            "model-admin",
         ],
     )
     parser.add_argument("--project", default="xrt-research")
     parser.add_argument("--output")
     parser.add_argument("--backup")
     parser.add_argument("--dataset-id")
+    parser.add_argument("--input")
+    parser.add_argument("--signing-key")
+    parser.add_argument("--admin-credential")
+    parser.add_argument("--model-command", nargs=argparse.REMAINDER)
     parser.add_argument("--port", type=int, default=18767)
     args = parser.parse_args()
     if args.action == "init":
@@ -336,6 +492,104 @@ def main():
                 "/private/admin.json",
             ],
         )
+    elif args.action == "model-admin":
+        if not args.model_command:
+            parser.error("--model-command required")
+        run(
+            [
+                "docker",
+                "build",
+                "--target",
+                "model-admin",
+                "-t",
+                "xrt-research-model-admin",
+                "-f",
+                str(ROOT / "server/Dockerfile"),
+                str(ROOT),
+            ]
+        )
+        command = [
+            "docker",
+            "run",
+            "--rm",
+            "--network",
+            args.project + "_default",
+            "--read-only",
+            "--tmpfs",
+            "/tmp",
+            "--security-opt",
+            "no-new-privileges",
+            "--cap-drop",
+            "ALL",
+            "-e",
+            "XRT_DB_PASSWORD_FILE=/run/secrets/db_password",
+            "-e",
+            "XRT_MODEL_REALM=" + os.getenv("XRT_MODEL_REALM", "PRODUCTION"),
+            "-e",
+            "XRT_MODEL_REGISTRY_ID="
+            + os.getenv("XRT_MODEL_REGISTRY_ID", "xrt-local-production"),
+            "--mount",
+            "type=bind,source="
+            + str(PRIVATE / "db-password.txt")
+            + ",target=/run/secrets/db_password,readonly",
+            "--mount",
+            "type=bind,source="
+            + str(
+                Path(args.admin_credential).resolve()
+                if args.admin_credential
+                else PRIVATE / "admin.json"
+            )
+            + ",target=/private/admin.json,readonly",
+            "-v",
+            args.project + "_assets:/data/assets:ro",
+            "-v",
+            args.project + "_models:/data/models",
+        ]
+        if args.input:
+            from sic_xrt_analyzer.model_updates.contracts import safe_path
+
+            source = safe_path(args.input)
+            if not source.is_dir():
+                raise ValueError("Input directory required")
+            command += [
+                "--mount",
+                "type=bind,source=" + str(source) + ",target=/input,readonly",
+            ]
+        if args.output:
+            output = Path(args.output).absolute()
+            if output.exists() or not output.resolve().is_relative_to(
+                PRIVATE.resolve()
+            ):
+                raise ValueError("New private operation directory required")
+            from sic_xrt_analyzer.model_updates.contracts import safe_path
+
+            safe_path(output).mkdir(parents=True)
+            command += [
+                "--mount",
+                "type=bind,source=" + str(output) + ",target=/operation",
+            ]
+        if args.signing_key:
+            from sic_xrt_analyzer.model_updates.contracts import safe_path
+
+            key = safe_path(args.signing_key)
+            if key.stat().st_size != 32:
+                raise ValueError("Private key format")
+            command += [
+                "--mount",
+                "type=bind,source="
+                + str(key)
+                + ",target=/signing/private.key,readonly",
+            ]
+        command += [
+            "xrt-research-model-admin",
+            "python",
+            "-m",
+            "xrt_server.model_admin",
+            *args.model_command,
+        ]
+        if args.model_command[0] not in ("sign", "key-create"):
+            command += ["--credential-file", "/private/admin.json"]
+        run(command)
     elif args.action == "dataset-export":
         if not args.output or not args.dataset_id:
             parser.error("--output and --dataset-id required")

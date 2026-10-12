@@ -159,3 +159,38 @@ class DatasetVersion(Base):
     payload: Mapped[dict] = mapped_column(JSONB)
     actor_id: Mapped[str] = mapped_column(ForeignKey("server_users.id"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+
+
+class ModelCandidate(Base):
+    __tablename__ = "model_candidates"
+    __table_args__ = (UniqueConstraint("model_id", "version"),)
+    id: Mapped[str] = mapped_column(String(96), primary_key=True)
+    model_id: Mapped[str] = mapped_column(String(96))
+    version: Mapped[str] = mapped_column(String(96))
+    realm: Mapped[str] = mapped_column(String(16))
+    dataset_id: Mapped[str] = mapped_column(ForeignKey("dataset_versions.id"))
+    payload: Mapped[dict] = mapped_column(JSONB)
+    actor_id: Mapped[str] = mapped_column(ForeignKey("server_users.id"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+
+
+class ModelEvent(Base):
+    __tablename__ = "model_events"
+    __table_args__ = (UniqueConstraint("subject_id", "revision"),)
+    id: Mapped[str] = mapped_column(String(96), primary_key=True)
+    subject_id: Mapped[str] = mapped_column(String(128), index=True)
+    revision: Mapped[int] = mapped_column(Integer)
+    payload: Mapped[dict] = mapped_column(JSONB)
+    actor_id: Mapped[str] = mapped_column(ForeignKey("server_users.id"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+
+
+class ModelRelease(Base):
+    __tablename__ = "model_releases"
+    id: Mapped[str] = mapped_column(String(96), primary_key=True)
+    sequence: Mapped[int] = mapped_column(Integer, unique=True)
+    candidate_id: Mapped[str] = mapped_column(ForeignKey("model_candidates.id"))
+    channel: Mapped[str] = mapped_column(String(16))
+    payload: Mapped[dict] = mapped_column(JSONB)
+    actor_id: Mapped[str] = mapped_column(ForeignKey("server_users.id"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
