@@ -76,6 +76,7 @@ class Stack3DController(QObject):
         self.progress = [0, 0, ""]
         self.hover_text = ""
         self.pending_navigation = None
+        self.pending_viewer_selection = None
         self._navigation_clear = False
         self.focus_attempts = 0
         self.active = False
@@ -127,9 +128,16 @@ class Stack3DController(QObject):
             except (ValueError, OSError, KeyError, TypeError) as e:
                 self.error = str(e)
         self.changed.emit()
+        pending = self.pending_viewer_selection
+        self.pending_viewer_selection = None
+        if pending and not error and pending[0] == self.epoch:
+            current = self.bridge.original_source
+            if current and current.path == pending[1]:
+                self.openViewerSelection(*pending[2])
 
     @Slot()
     def cancel(self, announce=True):
+        self.pending_viewer_selection = None
         self.token.set()
         self.epoch += 1
         self.reader.invalidate()
@@ -397,6 +405,31 @@ class Stack3DController(QObject):
 
             self._start("restore", work, publish)
         self.changed.emit()
+
+    @Slot(int, int, int, int, result=bool)
+    def openViewerSelection(self, x, y, width, height):
+        self._refresh_sources()
+        original = self.bridge.original_source
+        if original is None or original.metadata.page_count < 2:
+            return False
+        sid = next((ident for ident,record in self._records.items()
+                    if record.source_reference == original.path), "")
+        if not sid:
+            return False
+        if sid != self.selected:
+            self.selectSource(sid)
+        if self.busy:
+            if self.job == "restore":
+                self.pending_viewer_selection = (self.epoch, original.path, (x,y,width,height))
+                return True
+            return False
+        # Explicit display sampling keeps original XY/page mappings intact.
+        # Never interpret ImageJ frames as physical Z distances.
+        stride = max(1, math.ceil(math.sqrt(width*height*original.metadata.page_count*2/(64*1024**2))))
+        if self.configure(x,y,width,height,0,original.metadata.page_count-1,1,stride):
+            self.generate()
+            return True
+        return False
 
     @Slot(float, float, float, float, float, float, float, float, result=bool)
     def configure(self, x, y, w, h, first, last, page_step, xy_step):

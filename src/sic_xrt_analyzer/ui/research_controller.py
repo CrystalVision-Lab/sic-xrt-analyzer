@@ -55,6 +55,7 @@ class ResearchController(QObject):
         self.points = []
         self.point_identity = None
         self.result_identity = None
+        self.live_rows = []
         self.rows = []
         self.filtered = []
         self.kind_filter, self.query, self.low_only = "ALL", "", False
@@ -97,17 +98,15 @@ class ResearchController(QObject):
         self._pipeline_changed()
 
     def load_saved(self):
-        path = os.environ.get("SIC_XRT_MODEL_BUNDLE") or self.bridge._settings.value("researchModelBundle", "")
-        if not path:
-            updates = getattr(self.bridge, "model_update_controller", None)
-            path = updates.startup_bundle() if updates else None
+        updates = getattr(self.bridge, "model_update_controller", None)
+        path = os.environ.get("SIC_XRT_MODEL_BUNDLE") or (updates.startup_bundle() if updates else None) or self.bridge._settings.value("researchModelBundle", "")
         if not path:
             path = bundled_model_path()
         if path:
             self._startup_model = True
             self.loadModel(str(path))
         else:
-            self.error = "모델 폴더를 찾지 못했습니다. 분석 탭에서 연구 모델 폴더를 선택하세요."
+            self.error = "사용 가능한 모델이 없습니다. 관리자에게 모델 배포를 요청하세요."
             self.changed.emit()
 
     @Slot(str)
@@ -145,6 +144,7 @@ class ResearchController(QObject):
         if not error:
             self.bundle = self._pending_bundle
             self.bridge.pipeline.adapter = adapter
+            self.bridge.pipeline.set_source(self.bridge.pipeline.source)
             if not startup:
                 self.bridge._settings.setValue("researchModelBundle", self.bundle)
                 self.bridge._settings.sync()
@@ -166,6 +166,10 @@ class ResearchController(QObject):
             self.thumbnail_error = "원본 연결·검증이 필요합니다."
         result = self.display_result
         result_id = result.analysis_id if result and result.status == AnalysisState.COMPLETED else None
+        if pipeline.state == AnalysisState.RUNNING:
+            self.live_rows = [{"id":d.id,"number":i+1,"x":d.geometry.points[0][0],"y":d.geometry.points[0][1],"type":d.class_name,"score":d.confidence,"region":d.metadata.get("bpd_region",[])} for i,d in enumerate(pipeline.live_detections)]
+        else:
+            self.live_rows = []
         if result_id != self.result_identity:
             self.result_identity, self.rows, self.export_path = result_id, [], ""
             self._clear_selection()
@@ -183,6 +187,7 @@ class ResearchController(QObject):
                                       "number": len(self.rows) + 1,
                                       "scores": list(scores) if len(scores) == 3 else [],
                                       "x": x, "y": y, "type": d.class_name or "unknown",
+                                      "region": d.metadata.get("bpd_region", []), "regionProvenance": d.metadata.get("region_provenance", ""),
                                       "score": d.confidence, "low_score": d.metadata.get("low_score", False)})
             self._filter_rows()
         self.changed.emit()
@@ -211,6 +216,10 @@ class ResearchController(QObject):
             return
         self.kind_filter, self.low_only, self.query, self.page = kind, low_only, query, 0
         self._filter_rows()
+        if self.selected_id:
+            index = next((i for i, row in enumerate(self.filtered) if row["id"] == self.selected_id), -1)
+            if index >= 0:
+                self.page = index // 100
         self.changed.emit()
 
     @Slot(int)
@@ -349,7 +358,7 @@ class ResearchController(QObject):
 
         return {"loading": self.loading, "error": self.error, "bundle": self.bundle,
                 "coordinatesPath": self.csv_path, "coordinatesCount": len(self.points),
-                "counts": dict(summary.get("counts", {})), "points": self.rows if self.pixels_available else [],
+                "counts": dict(summary.get("counts", {})), "points": self.rows if self.pixels_available else [], "livePoints": self.live_rows,
                 "savedActive": self.saved is not None, "pixelsAvailable": self.pixels_available,
                 "displayRows": [{**p, "viewed": p["id"] in self.visited} for p in self.filtered[self.page*100:(self.page+1)*100]],
                 "filteredPoints": self.filtered, "filteredTotal": len(self.filtered),
@@ -400,7 +409,7 @@ class ResearchController(QObject):
                        "scope": result.scope.value, "roi": asdict(result.roi) if result.roi else None,
                        "model_id": result.model_id, "model_sha256": result.model_version,
                        "summary": plain(result.summary), "parameters": plain(result.parameters),
-                       "predictions": self.rows, "research_only": True, "human_verified": False,
+                       "predictions": [{k:v for k,v in row.items() if k not in ("region","regionProvenance")} for row in self.rows], "research_only": True, "human_verified": False,
                        "completed_at": result.completed_at.isoformat(), "seconds": result.duration}
             write_json(path / "result.json", payload)
             self.export_path, self.error = str(path), ""

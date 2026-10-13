@@ -67,11 +67,14 @@ class TiffImageProvider(QQuickImageProvider):
         self.project_review_image = QImage()
         self.registration_images = {}
         self.wafer_images = {}
+        self.folder_images = {}
         self.stack3d_images = {}
 
     def requestImage(self, image_id: str, size: QSize, requested_size: QSize) -> QImage:
         if image_id.startswith('stack3d-'):
             return self.stack3d_images.get(image_id[8:].split('?')[0], QImage())
+        if image_id.startswith('folder-'):
+            return self.folder_images.get(image_id[7:].split('?')[0], QImage())
         if image_id.startswith('wafer-'):
             return self.wafer_images.get(image_id[6:].split('?')[0], QImage())
         if image_id.startswith('registration-'):
@@ -145,6 +148,12 @@ class FileBridge(QObject):
         self.model_update_controller = ModelUpdateController(self)
         from .app_update_controller import AppUpdateController
         self.app_update_controller = AppUpdateController(self)
+        from .issue_reports import IssueReports
+        from .overlay_layers import DisplayLayers
+        self.display_layers = DisplayLayers(self)
+        from .folder_map import FolderMap
+        self.folder_map = FolderMap(self)
+        self.issue_reports = IssueReports(self)
         stored = self._settings.value("preferences", {})
         self._preferences = self._validated(stored if isinstance(stored, dict) else {})
         recent = self._settings.value("recentFiles", [])
@@ -173,6 +182,18 @@ class FileBridge(QObject):
     @Property("QStringList", notify=recentFilesChanged)
     def recentFiles(self):
         return self._recent_files
+
+    @Property(QObject, constant=True)
+    def folderMap(self):
+        return self.folder_map
+
+    @Property(QObject, constant=True)
+    def displayLayers(self):
+        return self.display_layers
+
+    @Property(QObject, constant=True)
+    def reports(self):
+        return self.issue_reports
 
     @Property(QObject, constant=True)
     def nativeDialogs(self):
@@ -441,6 +462,7 @@ class FileBridge(QObject):
                   AnalysisState.RUNNING: "분석 중", AnalysisState.COMPLETED: "완료",
                   AnalysisState.FAILED: "실패", AnalysisState.CANCELED: "취소됨"}
         return {
+            "progress": p.progress,
             "state": p.state.value, "statusLabel": labels[p.state],
             "modelAvailable": bool(adapter and adapter.available),
             "modelName": adapter.model_name if adapter else "",
@@ -449,6 +471,7 @@ class FileBridge(QObject):
             "supportedScopes": preflight["modelExpected"].get("supportedScopes", []),
             "inputPreflight": preflight,
             "sourceReady": p.source is not None,
+            "sourcePath": p.source.path if p.source else "",
             "inputSource": f"Original {p.source.metadata.format}" if p.source else "",
             "scope": p.result.scope.value if p.result else "",
             "analysisId": p.result.analysis_id if p.result else "",
@@ -671,6 +694,8 @@ class FileBridge(QObject):
 
     @Slot()
     def waitForLoads(self):
+        self.folder_map.shutdown()
+        self.issue_reports.reader.shutdown()
         self.app_update_controller.shutdown()
         self.model_update_controller.shutdown()
         self.sync_controller.shutdown()

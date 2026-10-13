@@ -1,6 +1,7 @@
 """Bounded original-pixel inference for the desktop's existing worker pipeline."""
 from collections import Counter
 
+import cv2
 import numpy as np
 
 from .contracts import (
@@ -44,6 +45,8 @@ class DesktopResearchAdapter:
         if not 0 <= score_threshold <= 1 or not 1 <= limit <= 10000 or not 0 < threshold <= 255:
             raise ValueError("분석 설정 범위를 확인하세요.")
         limited = False
+        scanned = 0
+        tile_total = ((height + 1023) // 1024) * ((width + 1023) // 1024)
         if mode == "provided_coordinates":
             points = [dict(p) for p in params.get("points", ())]
             if not points or len(points) > 50000:
@@ -67,6 +70,8 @@ class DesktopResearchAdapter:
                     if len(points) > limit:
                         limited = True
                         points = points[:limit]
+                    scanned += 1
+                    token.report(stage="원본 탐색", completed=scanned, total=tile_total, region=[left, top, min(1024, x0+width-left), min(1024, y0+height-top)])
             for i, p in enumerate(points):
                 p["point_id"] = f"auto_{i:06d}"
         else:
@@ -98,13 +103,26 @@ class DesktopResearchAdapter:
             patches = [source.read_region(p["cx"] - 64, p["cy"] - 64, 128, 128) for p in batch]
             scores = self.classifier.predict(patches)
             token.check()
+            first_detection = len(detections)
             for p, score in zip(batch, scores, strict=True):
                 index = int(np.argmax(score))
+                region, region_error = [], ""
+                if CLASSES[index] == "BPD" and params.get("include_regions", False):
+                    try:
+                        region = self._region(source, p, token)
+                    except (ValueError, cv2.error) as exc:
+                        token.check()
+                        region_error = type(exc).__name__
                 detections.append(Detection(
                     f"candidate_{len(detections):06d}", index, CLASSES[index], float(score[index]),
                     Geometry(GeometryKind.POINT, ((p["x"], p["y"]),), coordinate_space=CoordinateSpace.ORIGINAL),
-                    {"point_id": p["point_id"], "scores": [float(v) for v in score],
+                    {"bpd_region": region, "region_error": region_error,
+                     "region_context": 128 if region else 0,
+                     "region_clipped": bool(region and any(px in (p["cx"]-64,p["cx"]+63) or py in (p["cy"]-64,p["cy"]+63) for px,py in region)),
+                     "region_provenance": "EXPERIMENTAL_LOCAL_CONTRAST_REGION" if CLASSES[index] == "BPD" else "",
+                     "point_id": p["point_id"], "scores": [float(v) for v in score],
                      "low_score": bool(score[index] < score_threshold), "human_verified": False}))
+            token.report(stage="후보 분석", completed=len(detections), total=len(accepted), detections=detections[first_detection:])
         summary = {"counts": dict(Counter(d.class_name for d in detections)), "candidate_count": len(points),
                    "classified_count": len(detections), "excluded": dict(excluded),
                    "low_score_count": sum(d.metadata["low_score"] for d in detections),
@@ -114,3 +132,48 @@ class DesktopResearchAdapter:
         return AdapterOutput(tuple(detections), summary,
                              {"input": "original_uint8_RGB", "patch_size": 128, "batch_size": 32,
                               "coordinates": "original_pixels", "no_subtype_or_conversion_claim": True})
+
+    @staticmethod
+    def _region(source, point, token):
+        """Bounded structure mask around a BPD-classified point, not ONNX segmentation.
+
+        Keep the original classified point and scores unchanged. Only a nearby
+        local contrast-supported connected region is added as a display/research annotation.
+        """
+        import cv2
+        from scipy import ndimage as ndi
+        from skimage.filters import apply_hysteresis_threshold
+
+        token.check()
+        x, y = point["cx"] - 64, point["cy"] - 64
+        original = source.read_region(x, y, 128, 128)
+        gray = np.sum(original.astype(np.float32) * np.array([.2126,.7152,.0722], np.float32), axis=2) / 255
+        residual = gray - ndi.gaussian_filter(gray, 8., mode="reflect")
+        choices = []
+        for sign in (1., -1.):
+            response = np.maximum(sign * residual, 0)
+            peak = float(response.max())
+            if peak < .015:
+                continue
+            mask = apply_hysteresis_threshold(response, max(.015,peak*.12), max(.015,peak*.28))
+            labels, count = ndi.label(mask, structure=np.ones((3,3), int))
+            areas = np.bincount(labels.ravel())
+            yy, xx = np.indices(labels.shape)
+            distances = (xx-(point["x"]-x))**2+(yy-(point["y"]-y))**2
+            nearest = ndi.minimum(distances, labels, index=np.arange(1,count+1))
+            for label, distance in enumerate(nearest,1):
+                if 8 <= areas[label] <= 8192 and distance <= 8**2:
+                    choices.append((float(distance),-int(areas[label]),labels,label))
+        token.check()
+        if not choices:
+            return []
+        _, _, labels, label = min(choices,key=lambda r:(r[0],r[1]))
+        mask = (labels == label).astype("uint8")
+        contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        if not contours:
+            return []
+        contour = max(contours, key=cv2.contourArea)
+        contour = cv2.approxPolyDP(contour, 1.0, True).reshape(-1, 2)
+        if len(contour) > 128:
+            contour = contour[::(len(contour)+127)//128]
+        return [[int(px)+x, int(py)+y] for px, py in contour] if len(contour) >= 3 else []

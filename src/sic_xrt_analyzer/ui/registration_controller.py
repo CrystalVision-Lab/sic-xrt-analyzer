@@ -59,6 +59,7 @@ class RegistrationController(QObject):
         self.method = "sift"
         self.model = "auto"
         self.job = ""
+        self._auto_run = False
         self.metrics = {}
         self.projects.changed.connect(self._project_changed)
 
@@ -154,6 +155,7 @@ class RegistrationController(QObject):
             self.changed.emit()
             return
         if error:
+            self._auto_run = False
             self.error = error
             if self.session is not None:
                 try:
@@ -171,6 +173,7 @@ class RegistrationController(QObject):
 
     @Slot()
     def cancel(self):
+        self._auto_run = False
         self.token.set()
         self.reader.invalidate()
         self.epoch += 1
@@ -206,6 +209,17 @@ class RegistrationController(QObject):
         return a, b
 
     @Slot()
+    def analyzePair(self):
+        if not self.projects.path:
+            self.error="저장된 분석 프로젝트를 불러오세요."
+            self.changed.emit();return
+        if self.session is not None:
+            self.run("sift","auto")
+        else:
+            self._auto_run=True
+            self.prepare()
+
+    @Slot()
     def prepare(self):
         try:
             a, b = self._pair()
@@ -238,7 +252,11 @@ class RegistrationController(QObject):
             self.message = (
                 "SHA 확인 완료 · 정합 전에는 두 화면 좌표가 직접 대응하지 않습니다."
             )
-            self.requestFrame(self.width, self.height)
+            if self._auto_run:
+                self._auto_run=False
+                self.run("sift","auto")
+            else:
+                self.requestFrame(self.width, self.height)
 
         self._start(
             "prepare", lambda cancelled: ComparisonSession(a, b, cancelled), publish
