@@ -319,7 +319,9 @@ def test_wand_uses_existing_async_imagej_bridge(workbench):
     w = workbench
     choose(w, 'roi'); w.click('tiffToolWand')
     QTest.mouseClick(w.window, Qt.LeftButton, Qt.NoModifier, scene(w, 80, 80))
-    spin(w.app, lambda: not w.bridge.imagej.state['busy'])
+    # Cold JVM/Fiji startup can exceed the generic 5s async-fixture timeout under an installer build.
+    # Keep the real worker and all ROI assertions; this is a functional completion deadline.
+    spin(w.app, lambda: not w.bridge.imagej.state['busy'], timeout=30)
     assert not w.bridge.imagej.state['error']
     assert flow(w, 'count') == 1 and flow(w, 'imagejPhase') == 'SELECTED'
     assert w.bridge.roi_manager.records[0].tool == 'Polygon'  # Existing wand result record representation.

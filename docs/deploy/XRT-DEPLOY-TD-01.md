@@ -78,13 +78,13 @@ Opaque 세션2시간, HttpOnly/SameSiteStrict, 공개 HTTPS Secure Cookie, 서�
 | 로컬 Chromium public4화면×3폭 + 관리자7화면 | 19 PASS, JS오류0, 가로넘침0 |
 | 공개 HTTPS 익명 public12 + 보호API4 | 16 PASS,401 확인, 인증키 전송 없음 |
 | 개발 QA 설치·설치 후 실제 frozen smoke | PASS, D3D11, QML경고0, TIFF16bit/JPG/ROI3D/ImageJ작업복사 |
-| Frozen ONNX helper | PASS, 합성 ONNX batch1/2 CPU실행, scientific 정확도 시험 아님 |
+| Frozen ONNX helper | PASS, 합성 ONNX batch1/7 CPU실행, scientific 정확도 시험 아님 |
 | QA 설치 제거 | PASS, CURRENTUSER, 설치 밖 합성 프로젝트 SHA보존 |
 | PostgreSQL 서버 회귀 | 로컬82 PASS, 최종 CI83 PASS (모델 평가 조회 무변경 검사 추가) |
 | 포털 | 7 PASS, 암호화/역할/CSRF/revocation/range/이력/백업/배포보류 |
 | 웹 Unit | 4 PASS, 최신요청·미게시·STABLE 선택·키보드 focus |
 | Worker/모델+포털 집중 회귀 | 45 PASS |
-| Windows 전체 회귀 | 최종 결과 수집 중 |
+| Windows 전체 회귀 | 최초735 PASS/5 SKIP/1 FAIL: Wand JVM cold start5초 완료 대기. 동일 검사 단독1 PASS(4.66s). 기능 검사 대기를 기존 ImageJ 검사와 같은30초로 지정 후 전체 재검사 |
 | Linux GitHub Actions | 최종 HEAD 결과 수집 중 |
 
 로그·원본 Crop·로그인 후 캡처는 `artifacts/` private/ignored, 실제 인증값은 출력하지 않았다. 브라우저 검사는 자체 Chromium 자동 QA이며 물리 마우스의 설치 wizard 검사를 뜻하지 않는다. `web/qa.mjs`는 관리자 자동 검증을 localhost로 제한한다. 외부에서는 `XRT_QA_PUBLIC_ONLY=1`을 지정한다.
