@@ -124,7 +124,7 @@ def test_uint16_shared_action_gate_and_other_tools_remain_available(workbench, s
     assert not w.state.property('canAnalyze')
     assert not w.item('imagePrepareAnalysis').property('visible')
     assert not w.item('menuRunAnalysis').property('rowAvailable')
-    assert not w.item('roiAction').property('enabled')
+    assert w.item('roiAction').property('enabled')  # Stack ROI supports viewing, not inference.
     assert not invoke(w.window,'requestContext','analysis','MANUAL')
     assert not w.bridge.requestAnalysis(scope,0,0,256,256,{})
     assert not adapter.requests
@@ -199,8 +199,8 @@ def test_compatible_one_click_full_and_roi_requests_keep_contract(workbench, sco
         w.state.setProperty('roiEndX', 1); w.state.setProperty('roiEndY', 1)
         w.state.setProperty('hasRoi', True)
     w.app.processEvents()
-    assert w.state.property('canAnalyze') and w.item('contextRunAnalysis').property('enabled')
-    w.click('contextRunAnalysis')
+    assert w.state.property('canAnalyze') and w.item('confirmAnalysis').property('enabled')
+    w.click('confirmAnalysis')
     spin(w.app, lambda: w.bridge.analysis['hasResult'])
     assert len(adapter.requests) == 1 and adapter.requests[0].scope.value == scope
     assert (adapter.requests[0].roi is not None) == (scope == 'ROI')
@@ -213,7 +213,7 @@ def test_model_contract_missing_ui_error_has_no_false_scope_warning(workbench):
     w.open(create_source(w.path.parent).path)
     w.bridge.pipeline.adapter = adapter; w.bridge.pipeline.invalidate(); choose(w, 'analysis')
     assert w.state.property('inputCompatibilityState') == 'ERROR'
-    reasons = w.item('analysisReadinessReasons').property('text')
+    reasons = w.state.property('analysisReason')
     assert '입력 계약을 확인할 수 없습니다' in reasons and '분석 범위를 지원하지' not in reasons
     assert not w.item('runAction').property('enabled')
 

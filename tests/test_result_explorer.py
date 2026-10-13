@@ -97,6 +97,7 @@ def test_qml_filter_click_animation_center_and_marker_hit(qt_app, tmp_path):
         invoke(window, 'selectImagePath', source.path)
         spin(qt_app, lambda: state.property('hasLoadedImage') and not state.property('loading'))
         state.setProperty('analysisScope', 'FULL_IMAGE')
+        state.setProperty('autoCandidateRoi', True)  # Explicit optional navigation ROI.
         invoke(window.findChild(QObject, 'runAction'), 'trigger')
         spin(qt_app, lambda: bridge.analysis['hasResult'])
         invoke(window, 'openInspectorTab', 2)

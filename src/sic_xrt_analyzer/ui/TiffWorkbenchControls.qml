@@ -17,9 +17,9 @@ RowLayout {
         tip: enabled ? "선택의 길이·면적·각도·개수 · 원본 좌표와 XY 단위" : "현재 TIFF 페이지에서 표시된 ImageJ 선택을 지정하세요."
         onClicked: root.hostWindow.measureSelection()
     }
-    ToolbarButton { objectName: "tiffContrast"; theme: root.theme; text: "밝기·대비"; action: root.actions.viewerSettings; tip: "표시 범위만 조절 · 원본 픽셀 유지" }
+    ToolbarButton { objectName: "tiffContrast"; theme: root.theme; text: root.compact ? "대비" : "밝기·대비"; action: root.actions.viewerSettings; tip: "표시 범위만 조절 · 원본 픽셀 유지" }
     ToolbarButton {
-        objectName: "tiffProcess"; theme: root.theme; text: "처리 ▾"; tip: "현재 페이지 · 설정 확인 후 작업 복사본 또는 측정 결과 생성"
+        objectName: "tiffProcess"; visible: !root.compact; theme: root.theme; text: "처리 ▾"; tip: "현재 페이지 · 설정 확인 후 작업 복사본 또는 측정 결과 생성"
         enabled: uiState.loadFlow.imagejReady
         onClicked: processMenu.open()
         AppMenu {
@@ -38,7 +38,7 @@ RowLayout {
         }
     }
     ToolbarButton {
-        objectName: "tiffMore"; theme: root.theme; text: "더보기 ▾"; tip: "추가 도구 · ROI 관리 · ImageJ 고급 기능"
+        objectName: "tiffMore"; theme: root.theme; text: root.compact ? "더보기" : "더보기 ▾"; tip: "추가 도구 · ROI 관리 · ImageJ 고급 기능"
         onClicked: moreMenu.open()
         AppMenu {
             id: moreMenu; objectName: "tiffMoreMenu"; y: parent.height; width: 290

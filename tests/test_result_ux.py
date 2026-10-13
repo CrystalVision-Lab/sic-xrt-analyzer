@@ -47,11 +47,10 @@ def analyzed(w, adapter=None):
     w.bridge.pipeline.adapter = adapter or DistributedCandidates()
     w.open(create_source(w.path.parent).path)
     w.click('imagePrepareAnalysis')
-    w.click('contextRunAnalysis')
+    w.click('confirmAnalysis')
     spin(w.app, lambda: w.bridge.analysis['hasResult'])
     QTest.qWait(40)
     assert w.panel.property('requestedContext') == 'result'
-    w.click('resultListToggle')
     return w.bridge.research
 
 
@@ -67,7 +66,7 @@ def test_summary_filter_navigation_and_overlay_share_state(workbench, kind, tota
     w = workbench
     r = analyzed(w)
     original = w.bridge.pipeline.result
-    assert w.item('resultTotal').property('text') == '분류 후보 2,946개'
+    assert w.item('resultTotal').property('text') == '결과 2,946'
     assert r.state['counts'] == {'BPD': 245, 'TED': 1398, 'TSD': 1303}
     for name, color in [('BPD', '#ffad42'), ('TED', '#50e0ee'), ('TSD', '#ff78c4')]:
         assert evaluate(w, f'resultPresentation.colorFor("{name}")') == color
@@ -81,13 +80,14 @@ def test_summary_filter_navigation_and_overlay_share_state(workbench, kind, tota
     selected = r.state['selected']
     assert r.state['selectedIndex'] == 0
     assert w.item('candidateIndex').property('text') == '후보 1 / ' + f'{total:,}'
-    assert w.item('selectedCandidateHeader').property('text') == f'후보 #{selected["number"]} · {selected["type"]}'
+    assert w.item('selectedCandidateHeader').property('text') == f'#{selected["number"]} · {selected["type"]}'
     assert evaluate(w, 'research.selected.id === research.displayRows[0].id') is True
     assert evaluate(w, 'research.filteredPoints.length') == total
     overlay = w.item('analysisOverlay')
     assert overlay.property('selected')['id'] == selected['id']
     assert len(overlay.property('points')) == 2946
-    assert w.state.property('bpdLayerVisible') and w.state.property('tedLayerVisible') and w.state.property('tsdLayerVisible')
+    for label in ('BPD','TED','TSD'):
+        assert w.state.property(label.lower()+'LayerVisible') == (kind in ('ALL',label))
     assert overlay.property('selectedOpacity') > overlay.property('candidateOpacity')
     assert {p['type'] for p in overlay.property('points')} == {'BPD', 'TED', 'TSD'}
     w.click('nextCandidate')
@@ -171,7 +171,7 @@ def test_detail_raw_score_export_and_research_controls_preserved(workbench, tmp_
     before = Path(r.state['exportPath'])
     snapshot = {p.name: p.read_bytes() for p in before.iterdir() if p.is_file()}
     w.click('nextCandidate')
-    assert w.item('candidateConfidence').property('text') == '66.1%'
+    assert w.item('candidateConfidence').property('text') == '모델 점수 66.1%'
     w.click('candidateDetails')
     assert w.item('candidateDetailDialog').property('visible')
     assert w.item('rawScoreBPD').property('text') == 'BPD  66.1%   /   0.6605'
@@ -180,36 +180,26 @@ def test_detail_raw_score_export_and_research_controls_preserved(workbench, tmp_
     w.click('copyCandidate')
     assert 'X=80' in w.app.clipboard().text()
     QTest.keyClick(w.window, Qt.Key_Escape)
-    w.click('resultOptions')
-    assert w.item('resultOptionsDialog').property('visible')
-    w.click('lowScoreFilter')
+    # The removed advanced presentation controls retain their backend API;
+    # normal users see the compact layer picker and candidate report dialog.
+    r.setFilter('ALL', True, '')
     assert r.state['filterLow'] and r.state['filteredTotal'] == 590
-    w.click('lowScoreFilter')
-    w.click('autoCandidateRoi')
+    r.setFilter('ALL', False, '')
     assert not w.state.property('autoCandidateRoi')
-    w.click('autoCandidateRoi')
-    assert w.state.property('autoCandidateRoi')
-    w.item('candidateRoiSize').forceActiveFocus()
-    QTest.keyClick(w.window, Qt.Key_Down)
-    QTest.keyClick(w.window, Qt.Key_Return)
-    QTest.qWait(40)
+    w.state.setProperty('autoCandidateRoi',True)
+    w.state.setProperty('candidateRoiSize',256)
     assert w.state.property('candidateRoiSize') == 256
-    w.click('resultLayerVisibility')
+    w.click('layerTools'); w.click('resultLayerVisibility')
     assert not w.state.property('analysisLayerVisible')
-    assert w.item('analysisOverlay').property('visible')  # Independent selected highlight.
-    w.click('resultLayerVisibility')
-    search = w.item('candidateSearch')
-    search.forceActiveFocus()
-    for char in 'source_000240':
-        QTest.keyClick(w.window, Qt.Key(ord(char.upper())))
+    assert w.item('analysisOverlay').property('visible')
+    w.click('resultLayerVisibility'); QTest.keyClick(w.window,Qt.Key_Escape)
+    r.setFilter('ALL',False,'source_000240')
     assert r.state['filteredTotal'] == 1 and not r.state['selected']
-    QTest.keyClick(w.window, Qt.Key_Escape)
-    assert w.item('resultFilterSummary').property('text').endswith('검색 적용')
     w.click('nextCandidate')
     assert r.state['selected']['number'] == 241
-    w.click('resultRunInfo')
-    assert w.item('resultInfoDialog').property('visible')
-    QTest.keyClick(w.window, Qt.Key_Escape)
+    w.click('candidateDetails')
+    assert w.item('candidateDetailDialog').property('visible')
+    QTest.keyClick(w.window,Qt.Key_Escape)
     assert r.exportResult(str(tmp_path / 'after'))
     after = Path(r.state['exportPath'])
     assert {p.name: p.read_bytes() for p in after.iterdir() if p.is_file()} == snapshot
@@ -241,7 +231,7 @@ def test_result_fixed_information_and_list_bounds(workbench, size):
     r = analyzed(w)
     w.click('nextCandidate')
     for name in ('resultTotal', 'resultFilterBPD', 'candidateIndex', 'selectedCandidateHeader',
-                 'candidateConfidence', 'candidateList', 'analysisExportButton', 'resultOptions'):
+                 'candidateConfidence', 'candidateList', 'analysisExportButton', 'candidateDetails'):
         item = w.item(name)
         p = item.mapToScene(QPointF())
         assert item.property('visible'), name
@@ -265,9 +255,9 @@ def test_result_fixed_information_and_list_bounds(workbench, size):
 def test_empty_zero_new_run_and_new_file_discard_stale_selection(workbench):
     w = workbench
     w.open(create_source(w.path.parent).path)
-    choose(w, 'result')
-    assert w.item('resultLifecycleMessage').property('text') == '아직 분석 결과가 없습니다.'
-    assert not w.item('candidateList').property('visible')
+    assert not invoke(w.window,'requestContext','result','MANUAL')
+    assert not w.item('resultExplorer').isVisible()
+    assert not w.item('candidateList').isVisible()
     r = analyzed(w)
     w.click('resultFilterBPD')
     w.click('nextCandidate')
@@ -275,13 +265,14 @@ def test_empty_zero_new_run_and_new_file_discard_stale_selection(workbench):
     adapter = LifecycleAdapter('empty')
     w.bridge.pipeline.adapter = adapter
     choose(w, 'analysis')
-    w.click('contextRunAnalysis')
+    w.click('confirmAnalysis')
     spin(w.app, adapter.entered.is_set)
     try:
-        choose(w, 'result')
+        assert not invoke(w.window,'requestContext','result','MANUAL')
+        assert not w.panel.property('visible')
         assert not w.state.property('hasResult')
         assert not r.state['selected'] and not r.state['points']
-        assert not w.item('analysisOverlay').property('visible')
+        assert not w.item('analysisOverlay').property('points')
     finally:
         adapter.release.set()
     spin(w.app, lambda: w.bridge.analysis['hasResult'])
@@ -308,5 +299,5 @@ def test_assigned_class_is_not_recomputed_from_score_vector(workbench):
     r = analyzed(w, AssignedCandidates())
     w.click('nextCandidate')
     assert r.state['selected']['type'] == 'BPD'
-    assert w.item('selectedCandidateHeader').property('text') == '후보 #1 · BPD'
-    assert w.item('candidateConfidence').property('text') == '66.1%'
+    assert w.item('selectedCandidateHeader').property('text') == '#1 · BPD'
+    assert w.item('candidateConfidence').property('text') == '모델 점수 66.1%'

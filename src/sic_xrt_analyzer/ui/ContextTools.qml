@@ -15,13 +15,13 @@ ToolbarButton {
         width: 220; x: root.width - width
         onClosed: Qt.callLater(function() { root.hostWindow.viewer.focusView() })
         Repeater {
-            model: root.hostWindow.contextPanel ? ["image", "viewer", "roi", "analysis", "result", "feedback"] : []
+            model: root.hostWindow.contextPanel ? ["image", "viewer", "roi", "result"] : []
             ToolbarMenuItem {
                 required property int index
                 required property string modelData
                 objectName: "toolbarContext" + modelData
-                rowAvailable: !root.uiState.stackFeaturesVisible || ["analysis", "result", "feedback"].indexOf(modelData) < 0
-                text: ["이미지 정보", "뷰어 · 스택", "ROI 관리", "분석", "결과", "검수"][index]
+                rowAvailable: root.uiState.hasLoadedImage && (modelData !== "result" || root.uiState.hasResult)
+                text: ["이미지 정보", "뷰어 · 스택", "ROI 관리", "결과"][index]
                 checkable: true
                 checked: !root.hostWindow.inspectorCollapsed && root.hostWindow.contextPanel.requestedContext === modelData
                 onTriggered: root.hostWindow.openContext(modelData)

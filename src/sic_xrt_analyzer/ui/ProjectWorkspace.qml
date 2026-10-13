@@ -43,9 +43,17 @@ Item {
     function show() { if (!project.sources.some(function(s) { return s.id === root.chosenSource }) && project.sources.length) chosenSource = project.sources[0].id; workspace.open() }
     Connections {
         target: fileBridge.projects
-        function onSourceRequested(path) { hostWindow.clearImageState(); if (path) hostWindow.startImageLoad(fileBridge.localUrl(path)) }
+        function onSourceRequested(path) {
+            if (path) { hostWindow.clearImageState(); hostWindow.startImageLoad(fileBridge.localUrl(path)) }
+            else { hostWindow.inspectorCollapsed = true; sourceCheck.open() }
+        }
         function onResultRequested() { hostWindow.requestContext("result", "MANUAL"); hostWindow.inspectorCollapsed = false }
         function onOperationFinished(job, ok) {
+            if ((job === "hash" || job === "relink") && ok && sourceCheck.visible) {
+                sourceCheck.close()
+                if (project.selectedRun) fileBridge.projects.selectRun(project.selectedRun)
+                else fileBridge.projects.selectSource(project.selectedSource, "")
+            }
             if (root.afterCaptureSave && job === "capture") { root.afterCaptureSave = false; if (ok) { root.creating = false; editor.open() } }
             if (root.afterSave && ok) {
                 if (project.busy) return
@@ -53,6 +61,21 @@ Item {
                 var action = root.afterSave; root.afterSave = null; action()
             }
             if (!ok) root.afterSave = null
+        }
+    }
+    SurfaceDialog {
+        id: sourceCheck; objectName: "projectSourceCheckDialog"; parent: Overlay.overlay; modal: true
+        title: "원본 이미지 연결"; width: 440; x: (parent.width-width)/2; y: (parent.height-height)/2
+        standardButtons: Dialog.Close
+        ColumnLayout {
+            anchors.fill: parent; spacing: theme.spacingMd
+            Text { text: "저장된 결과를 보려면 원본을 확인하세요."; color: theme.text; Layout.fillWidth: true; wrapMode: Text.Wrap }
+            Text { text: project.error; visible: !!text; color: theme.warning; Layout.fillWidth: true; wrapMode: Text.Wrap }
+            ProgressBar { visible: project.busy; indeterminate: true; Layout.fillWidth: true }
+            RowLayout {
+                AppButton { objectName: "projectCheckOriginal"; theme: root.theme; text: "원본 확인"; enabled: !project.busy; onClicked: fileBridge.projects.verifySource(project.selectedSource) }
+                AppButton { theme: root.theme; text: "파일 다시 연결…"; enabled: !project.busy; onClicked: { root.relinkId=project.selectedSource; relinkPicker.open() } }
+            }
         }
     }
     SurfaceDialog {
@@ -130,7 +153,7 @@ Item {
                 ColumnLayout {
                     Layout.fillWidth: true; Layout.fillHeight: true
                     Text { textFormat: Text.PlainText; text: root.picked().name || "원본을 선택하세요"; color: theme.text; Layout.fillWidth: true; elide: Text.ElideMiddle }
-                    Text { objectName: "projectSourceStatus"; text: (root.picked().status || "") + "\n" + (root.picked().detail || ""); wrapMode: Text.Wrap; color: theme.muted; font.pixelSize: theme.smallSize; Layout.fillWidth: true }
+                    Text { objectName: "projectSourceStatus"; text: ({HASH_UNAVAILABLE:"원본 확인 필요",AVAILABLE:"원본 준비됨",MISSING:"원본 연결 필요",IDENTITY_MISMATCH:"원본 변경됨",VERIFIED:"원본 확인 완료"})[root.picked().status] || root.picked().detail || ""; wrapMode: Text.Wrap; color: theme.muted; font.pixelSize: theme.smallSize; Layout.fillWidth: true }
                     ComboBox {
                         objectName: "projectImageRole"; Layout.fillWidth: true; model: ["미지정", "열처리 전", "열처리 후", "기준 이미지"]
                         readonly property var values: ["UNKNOWN","BEFORE_ANNEALING","AFTER_ANNEALING","REFERENCE"]
@@ -148,7 +171,7 @@ Item {
                         model: project.runs.filter(function(r) { return r.sourceId === root.chosenSource })
                         delegate: ItemDelegate {
                             required property var modelData; required property int index; width: ListView.view.width; height: 64; objectName: "projectRun" + index
-                            text: modelData.date.slice(0,19) + " " + modelData.date.slice(-6) + " · " + modelData.scope + " · 후보 " + modelData.count + "개\n모델 " + modelData.model.slice(0,16) + " · Run " + modelData.id.slice(0,8) + " · " + modelData.status
+                            text: new Date(modelData.date).toLocaleString(Qt.locale("ko_KR"), "MM월 dd일 hh:mm") + " · 결과 " + modelData.count + "개"
                             enabled: !project.busy && root.picked().format !== "TIFF"
                             onClicked: root.selectImage(modelData.sourceId,modelData.id)
                         }

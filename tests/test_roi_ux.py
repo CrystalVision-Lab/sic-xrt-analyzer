@@ -55,7 +55,8 @@ def test_no_image_and_empty_area_are_normal_states(workbench):
     assert not w.item('roiEditButton').property('enabled')
     w.same_action('roiSpecifyArea', 'toolAnalysisRoi')
     invoke(w.window, 'closeImage')
-    choose(w, 'roi')
+    assert not invoke(w.window,'requestContext','roi','MANUAL')
+    assert not w.panel.property('visible')
     assert flow(w, 'areaPhase') == 'DISABLED'
     assert w.item('roiToolHint').property('text') == '이미지를 먼저 여세요.'
     assert not w.item('roiSpecifyArea').property('enabled')
@@ -71,10 +72,11 @@ def test_analysis_area_drawing_ready_replace_remove_and_shared_action(workbench,
         choose(w, context)
         w.same_action('roiSpecifyArea', 'analysisSpecifyArea')
         w.click('roiSpecifyArea' if context == 'roi' else 'analysisSpecifyArea')
+        QTest.qWait(35)
         assert w.item('viewerMouseArea').property('activeFocus')
         draw(w, check=lambda: (assert_drawing(w, context)))
         assert flow(w, 'areaPhase') == 'READY'
-        assert w.panel.property('requestedContext') == context
+        assert w.panel.property('requestedContext') == ('image' if context=='analysis' else context)
         assert w.state.property('roiX') == pytest.approx(128, abs=1)
         assert w.state.property('roiY') == pytest.approx(128, abs=1)
         assert w.state.property('roiWidth') == pytest.approx(256, abs=1)
@@ -104,15 +106,15 @@ def assert_drawing(w, context):
     assert flow(w, 'areaPhase') == 'DRAWING'
     assert w.item('analysisRoiState').property('text') == '분석 영역 지정 중'
     assert 'Esc' not in w.item('analysisAreaHint').property('text')
-    assert w.panel.property('requestedContext') == context
+    assert w.panel.property('requestedContext') == ('image' if context=='analysis' else context)
 
 
 def test_running_locks_area_actions_without_locking_pan_zoom(workbench):
     w = workbench
     adapter = prepare(w)
     try:
-        set_scope(w, 'ROI'); w.click('analysisSpecifyArea'); draw(w)
-        w.click('contextRunAnalysis'); spin(w.app, adapter.entered.is_set)
+        set_scope(w, 'ROI'); w.click('analysisSpecifyArea'); QTest.qWait(35); draw(w)
+        choose(w,'analysis'); w.click('confirmAnalysis'); spin(w.app, adapter.entered.is_set)
         choose(w, 'roi')
         before = w.bridge.pipeline.current_roi
         assert flow(w, 'areaPhase') == 'LOCKED'
@@ -310,7 +312,7 @@ def test_result_selection_filter_and_analysis_area_survive_imagej_management(wor
     w.click('roiEditButton'); w.click('roiEditButton')
     assert r.state['filterKind'] == 'BPD' and r.state['selected']['id'] == candidate
     assert w.bridge.pipeline.result is before and w.bridge.pipeline.current_roi == area
-    assert w.state.property('candidateRoiId') == candidate
+    assert not w.state.property('candidateRoiId')  # Candidate navigation no longer creates an ROI by default.
     w.click('roiRemoveRecord0'); assert not w.bridge.roiState['items']
     assert r.state['selected']['id'] == candidate and w.bridge.pipeline.result is before
 

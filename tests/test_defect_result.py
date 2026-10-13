@@ -206,7 +206,8 @@ def test_gui_import_graph_mask_focus_and_cleanup(workbench, tmp_path, size):
     source, folder = bundle(tmp_path)
     w.window.resize(*size)
     w.open(source.path)
-    choose(w, 'result')
+    assert not invoke(w.window,'requestContext','result','MANUAL')
+    w.click('layerTools'); w.click('browseStructures')
     # Exercise the real dialog's accepted signal; no native-mouse claim.
     dialog = w.item('experimentFolderDialog')
     dialog.setProperty('selectedFolder', QUrl.fromLocalFile(str(folder)))
@@ -214,7 +215,6 @@ def test_gui_import_graph_mask_focus_and_cleanup(workbench, tmp_path, size):
     spin(w.app, lambda: not w.bridge.experiments.loading)
     c = w.bridge.experiments
     assert not c.error
-    w.click('browseStructures')
     w.click('structureRow1')
     spin(w.app, lambda: bool(c.preview))
     QTest.qWait(520)
@@ -227,7 +227,7 @@ def test_gui_import_graph_mask_focus_and_cleanup(workbench, tmp_path, size):
     # All graph bounds, not its first node, fit inside viewport after focus.
     assert frame.property('x') + b[0]*scale >= -1
     assert frame.property('y') + b[1]*scale >= -1
-    for name in ('resultTotal', 'experimentStatus', 'selectedStructureHeader', 'analysisExportButton'):
+    for name in ('importExperiment', 'experimentStatus', 'selectedStructureHeader', 'structureDetails'):
         item = w.item(name)
         pos = item.mapToScene(QPointF())
         assert item.property('visible') and 0 <= pos.y() < size[1]-28, name
@@ -255,9 +255,11 @@ def test_list_filter_layers_selection_and_legacy_export_are_independent(workbenc
     r.exportResult(str(tmp_path/'before'))
     original = (Path(r.export_path)/'predictions.csv').read_bytes()
     w.click('resultFilterBPD')
-    w.click('resultLayers')
+    w.click('layerTools')
     w.click('bpdLayer')
-    assert not w.state.property('bpdLayerVisible') and w.state.property('tedLayerVisible')
+    assert not w.state.property('bpdLayerVisible') and not w.state.property('tedLayerVisible')
+    w.click('tedLayer')
+    assert w.state.property('tedLayerVisible')
     assert r.state['filterKind'] == 'BPD' and r.state['filteredTotal'] == 245
     QTest.keyClick(w.window, Qt.Key_Escape)
     # Clicking a visible TED point is allowed even when the list shows BPD only.
@@ -273,7 +275,7 @@ def test_repeated_import_and_manual_roi_remain_separate(workbench, tmp_path):
     w = workbench
     source, folder = bundle(tmp_path)
     w.open(source.path)
-    choose(w, 'result')
+    assert not invoke(w.window,'requestContext','result','MANUAL')
     c = w.bridge.experiments
     w.state.setProperty('autoCandidateRoi',False)
     for name,value in [('roiStartX',.1),('roiStartY',.2),('roiEndX',.4),('roiEndY',.5),('hasRoi',True)]:

@@ -22,7 +22,7 @@ Rectangle {
             AppButton { theme: root.theme; text: root.collapsed ? "›" : "‹"; quiet: true; implicitWidth: 28; tip: "작업 영역 접기 / 펼치기"; onClicked: root.collapseRequested() }
         }
         Repeater {
-            model: [{name:"이미지 뷰어",icon:"image"},{name:"Wafer Map",icon:"wafer"},{name:"이미지 정합",icon:"align"},{name:"3D 뷰어",icon:"cube"}]
+            model: [{name:"이미지 뷰어",icon:"image"},{name:"Wafer Map",icon:"wafer"},{name:"이미지 정합",icon:"align"}]
             delegate: Rectangle {
                 required property int index
                 required property var modelData
@@ -36,7 +36,7 @@ Rectangle {
                 }
                 MouseArea { id: itemHover; anchors.fill: parent; hoverEnabled: true; onClicked: root.workspaceRequested(index) }
                 ToolTip.visible: itemHover.containsMouse && (root.collapsed || index > 0)
-                ToolTip.text: index > 0 ? modelData.name + " · 향후 분석 기능입니다" : modelData.name
+                ToolTip.text: modelData.name
             }
         }
         CurrentFileNavigation {

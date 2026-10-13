@@ -173,7 +173,7 @@ MenuBar {
         AppMenuItem { rowAvailable: root.uiState.analysisEligible; objectName: "menuRoiTool"; action: root.actions.roi; shortcutLabel: "R" }
         AppMenuItem { rowAvailable: root.uiState.analysisEligible; action: root.actions.clearRoi }
         MenuSeparator {}
-        AppMenuItem { rowAvailable: root.uiState.analysisEligible; objectName: "menuRunAnalysis"; action: root.actions.run; iconName: "run"; ToolTip.text: root.uiState.analysisReason; ToolTip.visible: hovered }
+        AppMenuItem { rowAvailable: root.uiState.analysisEligible; objectName: "menuRunAnalysis"; action: root.actions.prepareAnalysis; iconName: "run"; ToolTip.text: root.uiState.analysisReason; ToolTip.visible: hovered }
         AppMenuItem { rowAvailable: root.uiState.analysisEligible; objectName: "menuCancelAnalysis"; action: root.actions.cancelAnalysis }
         AppMenuItem { rowAvailable: root.uiState.analysisEligible; action: root.actions.modelInfo }
         AppMenuItem { rowAvailable: root.uiState.analysisEligible; action: root.actions.modelUpdates }

@@ -47,7 +47,7 @@ ColumnLayout {
     }
     Text {
         objectName: "contextSubtitle"; text: root.controller.subtitle
-        visible: root.controller.requestedContext !== "image" || !root.controller.uiState.hasImage
+        visible: text.length > 0
         color: root.theme.muted; font.family: root.theme.fontFamily; font.pixelSize: theme.smallSize
         wrapMode: Text.Wrap; maximumLineCount: 2; elide: Text.ElideRight; Layout.fillWidth: true
     }

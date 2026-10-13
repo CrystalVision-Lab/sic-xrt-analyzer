@@ -46,6 +46,7 @@ def workspace(qt_app, tmp_path):
     window.findChild(QObject, "uiState").setProperty("workspaceIndex", 1)
     bridge.projects.open(str(path))
     c = bridge.waferMap
+    c.activate(True)  # Retain the legacy saved-map API regression independently of the folder UI.
     spin(qt_app, lambda: not bridge.projects.busy and not c.busy)
     c.select(s.source_id)
     yield bridge, c, window, warnings, path, s

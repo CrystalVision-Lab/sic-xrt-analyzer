@@ -1,69 +1,34 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
-
 Rectangle {
-    id: root
-    objectName: "registrationWorkspace"
-    property QtObject theme
-    property QtObject uiState
-    property var controller: fileBridge.registration
-    property var state: controller.state
-    property string mode: "side"
-    property real opacityValue: 0.5
-    property real divider: 0.5
-    property bool manual: method.currentIndex === 4
-    property bool beforeOverlay: true
-    property bool afterOverlay: true
-    property string coordinateText: ""
-    property real dpr: uiState.displayPixelRatio
-    color: theme.viewer
-    function sourceIndex(id) { for (var i=0;i<state.sources.length;i++) if(state.sources[i].id===id) return i; return -1 }
-    function selected(side) { var id=side==="before"?state.beforeId:state.afterId; for(var i=0;i<state.sources.length;i++) if(state.sources[i].id===id)return state.sources[i]; return null }
-    function choose() { controller.select(beforeChoice.currentIndex>=0 ? state.sources[beforeChoice.currentIndex].id : "", afterChoice.currentIndex>=0 ? state.sources[afterChoice.currentIndex].id : "") }
-    function updateFrame() { if(visible && state.ready) controller.requestFrame(Math.round(viewport.width*(mode==="side"?0.5:1)*dpr), Math.round(viewport.height*dpr)) }
-    onStateChanged: if(!state.asset.matrix && mode!=="side")mode="side"
-    onVisibleChanged: if(visible) { frameTimer.restart() }
-    onModeChanged: frameTimer.restart()
-    Timer { id: frameTimer; interval: 20; onTriggered: root.updateFrame() }
-    Connections { target: root.controller; function onChanged() { beforeLayer.requestPaint(); afterLayer.requestPaint(); compareLayer.requestPaint() } }
-    ColumnLayout {
-        anchors.fill: parent; anchors.margins: 10; spacing: 6
-        RowLayout {
-            Layout.fillWidth: true
-            Label { text: "어닐링 전·후 정합"; color: theme.text; font.pixelSize: 17 }
-            Item { Layout.fillWidth: true }
-            ComboBox { objectName:"registrationHistory"; model:root.state.history; textRole:"id"; Layout.preferredWidth:180; visible:root.state.history.length>0; onActivated:root.controller.selectAttempt(root.state.history[currentIndex].id) }
-            Label { text: "JPG · Before → After 원본 픽셀 좌표"; color: theme.muted }
-            Button { text: "프로젝트…"; onClicked: root.Window.window.openProjectWorkspace() }
-        }
-        GridLayout {
-            columns: 4; Layout.fillWidth: true; columnSpacing: 8; rowSpacing: 4
-            Label { text: "Before"; color: theme.text }
-            ComboBox { id: beforeChoice; objectName: "registrationBefore"; Layout.fillWidth: true; model: root.state.sources; textRole: "name"; currentIndex: root.sourceIndex(root.state.beforeId); onActivated: root.choose() }
-            Label { text: "After"; color: theme.text }
-            ComboBox { id: afterChoice; objectName: "registrationAfter"; Layout.fillWidth: true; model: root.state.sources; textRole: "name"; currentIndex: root.sourceIndex(root.state.afterId); onActivated: root.choose() }
-            Label { Layout.columnSpan: 2; Layout.fillWidth:true; text: { var s=root.selected("before");return s?s.role+" · "+s.width+"×"+s.height+" · "+s.status+" · SHA "+(s.sha?"기록됨":"준비 시 확인")+" · Run "+s.runs:"Before JPG를 선택하세요" }  color:theme.muted; elide:Text.ElideRight }
-            Label { Layout.columnSpan: 2; Layout.fillWidth:true; text: { var s=root.selected("after");return s?s.role+" · "+s.width+"×"+s.height+" · "+s.status+" · SHA "+(s.sha?"기록됨":"준비 시 확인")+" · Run "+s.runs:"After JPG를 선택하세요" }  color:theme.muted; elide:Text.ElideRight }
-        }
-        RowLayout {
-            Layout.fillWidth: true
-            Button { objectName:"registrationPrepare"; text:"비교 영상 준비"; enabled: !root.state.busy && !uiState.project.busy && !!root.state.beforeId && !!root.state.afterId && root.state.beforeId!==root.state.afterId; onClicked: root.controller.prepare() }
-            ComboBox { id: method; objectName:"registrationMethod"; model:["자동 · SIFT", "자동 · ORB", "명암 · Phase", "명암 · ECC", "수동 Landmark"]; Layout.preferredWidth:145; onActivated: if(currentIndex===4)root.controller.beginLandmarks() }
-            ComboBox { id: transform; objectName:"registrationModel"; model:["Auto", "Translation", "Rigid", "Similarity", "Affine"]; Layout.preferredWidth:115 }
-            Button { objectName:"registrationRun"; text:root.manual?"대응점 계산":"정합 실행"; enabled:root.state.ready && !root.state.busy && !uiState.project.busy && (!root.manual || transform.currentIndex>0); onClicked: root.controller.run(["sift","orb","phase","ecc","manual"][method.currentIndex],["auto","translation","rigid","similarity","affine"][transform.currentIndex]) }
-            Button { visible:root.manual; text:"새 대응점"; enabled:!root.state.busy; onClicked:root.controller.beginLandmarks() }
-            Button { objectName:"registrationCancel"; text:"취소"; visible:root.state.busy; enabled:root.state.job!=="approve-save"; onClicked:root.controller.cancel() }
-            Item { Layout.fillWidth:true }
-            Button { text:"Fit"; enabled:root.state.ready; onClicked:root.controller.fit() }
-            Button { text:"100%"; enabled:root.state.ready; onClicked:root.controller.zoomAt(1/root.state.zoom, viewport.width*dpr*(root.mode==="side"?.25:.5),viewport.height*dpr/2) }
-            Button { text:"400%"; enabled:root.state.ready; onClicked:root.controller.zoomAt(4/root.state.zoom,viewport.width*dpr*(root.mode==="side"?.25:.5),viewport.height*dpr/2) }
-        }
-        Label { Layout.fillWidth:true; text: root.state.error || root.state.message; color:root.state.error?theme.warning:theme.muted; wrapMode:Text.Wrap; font.pixelSize:11 }
-        Item {
-            id: viewport; objectName:"registrationViewport"; Layout.fillWidth:true; Layout.fillHeight:true; Layout.minimumHeight:120; clip:true
-            onWidthChanged: frameTimer.restart()
-            onHeightChanged: frameTimer.restart()
+ id:root;objectName:"registrationWorkspace";property QtObject theme;property QtObject uiState;property var actions
+ property var controller:fileBridge.registration;property var state:controller.state
+ property string observedResult:"";property string mode:"side";property real opacityValue:.5;property real divider:.5;property bool manual:false;property bool beforeOverlay:true;property bool afterOverlay:true;property string coordinateText:"";property real dpr:uiState.displayPixelRatio
+ color:theme.viewer
+ function sourceIndex(id){for(var i=0;i<state.sources.length;i++)if(state.sources[i].id===id)return i;return -1}
+ function choose(){controller.select(beforeChoice.currentIndex>=0?state.sources[beforeChoice.currentIndex].id:"",afterChoice.currentIndex>=0?state.sources[afterChoice.currentIndex].id:"")}
+ function updateFrame(){if(visible&&state.ready)controller.requestFrame(Math.round(viewport.width*(mode==="side"?.5:1)*dpr),Math.round(viewport.height*dpr))}
+ onVisibleChanged:if(visible)frameTimer.restart()
+ onModeChanged:frameTimer.restart()
+ Timer{id:frameTimer;interval:20;onTriggered:root.updateFrame()}
+ Connections{target:root.controller;function onChanged(){if(beforeLayer)beforeLayer.requestPaint();if(afterLayer)afterLayer.requestPaint();if(compareLayer)compareLayer.requestPaint();if(root.visible&&!root.state.busy&&root.state.asset.registration_id&&root.observedResult!==root.state.asset.registration_id){root.observedResult=root.state.asset.registration_id;result.open()}}}
+ ColumnLayout{anchors.fill:parent;anchors.margins:14;spacing:12
+  RowLayout{Layout.fillWidth:true
+   Text{text:"전·후 비교";color:root.theme.text;font.pixelSize:20;Layout.fillWidth:true}
+   AppButton{objectName:"registrationOpenProject";theme:root.theme;text:"저장 데이터 불러오기";onClicked:root.actions.projectOpen.trigger()}
+   AppButton{objectName:"registrationRun";theme:root.theme;text:"분석하기";primary:true;enabled:!!root.state.beforeId&&!!root.state.afterId&&root.state.beforeId!==root.state.afterId&&!root.state.busy;onClicked:root.controller.analyzePair()}
+   AppButton{theme:root.theme;text:"화면 맞춤";enabled:root.state.ready;onClicked:root.controller.fit()}
+   AppButton{objectName:"registrationResult";theme:root.theme;text:"결과";enabled:!!root.state.asset.registration_id;onClicked:result.open()}
+  }
+  RowLayout{Layout.fillWidth:true
+   Text{text:"전";color:root.theme.text;font.pixelSize:15}
+   AppComboBox{id:beforeChoice;objectName:"registrationBefore";theme:root.theme;Layout.fillWidth:true;model:root.state.sources;textRole:"name";currentIndex:root.sourceIndex(root.state.beforeId);onActivated:root.choose()}
+   Text{text:"후";color:root.theme.text;font.pixelSize:15}
+   AppComboBox{id:afterChoice;objectName:"registrationAfter";theme:root.theme;Layout.fillWidth:true;model:root.state.sources;textRole:"name";currentIndex:root.sourceIndex(root.state.afterId);onActivated:root.choose()}
+  }
+  Text{text:root.state.error;visible:!!text;color:root.theme.warning;Layout.fillWidth:true;wrapMode:Text.Wrap}
+  Item{id:viewport;objectName:"registrationViewport";Layout.fillWidth:true;Layout.fillHeight:true;clip:true;onWidthChanged:frameTimer.restart();onHeightChanged:frameTimer.restart()
             Component {
                 id: imagePane
                 Item {
@@ -103,55 +68,32 @@ Rectangle {
                     }
                 }
             }
-            Row { anchors.fill:parent; visible:root.mode==="side"
-                Loader { id:beforePane; width:parent.width/2;height:parent.height;sourceComponent:imagePane;onLoaded:item.side="before" }
-                Loader { id:afterPane; width:parent.width/2;height:parent.height;sourceComponent:imagePane;onLoaded:item.side="after" }
-            }
-            Loader { id:comparePane;anchors.fill:parent;visible:root.mode!=="side";sourceComponent:imagePane;onLoaded:item.composed=true }
-            Rectangle { x:parent.width*root.divider-2;width:4;height:parent.height;color:theme.accent;visible:root.mode==="split"
-                MouseArea { anchors.fill:parent;anchors.margins:-8;cursorShape:Qt.SizeHorCursor;onPositionChanged:function(mouse){if(pressed)root.divider=Math.max(.02,Math.min(.98,(parent.x+mouse.x)/viewport.width))} }
-            }
-            Rectangle { anchors.fill:parent;visible:root.state.busy;color:"#dd111518"
-                Column { anchors.centerIn:parent;spacing:8;BusyIndicator { anchors.horizontalCenter:parent.horizontalCenter;running:parent.parent.visible } Label {text:root.state.job==="prepare"?"원본 SHA 확인·캐시 준비 중…":root.state.job==="approve-save"?"승인 및 프로젝트 저장 중…":"정합 계산 중…";color:theme.text} }
-            }
-            Label { anchors.centerIn:parent;visible:!root.state.ready&&!root.state.busy;text:"프로젝트의 JPG 두 장을 선택하고 비교 영상을 준비하세요";color:theme.muted }
-        }
-        RowLayout {
-            Layout.fillWidth:true
-            Repeater { model:[{key:"side",label:"나란히"},{key:"overlay",label:"겹쳐 보기"},{key:"split",label:"분할 비교"},{key:"difference",label:"차이 보기"}]
-                Button { required property var modelData; text:modelData.label;objectName:"registrationMode-"+modelData.key;checkable:true;checked:root.mode===modelData.key;enabled:root.state.ready&&(modelData.key==="side"||!!root.state.asset.matrix);onClicked:root.mode=modelData.key }
-            }
-            Slider { objectName:"registrationOpacity";Layout.fillWidth:true;visible:root.mode==="overlay";from:0;to:1;value:root.opacityValue;onMoved:root.opacityValue=value }
-            CheckBox { text:"Before 근거";checked:root.beforeOverlay;onToggled:{root.beforeOverlay=checked;beforeLayer.requestPaint();compareLayer.requestPaint()} }
-            CheckBox { text:"After 근거";checked:root.afterOverlay;onToggled:{root.afterOverlay=checked;afterLayer.requestPaint();compareLayer.requestPaint()} }
-        }
-        Label { Layout.fillWidth:true; text:Math.round(root.state.zoom*100)+"% · "+root.coordinateText+" · "+root.state.levels.join(" / ")+" · "+root.state.status+" · 이력 "+root.state.history.length; color:theme.muted;elide:Text.ElideRight }
-        RowLayout {
-            Layout.fillWidth:true
-            Label { Layout.fillWidth:true;wrapMode:Text.Wrap;font.pixelSize:11;color:theme.muted;text:{var q=root.state.asset.quality||{} return "대응 "+(q.candidate_count||0)+" · Inlier "+(q.inlier_count||0)+" · 중앙 오차 "+(q.median_error_after_px===undefined||q.median_error_after_px===null?"N/A":q.median_error_after_px.toFixed(2)+" After px")+" · 공통 영역 "+(q.overlap_target_fraction===undefined?"N/A":(100*q.overlap_target_fraction).toFixed(1)+"%")+" · 실제 정합 정확도는 독립 검증 필요"} }
-            TextField { id:reviewer;objectName:"registrationReviewer";placeholderText:"로컬 검수자 ID";Layout.preferredWidth:130 }
-            Button { objectName:"registrationApprove";text:"검토 승인·저장";enabled:root.state.status==="NEEDS_REVIEW"&&root.state.ready&&!root.state.busy&&!uiState.project.busy&&reviewer.text.trim().length>0;onClicked:root.controller.approveAndSave(reviewer.text) }
-        }
-        Frame {
-            visible:root.manual;Layout.fillWidth:true;Layout.preferredHeight:105
-            RowLayout { anchors.fill:parent
-                Label { text:"Before 클릭 → After 클릭
-역할은 사용자가 지정합니다
-번호별 원본 좌표를 수정 가능";color:theme.muted;font.pixelSize:11 }
-                ListView { id:points;Layout.fillWidth:true;Layout.fillHeight:true;clip:true;model:root.state.landmarks
-                    delegate:RowLayout { required property int index;required property var modelData;spacing:4
-                        Label { text:"#"+(index+1);color:theme.text }
-                        Repeater { model:[{side:"before",axis:0},{side:"before",axis:1},{side:"after",axis:0},{side:"after",axis:1}]
-                            TextField { required property var modelData;Layout.preferredWidth:70;text:points.model[index][modelData.side][modelData.axis].toFixed(2);validator:DoubleValidator {} onEditingFinished:{var p=points.model[index][modelData.side].slice();p[modelData.axis]=Number(text);root.controller.editPoint(index,modelData.side,p[0],p[1])} }
-                        }
-                        Button { text:"삭제";onClicked:root.controller.deletePoint(index) }
-                    }
-                    ScrollBar.vertical:ScrollBar {}
-                }
-            }
-        }
-    }
-    property var beforeLayer: beforePane.item ? beforePane.item.marksItem : null
-    property var afterLayer: afterPane.item ? afterPane.item.marksItem : null
-    property var compareLayer: comparePane.item ? comparePane.item.marksItem : null
+
+   Row{anchors.fill:parent;visible:root.mode==="side";spacing:2
+    Loader{id:beforePane;width:(parent.width-2)/2;height:parent.height;sourceComponent:imagePane;onLoaded:item.side="before"}
+    Loader{id:afterPane;width:(parent.width-2)/2;height:parent.height;sourceComponent:imagePane;onLoaded:item.side="after"}
+   }
+   Loader{id:comparePane;anchors.fill:parent;visible:root.mode!=="side";sourceComponent:imagePane;onLoaded:item.composed=true}
+   BusyIndicator{anchors.centerIn:parent;running:root.state.busy;visible:running}
+   AppButton{anchors.centerIn:parent;visible:!root.state.sources.length;theme:root.theme;text:"저장 데이터 불러오기";onClicked:root.actions.projectOpen.trigger()}
+  }
+  RowLayout{Layout.fillWidth:true
+   Repeater{model:[{key:"side",label:"좌우"},{key:"overlay",label:"겹침"},{key:"difference",label:"차이"}]
+    AppButton{required property var modelData;theme:root.theme;text:modelData.label;checked:root.mode===modelData.key;enabled:root.state.ready&&(modelData.key==="side"||!!root.state.asset.matrix);onClicked:root.mode=modelData.key}
+   }
+   Item{Layout.fillWidth:true}
+   AppButton{theme:root.theme;text:"취소";visible:root.state.busy;onClicked:root.controller.cancel()}
+  }
+ }
+ property var beforeLayer:beforePane.item?beforePane.item.marksItem:null
+ property var afterLayer:afterPane.item?afterPane.item.marksItem:null
+ property var compareLayer:comparePane.item?comparePane.item.marksItem:null
+ SurfaceDialog{id:result;parent:Overlay.overlay;title:"정합 결과";modal:true;width:500;x:(parent.width-width)/2;y:(parent.height-height)/2;standardButtons:Dialog.Close
+  ColumnLayout{width:parent.width;spacing:16
+   Text{text:root.state.asset.status==="REJECTED"?"정합 실패":"정합 추정 완료";color:root.theme.text;font.pixelSize:20}
+   Text{text:"대응점 "+(root.state.asset.quality?root.state.asset.quality.inlier_count||0:0)+"개";color:root.theme.text;font.pixelSize:16}
+   Text{text:"정합 오차 "+(root.state.asset.quality&&typeof root.state.asset.quality.median_error_after_px==="number"?root.state.asset.quality.median_error_after_px.toFixed(2):"—")+" px";color:root.theme.text;font.pixelSize:16}
+   Text{text:root.state.asset.quality?(root.state.asset.quality.reasons||[]).join(" · "):"";visible:!!text;color:root.theme.warning;font.pixelSize:13;wrapMode:Text.Wrap;Layout.fillWidth:true}
+  }
+ }
 }

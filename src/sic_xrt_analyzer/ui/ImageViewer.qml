@@ -363,20 +363,44 @@ Rectangle {
                 editMode: uiState.roiEditMode; selectedVertex: uiState.importedRois.vertex
             }
             Canvas {
+                id:annotationLayers; objectName:"annotationLayers"; anchors.fill:parent; z:2
+                property var rows:fileBridge.displayLayers.rows
+                property var position:[imageFrame.x,imageFrame.y,root.displayScale]
+                onRowsChanged:requestPaint();onPositionChanged:requestPaint()
+                visible:uiState.hasLoadedImage
+                onPaint:{var c=getContext("2d");c.reset();c.lineWidth=2;for(var i=0;i<rows.length;i++){var r=rows[i];if(!r.visible)continue;c.strokeStyle="#69dfcf";if(r.paths){c.beginPath();for(var j=0;j<r.paths.length;j++){var path=r.paths[j];for(var k=0;k<path.length;k++){var x=imageFrame.x+path[k][0]*root.displayScale,y=imageFrame.y+path[k][1]*root.displayScale;if(r.kind==="point"){c.moveTo(x-4,y);c.lineTo(x+4,y);c.moveTo(x,y-4);c.lineTo(x,y+4)}else if(k===0)c.moveTo(x,y);else c.lineTo(x,y)}if(r.kind==="polygon")c.closePath()}c.stroke()}else c.strokeRect(imageFrame.x+r.x*root.displayScale,imageFrame.y+r.y*root.displayScale,r.width*root.displayScale,r.height*root.displayScale);c.fillStyle=c.strokeStyle;c.font="12px sans-serif";c.fillText(r.name,imageFrame.x+r.x*root.displayScale+5,imageFrame.y+r.y*root.displayScale+16)}}
+            }
+            Canvas {
+                id:analysisScan; anchors.fill:parent; z:2; visible:uiState.analysisRunning
+                property var scan:uiState.analysis.progress
+                property var position:[imageFrame.x,imageFrame.y,root.displayScale]
+                onScanChanged:requestPaint();onPositionChanged:requestPaint();onVisibleChanged:requestPaint()
+                onPaint:{var c=getContext("2d");c.reset();var r=scan.region||[];if(!visible||r.length!==4)return;c.fillStyle="#2949ced6";c.strokeStyle="#49ced6";c.lineWidth=2;c.fillRect(imageFrame.x+r[0]*root.displayScale,imageFrame.y+r[1]*root.displayScale,r[2]*root.displayScale,r[3]*root.displayScale);c.strokeRect(imageFrame.x+r[0]*root.displayScale,imageFrame.y+r[1]*root.displayScale,r[2]*root.displayScale,r[3]*root.displayScale)}
+            }
+            Rectangle {
+                anchors.horizontalCenter:parent.horizontalCenter; anchors.top:parent.top; anchors.topMargin:16;z:8;visible:uiState.analysisRunning
+                color:theme.panel;radius:8;width:330;height:72
+                ColumnLayout{anchors.fill:parent;anchors.margins:10
+                    RowLayout{Text{text:uiState.analysis.progress.stage||"분석 중";color:theme.text;Layout.fillWidth:true}Text{text:(uiState.research.livePoints||[]).length+"개";color:theme.accent}AppButton{theme:root.theme;text:"취소";onClicked:fileBridge.cancelAnalysis()}}
+                    ProgressBar{Layout.fillWidth:true;from:0;to:Math.max(1,uiState.analysis.progress.total||1);value:uiState.analysis.progress.completed||0;indeterminate:!(uiState.analysis.progress.total>0)}
+                }
+            }
+            Canvas {
                 id: analysisOverlay; objectName: "analysisOverlay"; anchors.fill: parent; z: 3
-                property var points: uiState.research.points
+                property var points: uiState.analysisRunning ? uiState.research.livePoints || [] : uiState.research.points
                 property var selected: uiState.research.selected
                 property bool reviewing: uiState.feedbackVisible
                 property real paintMs: 0
                 property int paintCount: 0
-                readonly property real candidateOpacity: 0.35
+                readonly property real candidateOpacity: 0.75
+                readonly property real markerRadius: Math.max(6, Math.min(12, 6 + Math.log(Math.max(1,imageScale))/Math.LN2*2))
                 property var layers: [uiState.bpdLayerVisible, uiState.tedLayerVisible, uiState.tsdLayerVisible, uiState.selectedLayerVisible]
                 onLayersChanged: requestPaint()
                 readonly property real selectedOpacity: 1
                 property real imageX: imageFrame.x
                 property real imageY: imageFrame.y
                 property real imageScale: root.displayScale
-                visible: uiState.hasResult && (uiState.analysisLayerVisible || (uiState.selectedLayerVisible && !!selected.id)) && uiState.hasLoadedImage
+                visible: (uiState.hasResult || uiState.analysisRunning) && (uiState.analysisLayerVisible || (uiState.selectedLayerVisible && !!selected.id)) && uiState.hasLoadedImage
                 onPointsChanged: requestPaint()
                 onSelectedChanged: requestPaint()
                 onReviewingChanged: requestPaint()
@@ -394,7 +418,13 @@ Rectangle {
                         var x = imageX + p.x * imageScale, y = imageY + p.y * imageScale
                         if (x < -6 || y < -6 || x > width + 6 || y > height + 6) continue
                         c.strokeStyle = p.low_score ? "#ffffff" : uiState.resultPresentation.colorFor(p.type)
-                        c.beginPath(); c.arc(x, y, 2.5, 0, Math.PI * 2); c.stroke()
+                        if (p.region && p.region.length >= 3) {
+                            c.globalAlpha=.18; c.fillStyle=c.strokeStyle; c.beginPath()
+                            c.moveTo(imageX+p.region[0][0]*imageScale,imageY+p.region[0][1]*imageScale)
+                            for(var r=1;r<p.region.length;r++)c.lineTo(imageX+p.region[r][0]*imageScale,imageY+p.region[r][1]*imageScale)
+                            c.closePath();c.fill();c.globalAlpha=.95;c.lineWidth=2;c.stroke();c.globalAlpha=candidateOpacity
+                        }
+                        c.beginPath(); c.arc(x, y, markerRadius, 0, Math.PI * 2); c.stroke()
                     }
                     if (selected.id && uiState.selectedLayerVisible && !reviewing) {
                         c.globalAlpha = selectedOpacity

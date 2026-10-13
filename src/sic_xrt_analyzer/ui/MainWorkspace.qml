@@ -42,12 +42,12 @@ RowLayout {
             onFileDropped: function(url) { root.fileDropped(url) }
         }
         WaferMapWorkspace { theme: root.theme; uiState: root.uiState; onProjectRequested: root.projectRequested() }
-        RegistrationWorkspace { theme: root.theme; uiState: root.uiState }
+        RegistrationWorkspace { theme: root.theme; uiState: root.uiState; actions: root.actions }
         Stack3DWorkspace {theme:root.theme;uiState:root.uiState;onProjectRequested:root.projectRequested()}
     }
     RightContextPanel {
         id: contextPanel; theme: root.theme; uiState: root.uiState; actions: root.actions
-        visible: !root.contextCollapsed && root.uiState.workspaceIndex === 0
+        visible: !root.contextCollapsed && root.uiState.workspaceIndex === 0 && root.uiState.hasLoadedImage && (requestedContext !== "result" || root.uiState.hasResult)
         Layout.preferredWidth: requestedContext === "feedback" ? 440 : requestedContext === "result" ? 380 : root.theme.panelWidth
         Layout.fillHeight: true
         onOverviewRequested: viewer.fitView()

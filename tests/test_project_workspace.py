@@ -217,7 +217,7 @@ def test_tiff_register_only_no_bpd_or_model(workbench,tmp_path):
     assert not w.state.property('inputCompatible')
     c.selectSource(c.project.image_sources[0].source_id,'');wait(w)
     spin(w.app,lambda:not w.state.property('loading'))
-    assert not w.item('importExperiment').isVisible()
+    assert not w.state.property('analysisEligible') and not w.panel.isVisible()
     assert w.bridge.pipeline.result is None
     assert w.path.read_bytes()==before
 

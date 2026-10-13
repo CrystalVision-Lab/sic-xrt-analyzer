@@ -4,6 +4,7 @@ import QtQuick.Controls
 Dialog {
     id: root
     property QtObject visualTheme: Theme {}
+    onOpened: { if (footer && footer.standardButton) { var close=footer.standardButton(DialogButtonBox.Close);if(close)close.text="닫기" } }
     padding: visualTheme.spacingMd
     font.pixelSize: visualTheme.bodySize
     background: Rectangle {

@@ -61,7 +61,7 @@ QtObject {
     property bool feedbackVisible: false
     onFeedbackVisibleChanged: { if (!feedbackVisible) fileBridge.feedback.setMode("") }
     property var feedback: fileBridge.feedback.state
-    property bool autoCandidateRoi: true
+    property bool autoCandidateRoi: false
     property int candidateRoiSize: 128
     property string candidateRoiId: ""
     function stopCandidateRoiTracking() {
@@ -105,7 +105,7 @@ QtObject {
     property bool analysisLayerVisible: true
     readonly property bool modelAvailable: analysis.modelAvailable
     readonly property bool analysisRunning: analysis.state === "RUNNING"
-    readonly property bool hasResult: analysis.hasResult || research.savedActive === true
+    readonly property bool hasResult: hasLoadedImage && analysisEligible && (analysis.sourcePath || "") === filePath && (research.savedActive === true ? research.pixelsAvailable : analysis.hasResult)
     function syncCurrentRoi() {
         fileBridge.setCurrentRoi(hasRoi && analysisEligible, roiX, roiY, roiWidth, roiHeight)
     }

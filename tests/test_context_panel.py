@@ -19,6 +19,13 @@ pytest_plugins = ('test_toolbar',)
 
 
 def choose(w, key):
+    if key == "analysis":
+        invoke(w.item("prepareAnalysisAction"), "trigger")
+        assert w.item("analysisDialog").property("visible") == (w.state.property("hasLoadedImage") and not w.state.property('analysisRunning'))
+        return
+    if w.item("analysisDialog").property("visible"):
+        invoke(w.item("analysisDialog"),"close")
+        QTest.qWait(35)
     # Context content can change implicit width before the next rendered frame.
     # Read click coordinates only after Qt has polished the actual layout.
     w.window.grabWindow()
@@ -28,6 +35,7 @@ def choose(w, key):
         w.select('contextSwitcher', 'contextChoice' + str(KEYS.index(key)))
     assert w.panel.property('requestedContext') == key
     assert w.panel.property('lastReason') == 'MANUAL'
+    QTest.qWait(35)
     assert w.item('viewerMouseArea').property('activeFocus')
 
 
@@ -58,12 +66,12 @@ def begin(w, mode='success'):
     w.open(create_source(w.path.parent).path)
     w.state.setProperty('analysisScope', 'FULL_IMAGE')
     choose(w, 'analysis')
-    w.click('contextRunAnalysis')
+    w.click('confirmAnalysis')
     spin(w.app, adapter.entered.is_set)
     assert w.bridge.analysis['state'] == 'RUNNING'
-    assert w.panel.property('requestedContext') == 'analysis'
-    assert not w.item('contextRunAnalysis').property('enabled')
-    assert w.item('contextCancelAnalysis').property('visible')
+    assert not w.panel.property('visible')
+    assert not w.item('runAction').property('enabled')
+    assert w.item('cancelAnalysisAction').property('enabled')
     return adapter
 
 
@@ -72,40 +80,43 @@ def test_manual_navigation_keyboard_focus_and_panel_bounds(workbench, size):
     w = workbench
     w.window.resize(*size)
     QTest.qWait(35)
-    w.open(create_source(w.path.parent).path)
-    assert w.panel.property('requestedContext') == 'image'
-    for key in KEYS:
-        choose(w, key)
-        QTest.qWait(35)
+    adapter = begin(w)
+    adapter.release.set()
+    spin(w.app, lambda: w.state.property('hasResult'))
+    for key in ('image','result','viewer','roi'):
+        choose(w,key)
         assert w.panel.property('width') == (380 if key == 'result' else 282)
         assert w.item('centralWorkspace').property('width') >= 536
-        if key == 'analysis':
-            execute = w.item('contextRunAnalysis')
-            point = execute.mapToScene(QPointF())
-            assert 0 <= point.y() and point.y() + execute.property('height') <= size[1] - 28
-        for name in ('contextHeader', 'contextSwitcher', 'contextSubtitle'):
-            item = w.item(name)
-            point = item.mapToScene(QPointF())
+        for name in ('contextHeader','contextSwitcher'):
+            item=w.item(name); point=item.mapToScene(QPointF())
             assert 0 <= point.x() < size[0] and 0 <= point.y() < size[1]
-            assert point.x() + item.property('width') <= size[0]
+            assert point.x()+item.property('width') <= size[0]
+        assert not w.item('contextSubtitle').property('visible')
         w.click('contextSwitcher')
-        current = w.item('contextChoice' + str(KEYS.index(key)))
+        current=w.item('contextChoice'+str(KEYS.index(key)))
         assert current.property('checked')
-        w.click(current.objectName())  # Reselecting never clears active state.
+        w.click(current.objectName())
         assert current.property('checked')
+        QTest.qWait(35)
         assert w.item('viewerMouseArea').property('activeFocus')
+    choose(w,'analysis')
+    assert w.item('analysisDialog').property('visible')
+    execute=w.item('confirmAnalysis'); point=execute.mapToScene(QPointF())
+    assert 0 <= point.y() and point.y()+execute.property('height') <= size[1]-28
+    invoke(w.item('analysisDialog'),'close'); QTest.qWait(35)
     w.click('contextSwitcher')
     assert w.item('contextMenu').property('currentIndex') == -1
-    QTest.keyClick(w.window, Qt.Key_Down)
-    QTest.keyClick(w.window, Qt.Key_Down)
-    QTest.keyClick(w.window, Qt.Key_Return)
+    menu=w.item('contextMenu')
+    for _ in range(10):
+        QTest.keyClick(w.window,Qt.Key_Down)
+        if menu.property('currentIndex') == 2: break
+    assert menu.property('currentIndex') == 2
+    QTest.keyClick(w.window,Qt.Key_Return)
     QTest.qWait(35)
-    assert w.panel.property('requestedContext') == 'analysis'
+    assert w.panel.property('requestedContext') == 'result'
     assert w.item('viewerMouseArea').property('activeFocus')
-    w.click('contextSwitcher')
-    QTest.keyClick(w.window, Qt.Key_Escape)
-    QTest.qWait(35)
-    assert w.panel.property('requestedContext') == 'analysis'
+    w.click('contextSwitcher'); QTest.keyClick(w.window,Qt.Key_Escape); QTest.qWait(35)
+    assert w.panel.property('requestedContext') == 'result'
     assert w.item('viewerMouseArea').property('activeFocus')
 
 
@@ -132,9 +143,9 @@ def test_open_close_jpeg_and_explicit_stack_settings(workbench, tmp_path):
     assert w.state.property('imageFormat') == 'JPEG'
     assert not w.state.property('stackFeaturesVisible')
     assert not w.item('measurementToolDropdown').property('enabled')
-    assert w.item('analysisSettings') is not None
-    choose(w, 'result')
-    assert w.item('resultLifecycleMessage').property('text') == '아직 분석 결과가 없습니다.'
+    assert w.window.findChild(type(w.state),'analysisSettings') is None
+    assert not invoke(w.window,'requestContext','result','MANUAL')
+    assert not w.item('resultExplorer').isVisible()
     invoke(w.window, 'closeImage')
     assert w.panel.property('activeContext') == 'idle'
     assert w.panel.property('lastReason') == 'CLOSE_IMAGE'
@@ -154,9 +165,8 @@ def test_analysis_terminal_milestones_and_empty_states(workbench, mode):
         w.app.processEvents()
         assert w.panel.property('requestedContext') == 'image'
         if mode == 'cancel':
-            choose(w, 'analysis')
-            w.click('contextCancelAnalysis')
-            assert w.panel.property('requestedContext') == 'analysis'
+            invoke(w.item('cancelAnalysisAction'),'trigger')
+            assert w.panel.property('requestedContext') == 'image'
             assert w.panel.property('lastReason') == 'ANALYSIS_CANCELED'
         adapter.release.set()
         spin(w.app, lambda: w.bridge.analysis['state'] != 'RUNNING')
@@ -183,11 +193,11 @@ def test_analysis_terminal_milestones_and_empty_states(workbench, mode):
             w.app.processEvents()
             assert w.panel.property('requestedContext') == 'roi'
         else:
-            assert w.panel.property('requestedContext') == 'analysis'
+            assert w.panel.property('requestedContext') == 'image'
             assert not w.bridge.analysis['hasResult']
             assert not w.bridge.research.state['selected']
             assert w.panel.property('lastReason') == ('ANALYSIS_FAILED' if mode == 'error' else 'ANALYSIS_CANCELED')
-            assert not w.item('contextCancelAnalysis').property('visible')
+            assert not w.item('cancelAnalysisAction').property('enabled')
     finally:
         adapter.release.set()
 
@@ -254,13 +264,13 @@ def test_candidate_selection_hover_pan_zoom_and_status_preserve_context(workbenc
 def test_roi_tools_manager_import_edit_and_whitelist(workbench, tmp_path):
     w = workbench
     w.open(create_source(w.path.parent).path)
-    choose(w,'result')
+    assert not invoke(w.window,'requestContext','result','MANUAL')
     w.click('roiToolDropdown')
-    assert w.panel.property('requestedContext') == 'result'
+    assert w.panel.property('requestedContext') == 'image'
     w.click('toolAnalysisRoi')
     QTest.keyClick(w.window,Qt.Key_R)
     assert w.state.property('activeTool') == 'ROI'
-    assert w.panel.property('requestedContext') == 'result'
+    assert w.panel.property('requestedContext') == 'image'
     w.state.setProperty('hasRoi', True)
     w.state.setProperty('roiEndX', .25)
     w.state.setProperty('roiEndY', .25)

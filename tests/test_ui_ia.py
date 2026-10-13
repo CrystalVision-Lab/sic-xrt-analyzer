@@ -45,38 +45,37 @@ def test_shell_context_layout_and_shared_analysis_command(qt_app, tmp_path, brid
     try:
         for name in ('appMenuBar', 'topToolbar', 'workspaceNavigation', 'centralWorkspace',
                      'imageViewer', 'bottomStatusBar', 'viewerHeader', 'currentFileNavigation',
-                     'imageContext', 'analysisContext', 'resultContext', 'viewerContext', 'roiContext',
+                     'imageContext', 'analysisDialog', 'resultContext', 'viewerContext', 'roiContext',
                      'fileToolGroup', 'viewerToolGroup', 'roiToolDropdown', 'measurementToolDropdown', 'advancedToolGroup'):
             item(name)
         assert panel.property('activeContext') == 'idle'
-        assert not item('contextRunAnalysis').property('enabled')
+        assert not item('confirmAnalysis').property('enabled')
         source = create_source(tmp_path)
         invoke(window, 'selectImagePath', source.path)
         spin(qt_app, lambda: state.property('hasLoadedImage') and not state.property('loading') and not bridge.stack_viewer.initial_loading)
         assert panel.property('activeContext') == 'image'  # JPEG retains analysis image context.
         assert item('currentFileName').property('text') == Path(source.path).name
-        for index, context in enumerate(('image', 'analysis', 'result', 'viewer', 'roi')):
+        for index, context in ((0,'image'),(3,'viewer'),(4,'roi')):
             invoke(window, 'openContext', context)
             assert panel.property('tabIndex') == index
             assert panel.property('activeContext') == context
-        invoke(window, 'openContext', 'analysis')
+        invoke(item('prepareAnalysisAction'),'trigger')
+        assert item('analysisDialog').property('visible')
         state.setProperty('activeTool', 'ROI')
         state.setProperty('hasRoi', True)
-        assert panel.property('activeContext') == 'analysis'  # No new tool-driven auto switch.
+        assert panel.property('activeContext') == 'roi'  # No new tool-driven auto switch.
         run_action = item('runAction')
         # QQuickAction* has no direct Python converter; compare identity in QML.
-        for button_name, action_name in (('contextRunAnalysis', 'runAction'),
-                                         ('contextCancelAnalysis', 'cancelAnalysisAction')):
-            engine.rootContext().setContextProperty('checkedButton', item(button_name))
-            engine.rootContext().setContextProperty('checkedAction', item(action_name))
-            expression = QQmlExpression(engine.rootContext(), window, 'checkedButton.action === checkedAction')
-            assert expression.evaluate()[0] is True
-            assert not expression.hasError()
+        engine.rootContext().setContextProperty('checkedButton',item('imagePrepareAnalysis'))
+        engine.rootContext().setContextProperty('checkedAction',item('prepareAnalysisAction'))
+        expression=QQmlExpression(engine.rootContext(),window,'checkedButton.action === checkedAction')
+        assert expression.evaluate()[0] is True and not expression.hasError()
+        assert item('cancelAnalysisAction').property('enabled') is False
         state.setProperty('analysisScope', 'FULL_IMAGE')
         QTest.qWait(40)
         assert run_action.property('enabled')
-        assert item('contextRunAnalysis').property('enabled') == run_action.property('enabled')
-        button = item('contextRunAnalysis')
+        assert item('confirmAnalysis').property('enabled') == run_action.property('enabled')
+        button = item('confirmAnalysis')
         point = button.mapToScene(QPointF(button.property('width')/2, button.property('height')/2))
         QTest.mouseClick(window, Qt.LeftButton, Qt.NoModifier, QPoint(round(point.x()), round(point.y())))
         spin(qt_app, lambda: bridge.analysis['hasResult'])
@@ -87,11 +86,11 @@ def test_shell_context_layout_and_shared_analysis_command(qt_app, tmp_path, brid
         bridge.research.selectCandidate('candidate_000000')
         spin(qt_app, lambda: panel.property('detailContext') == 'candidate')
         assert panel.property('tabIndex') == 2  # Existing focusRequested behavior.
-        assert bridge.analysis['hasResult'] and state.property('candidateRoiId') == 'candidate_000000'
+        assert bridge.analysis['hasResult'] and not state.property('candidateRoiId')
 
         # At the minimum supported size each context leaves useful central space.
         window.resize(1100, 700)
-        for index in range(5):
+        for index in (0,2,3,4):
             panel.setProperty('tabIndex', index)
             QTest.qWait(35)
             nav, center = item('workspaceNavigation'), item('centralWorkspace')
@@ -106,12 +105,14 @@ def test_shell_context_layout_and_shared_analysis_command(qt_app, tmp_path, brid
         assert item('centralWorkspace').property('width') > previous_width
         invoke(window, 'resetLayout')
         assert panel.property('activeContext') == 'image'
-        for index in (1, 2, 3, 0):
+        for index in (1,2,0):
             invoke(window, 'selectWorkspace', index)
             assert item('centralWorkspace').property('currentIndex') == index
+        invoke(window,'selectWorkspace',3)
+        assert state.property('workspaceIndex')==0  # 3D is accessible only through a stack ROI.
         invoke(window, 'closeImage')
         assert panel.property('activeContext') == 'idle'
-        assert not item('contextRunAnalysis').property('enabled')
+        assert not item('confirmAnalysis').property('enabled')
         assert not warnings, warnings
     finally:
         window.close()

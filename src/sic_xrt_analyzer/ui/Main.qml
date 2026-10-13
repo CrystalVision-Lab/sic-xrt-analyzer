@@ -23,6 +23,20 @@ AppShell {
     property var desktopBridge: fileBridge
     property var discardNext: null
     property bool allowQuit: false
+    property string shownFailure: ""
+    property bool expectAnalysisFailure: false
+    Connections {
+        target: fileBridge
+        function onAnalysisChanged() {
+            var a=fileBridge.analysis
+            if(a.state==="COMPLETED" || a.state==="CANCELED") window.expectAnalysisFailure=false
+            if(a.state==="FAILED" && window.expectAnalysisFailure && a.sourcePath===uiState.filePath && a.errorMessage && window.shownFailure!==a.analysisId+":"+a.errorMessage) {
+                window.shownFailure=a.analysisId+":"+a.errorMessage
+                window.expectAnalysisFailure=false
+                window.showInfo("분석 실패",a.errorMessage)
+            }
+        }
+    }
     function imagejCommand(command, options) { if (uiState.imagejFeaturesVisible) imagejDialog.showCommand(command, options) }
     function imagejTools() { if (uiState.imagejFeaturesVisible) { imagejDialog.tabsIndex = 3; imagejDialog.open() } }
     function imagejMacro() { if (uiState.imagejFeaturesVisible) imagejDialog.showMacro() }
@@ -92,6 +106,8 @@ AppShell {
         shortcutGuide: shortcutGuideAction, reportIssue: reportIssueAction, about: aboutAction,
         importRois: importRoisAction, viewerSettings: viewerSettingsAction, prepareAnalysis: prepareAnalysisAction, analysisInputInfo: analysisInputInfoAction, tools: toolCommands, advanced: advancedCommands
     })
+    AnalysisDialog {id:analysisDialog;theme:theme;uiState:uiState;actions:window.commands;hostWindow:window}
+    function openStackRoi() { if (!uiState.stackFeaturesVisible) return; var r=uiState.hasRoi?[uiState.roiX,uiState.roiY,uiState.roiWidth,uiState.roiHeight]:uiState.roiFlow.selected?uiState.roiFlow.selected.bbox:[];if(r.length!==4)return; if(fileBridge.stack3d.openViewerSelection(r[0],r[1],r[2],r[3])) uiState.workspaceIndex=3;else window.showInfo("3D 열기",fileBridge.stack3d.state.error||"현재 페이지 준비 후 다시 시도하세요.") }
     Theme { id: theme }
     UiState { id: uiState; objectName: "uiState"; displayPixelRatio: window.Screen.devicePixelRatio }
     ToolActions { id: toolCommands; uiState: uiState; baseActions: window.commands; hostWindow: window }
@@ -106,7 +122,9 @@ AppShell {
     }
     function openImageDialog() { openDialog.open() }
     function selectWorkspace(index) {
+        if (index === 3 && !(uiState.stackFeaturesVisible && (uiState.hasRoi || uiState.roiFlow.selected))) return
         uiState.workspaceIndex = index
+        if (index === 0) { if (uiState.hasResult && uiState.hasLoadedImage) window.openContext("result"); else {window.inspectorCollapsed=true;window.requestContext("image","OPEN_IMAGE")} }
         uiState.statusText = index === 0 ? "이미지 뷰어 화면" : index === 1 ? "Wafer Map · 공간 배치와 관측 후보" : index === 2 ? "어닐링 전·후 JPG 정합" : "TIFF Indexed Stack 3D · 물리 깊이 미검증"
     }
     function openContext(key) { inspectorCollapsed = false; return contextPanel.showContext(key) }
@@ -178,7 +196,7 @@ AppShell {
             if (!result.workingCopy) {
                 // The decoder's format is authoritative, even for a renamed file.
                 var isTiff = result.format === "TIFF"
-                window.requestContext(isTiff ? "viewer" : "image", isTiff ? "OPEN_TIFF" : "OPEN_IMAGE")
+                window.requestContext(isTiff ? "viewer" : "image", isTiff ? "OPEN_TIFF" : "OPEN_IMAGE"); if (uiState.hasResult && uiState.analysisEligible) window.openContext("result")
             }
             if (!result.workingCopy || sizeChanged) viewer.defaultView()
             viewer.focusView()
@@ -244,7 +262,7 @@ AppShell {
     Action { id: closeImageAction; objectName: "closeImageAction"; text: "현재 이미지 닫기"; shortcut: StandardKey.Close; enabled: uiState.hasImage || uiState.loading; onTriggered: window.closeImage() }
     Action { id: quitAction; text: "종료"; shortcut: "Ctrl+Q"; onTriggered: window.close() }
     Action { id: panAction; objectName: "panAction"; text: "Pan"; shortcut: window.editingText ? "" : "H"; checkable: true; checked: uiState.activeTool === "Pan" && !uiState.roiEditMode; enabled: uiState.canNavigateImage; onTriggered: { uiState.roiEditMode = false; uiState.activeTool = "Pan" } }
-    Action { id: roiAction; objectName: "roiAction"; text: "ROI 선택"; shortcut: window.editingText || uiState.tiffMode ? "" : "R"; checkable: true; checked: uiState.activeTool === "ROI" && !uiState.roiEditMode; enabled: !uiState.tiffMode && uiState.canNavigateImage && !uiState.analysisRunning; onTriggered: { uiState.roiEditMode = false; uiState.activeTool = "ROI"; Qt.callLater(function() { viewer.focusView() }) } }
+    Action { id: roiAction; objectName: "roiAction"; text: "ROI 선택"; shortcut: window.editingText || uiState.tiffMode ? "" : "R"; checkable: true; checked: uiState.activeTool === "ROI" && !uiState.roiEditMode; enabled: uiState.canNavigateImage && !uiState.analysisRunning; onTriggered: { uiState.roiEditMode = false; uiState.activeTool = "ROI"; Qt.callLater(function() { viewer.focusView() }) } }
     Action { id: clearRoiAction; objectName: "clearRoiAction"; text: "ROI 초기화"; enabled: uiState.hasRoi && !uiState.loading && !uiState.analysisRunning; onTriggered: window.clearRoi() }
     Action { id: copyRoiAction; objectName: "copyRoiAction"; text: "ROI 좌표 복사"; enabled: uiState.hasRoi && !uiState.loading; onTriggered: window.copyRoiInfo() }
     Action { id: zoomInAction; objectName: "zoomInAction"; text: "확대"; shortcut: "Ctrl++"; enabled: uiState.canNavigateImage && uiState.effectiveZoom < 16; onTriggered: viewer.zoomIn() }
@@ -257,12 +275,12 @@ AppShell {
     Action { id: statusBarAction; objectName: "statusBarAction"; text: "상태 표시줄"; onTriggered: window.statusBarVisible = !window.statusBarVisible }
     Action { id: fullScreenAction; objectName: "fullScreenAction"; text: "전체 화면"; shortcut: "F11"; onTriggered: window.visibility === Window.FullScreen ? window.showNormal() : window.showFullScreen() }
     Action { id: resetLayoutAction; text: "화면 배치 초기화"; onTriggered: window.resetLayout() }
-    Action { id: runAction; objectName: "runAction"; text: "분석 실행"; enabled: uiState.canAnalyze; onTriggered: { if (!uiState.canAnalyze) return; window.requestContext("analysis", "ANALYSIS_START"); uiState.candidateRoiId = ""; fileBridge.requestAnalysis(uiState.analysisScope, uiState.roiX, uiState.roiY, uiState.roiWidth, uiState.roiHeight, {point_mode: uiState.analysisPointMode}) } }
+    Action { id: runAction; objectName: "runAction"; text: "분석 실행"; enabled: uiState.canAnalyze; onTriggered: { if (!uiState.canAnalyze) return; window.expectAnalysisFailure=true; window.inspectorCollapsed=true; uiState.candidateRoiId = ""; fileBridge.requestAnalysis(uiState.analysisScope, uiState.roiX, uiState.roiY, uiState.roiWidth, uiState.roiHeight, {point_mode: "contrast_proposals", include_regions: true}) } }
     Action { id: cancelAnalysisAction; objectName: "cancelAnalysisAction"; text: "분석 취소"; enabled: uiState.analysisRunning; onTriggered: fileBridge.cancelAnalysis() }
     Action { id: settingsAction; objectName: "settingsAction"; text: "설정…"; onTriggered: settingsDialog.openPreferences() }
-    Action { id: prepareAnalysisAction; objectName: "prepareAnalysisAction"; text: "분석하기"; enabled: uiState.analysisEligible && uiState.hasLoadedImage && !uiState.loading; onTriggered: { uiState.workspaceIndex = 0; window.openContext("analysis"); viewer.focusView() } }
+    Action { id: prepareAnalysisAction; objectName: "prepareAnalysisAction"; text: "분석하기"; enabled: uiState.analysisEligible && uiState.hasLoadedImage && !uiState.loading; onTriggered: { uiState.workspaceIndex = 0; analysisDialog.open() } }
     Action { id: analysisInputInfoAction; objectName: "analysisInputInfoAction"; text: "분석 입력 상세"; enabled: uiState.analysisEligible && uiState.hasLoadedImage; onTriggered: window.showInfo("분석 입력", uiState.inputPreflight.currentInputDetail + "\n" + uiState.fileName + "\n" + uiState.filePath + "\n표시 밝기·배율과 별개로 원본 픽셀을 사용합니다.") }
-    Action { id: modelInfoAction; text: "모델 정보"; onTriggered: window.showInfo("모델 정보", uiState.analysisFlow.modelStatus + "\n모델: " + (uiState.analysis.modelName || "—") + "\n버전: " + (uiState.analysis.modelVersion || "—") + "\n장치: " + (uiState.analysis.device || "—") + "\n모델 폴더: " + (uiState.research.bundle || "—") + (uiState.research.error ? "\n안내: " + uiState.research.error : "") + "\n\n" + uiState.inputPreflight.modelExpectedDetail) }
+    Action { id: modelInfoAction; objectName:"modelInfoAction"; text: "모델 정보"; onTriggered: window.showInfo("모델 정보", uiState.analysisFlow.modelStatus + "\n모델: " + (uiState.analysis.modelName || "—") + "\n버전: " + (uiState.analysis.modelVersion || "—") + "\n장치: " + (uiState.analysis.device || "—") + "\n모델 폴더: " + (uiState.research.bundle || "—") + (uiState.research.error ? "\n안내: " + uiState.research.error : "") + "\n\n" + uiState.inputPreflight.modelExpectedDetail) }
     Action { id: modelUpdatesAction; objectName: "modelUpdatesAction"; text: "AI 모델 관리…"; onTriggered: modelUpdatesDialog.open() }
     Action { id: guideAction; text: "사용 안내"; onTriggered: window.showInfo("뷰어 사용 안내", "파일 메뉴에서 TIFF/JPG 또는 합성 데모를 여세요.\n상단 패널 메뉴의 뷰어·스택: 페이지 이동과 밝기·대비. ⋯ 메뉴에서도 표시 설정을 열 수 있습니다. 스택은 휠/방향키로 탐색하고 Ctrl+휠로 확대합니다.\nROI 관리: 대응하는 이미지의 .roi/RoiSet.zip 가져오기 및 표시.\nPan / ROI 도구, FIT 화면 맞춤, 100% 원본 픽셀 배율을 지원합니다. 확대 시 보이는 영역을 정밀 읽습니다.\nImageJ frames는 공간 Z축으로 해석하지 않습니다. 상단 분석하기를 누르면 분석 준비 패널을 엽니다. 전체 이미지 또는 ROI를 선택하고 연구 모델로 분석할 수 있습니다.") }
     Action { id: shortcutGuideAction; text: "단축키"; onTriggered: window.showInfo("단축키", "파일\n열기  Ctrl+O     닫기  Ctrl+W     종료  Ctrl+Q\n\n보기\n화면 맞춤  Ctrl+0     실제 크기  Ctrl+1\n확대·축소  Ctrl++ / Ctrl+-     전체 화면  F11\n\n도구\nPan  H     ROI  R\n\n메뉴\nAlt+F / E / V / W / A / T / S / H") }

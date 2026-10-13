@@ -25,6 +25,9 @@ Rectangle {
         StackViewerToolGroup { visible: root.uiState.tiffMode; theme: root.theme; uiState: root.uiState; hostWindow: root.hostWindow; compact: root.width < 1250 }
         TiffWorkbenchControls { visible: root.uiState.tiffMode; theme: root.theme; uiState: root.uiState; actions: root.actions; hostWindow: root.hostWindow; compact: root.width < 1250 }
         Item { Layout.fillWidth: true }
+        LayerTools {theme:root.theme;uiState:root.uiState;hostWindow:root.hostWindow}
+        AppButton {objectName:"openStackRoi3d";theme:root.theme;visible:root.uiState.stackFeaturesVisible&&(root.uiState.hasRoi||!!root.uiState.roiFlow.selected);text:"3D 보기";enabled:root.uiState.hasRoi||!!root.uiState.roiFlow.selected;onClicked:root.hostWindow.openStackRoi()}
+        AppButton {objectName:"showCachedResult";theme:root.theme;visible:root.uiState.hasResult;text:"결과 보기";onClicked:root.hostWindow.openContext("result")}
         ContextTools { theme: root.theme; uiState: root.uiState; actions: root.actions; hostWindow: root.hostWindow }
         AppButton {
             objectName: "imagePrepareAnalysis"; visible: root.uiState.analysisEligible; theme: root.theme; action: root.actions.prepareAnalysis

@@ -21,12 +21,12 @@ ColumnLayout {
         visible: uiState.tiffMode; Layout.fillWidth: true; spacing: theme.spacingXs
         SectionHeader { theme: root.theme; text: "ImageJ 선택"; Layout.fillWidth: true }
         Text { objectName: "tiffToolHint"; Layout.fillWidth: true; wrapMode: Text.Wrap; color: theme.text; font.pixelSize: theme.smallSize; text: root.actions.tools.forTool(uiState.activeTool) ? root.actions.tools.forTool(uiState.activeTool).text + " · " + root.actions.tools.hint(uiState.activeTool) : uiState.activeTool }
-        Text { objectName: "tiffSelectionSummary"; Layout.fillWidth: true; wrapMode: Text.Wrap; color: theme.muted; font.pixelSize: theme.smallSize; text: uiState.roiFlow.selected && uiState.roiFlow.selected.active ? "X / Y / W / H: " + uiState.roiFlow.selected.bbox.join(" / ") : "현재 페이지에 선택이 없습니다." }
+        Text { objectName: "tiffSelectionSummary"; visible:false; Layout.fillWidth: true; wrapMode: Text.Wrap; color: theme.muted; font.pixelSize: theme.smallSize; text: uiState.roiFlow.selected && uiState.roiFlow.selected.active ? "X / Y / W / H: " + uiState.roiFlow.selected.bbox.join(" / ") : "현재 페이지에 선택이 없습니다." }
         RowLayout {
             AppButton { theme: root.theme; text: "선택 해제"; quiet: true; enabled: !!uiState.roiFlow.selected; onClicked: fileBridge.selectImportedRoi("") }
             AppButton { theme: root.theme; text: "ROI 관리…"; quiet: true; action: root.actions.advanced.roiManager }
         }
-        Text { objectName: "tiffMeasurementSummary"; Layout.fillWidth: true; wrapMode: Text.Wrap; color: theme.text; font.pixelSize: theme.smallSize
+        Text { objectName: "tiffMeasurementSummary"; visible:false; Layout.fillWidth: true; wrapMode: Text.Wrap; color: theme.text; font.pixelSize: theme.smallSize
             property var measurements: fileBridge.stackMeasurements.state
             text: measurements.error || (measurements.rows.length ? "최근 측정 · " + measurements.rows[measurements.rows.length - 1].file + " · " + measurements.rows[measurements.rows.length - 1].metric + " " + Number(measurements.rows[measurements.rows.length - 1].value).toFixed(3) + " " + measurements.rows[measurements.rows.length - 1].unit + " · 페이지 " + measurements.rows[measurements.rows.length - 1].page : "측정은 원본 XY 좌표 기준 · 눈금 미설정 시 pixel 단위")
         }

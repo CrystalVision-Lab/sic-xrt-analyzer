@@ -20,7 +20,7 @@ QtObject {
         ANALYSIS_START: "analysis", ANALYSIS_COMPLETE: "result", ANALYSIS_FAILED: "analysis", ANALYSIS_CANCELED: "analysis",
         CANDIDATE_SELECTED: "result", REVIEW_REQUESTED: "feedback", ROI_MANAGER_OPEN: "roi", ROI_IMPORT: "roi", ROI_EDIT: "roi", VIEWER_SETTINGS: "viewer"
     })
-    function available(key) { return !uiState.stackFeaturesVisible || ["analysis", "result", "feedback"].indexOf(key) < 0 }
+    function available(key) { if(key === "analysis" || key === "feedback") return false; if(key === "result") return uiState.hasLoadedImage && uiState.hasResult; return key === "image" || uiState.hasLoadedImage }
     function requestContext(key, reason) {
         if (!available(key)) return false
         var index = keys.indexOf(key)
@@ -38,12 +38,9 @@ QtObject {
         // current terminal result once, never progress/ROI snapshots.
         if (!uiState.hasLoadedImage || uiState.loading) return
         if (phase === "COMPLETED" && analysis.sourceReady && analysis.hasResult && analysis.analysisId && analysis.analysisId !== completedAnalysisId) {
-            completedAnalysisId = analysis.analysisId
-            requestContext("result", "ANALYSIS_COMPLETE")
+            if (uiState.workspaceIndex === 0 && uiState.hasResult && requestContext("result", "ANALYSIS_COMPLETE")) completedAnalysisId = analysis.analysisId
         } else if (phase !== before) {
-            if (phase === "RUNNING") requestContext("analysis", "ANALYSIS_START")
-            else if (phase === "FAILED") requestContext("analysis", "ANALYSIS_FAILED")
-            else if (phase === "CANCELED") requestContext("analysis", "ANALYSIS_CANCELED")
+            if (before === "RUNNING" && (phase === "FAILED" || phase === "CANCELED")) { tabIndex=0; lastReason=phase==="FAILED"?"ANALYSIS_FAILED":"ANALYSIS_CANCELED" }
         }
     }
     Component.onCompleted: {
@@ -53,6 +50,7 @@ QtObject {
     property Connections lifecycle: Connections {
         target: root.uiState
         function onAnalysisChanged() { root.handleAnalysis() }
+        function onHasResultChanged() { if(root.uiState.hasResult) root.handleAnalysis() }
     }
     readonly property string title: uiState.tiffMode && requestedContext === "viewer" ? uiState.pageCount > 1 ? "TIFF 스택" : "TIFF 이미지" : uiState.tiffMode && requestedContext === "roi" ? "ImageJ 선택" : labels[tabIndex] || labels[0]
     readonly property string resultPhase: !uiState.hasResult ? "empty" : !uiState.research.total ? "zero" : uiState.research.selected.id ? "candidate-selected" : "list"
@@ -63,7 +61,8 @@ QtObject {
           : "아직 분석 결과가 없습니다."
         : !uiState.research.total ? "후보가 발견되지 않았습니다."
           : "후보 " + uiState.research.total + "개 · " + (uiState.research.selected.id ? "선택한 후보를 검토하세요." : "검토할 후보를 선택하세요.")
-    readonly property string subtitle: requestedContext === "image"
+    readonly property string subtitle: ""
+    readonly property string legacySubtitle: requestedContext === "image"
         ? uiState.hasImage ? uiState.fileName || "합성 데모 이미지" : "이미지를 열어 작업을 시작하세요."
         : requestedContext === "analysis" ? "현재 원본에서 BPD · TED · TSD 후보를 분석합니다."
         : requestedContext === "result" ? "분류별로 후보를 선택해 영상에서 검토합니다."

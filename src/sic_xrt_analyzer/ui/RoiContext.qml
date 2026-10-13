@@ -20,7 +20,7 @@ ColumnLayout {
         SectionHeader { theme: root.theme; text: "분석 영역"; Layout.fillWidth: true }
         Text { objectName: "analysisRoiState"; text: flow.areaSummary; Accessible.name: text; color: theme.text; font.weight: Font.Medium; font.pixelSize: theme.bodySize; wrapMode: Text.Wrap; Layout.fillWidth: true }
         Text { visible: flow.hasArea; text: "X " + uiState.roiX + " · Y " + uiState.roiY; color: theme.muted; font.pixelSize: theme.captionSize; Layout.fillWidth: true }
-        Text { objectName: "analysisAreaHint"; text: flow.areaHint; color: theme.muted; font.pixelSize: theme.smallSize; wrapMode: Text.Wrap; Layout.fillWidth: true }
+        Text { objectName: "analysisAreaHint"; visible:false; text: flow.areaHint; color: theme.muted; font.pixelSize: theme.smallSize; wrapMode: Text.Wrap; Layout.fillWidth: true }
         RowLayout {
             Layout.fillWidth: true
             AppButton { objectName: "roiSpecifyArea"; theme: root.theme; action: root.actions.roi; text: flow.hasArea ? "다시 지정 (R)" : "영역 지정 (R)"; primary: !flow.hasArea; enabled: root.actions.roi.enabled && flow.areaPhase !== "DISABLED" }
@@ -33,7 +33,7 @@ ColumnLayout {
         SectionHeader { theme: root.theme; text: "ImageJ ROI"; Layout.fillWidth: true }
         Text { objectName: "imagejRoiState"; text: flow.imagejSummary; Accessible.name: text + ", " + flow.selectionLabel; color: theme.text; font.weight: Font.Medium; font.pixelSize: theme.bodySize; Layout.fillWidth: true }
         Text { objectName: "selectedRoiSummary"; text: flow.selectionLabel; color: theme.text; font.pixelSize: theme.bodySize; elide: Text.ElideMiddle; Layout.fillWidth: true }
-        Text { objectName: "roiToolHint"; text: flow.imagejHint; color: theme.muted; font.pixelSize: theme.smallSize; wrapMode: Text.Wrap; Layout.fillWidth: true }
+        Text { objectName: "roiToolHint"; visible:false; text: flow.imagejHint; color: theme.muted; font.pixelSize: theme.smallSize; wrapMode: Text.Wrap; Layout.fillWidth: true }
         Text {
             visible: !!flow.selected; objectName: "selectedRoiBounds"; Layout.fillWidth: true; elide: Text.ElideRight; color: theme.muted; font.pixelSize: theme.captionSize
             text: flow.selected ? "X " + flow.selected.bbox[0] + "–" + (flow.selected.bbox[0] + flow.selected.bbox[2]) + " · Y " + flow.selected.bbox[1] + "–" + (flow.selected.bbox[1] + flow.selected.bbox[3]) + " · " + (flow.selected.page ? "페이지 " + flow.selected.page : "모든 페이지") : ""
@@ -88,7 +88,7 @@ ColumnLayout {
         Item { Layout.fillWidth: true }
         AppButton { objectName: "clearRoiRecords"; theme: root.theme; quiet: true; text: "목록 비우기"; enabled: flow.count > 0 || uiState.importedRois.busy; onClicked: fileBridge.clearImportedRois() }
     }
-    Text { Layout.fillWidth: true; text: uiState.importedRois.dirty ? "저장하지 않은 ROI 변경이 있습니다." : "분석 범위와 별도 기록 · 원본은 덮어쓰지 않습니다."; color: uiState.importedRois.dirty ? theme.warning : theme.muted; font.pixelSize: theme.captionSize; wrapMode: Text.Wrap }
+    Text { Layout.fillWidth: true; visible: uiState.importedRois.dirty; text: "저장하지 않은 ROI 변경"; color: uiState.importedRois.dirty ? theme.warning : theme.muted; font.pixelSize: theme.captionSize; wrapMode: Text.Wrap }
     SurfaceDialog {
         id: editDialog; objectName: "roiEditorDialog"; parent: Overlay.overlay; title: "ImageJ ROI 세부 설정"
         modal: true; width: Math.min(540, parent.width - 40); height: Math.min(parent.height - 60, editorContent.implicitHeight + 100)

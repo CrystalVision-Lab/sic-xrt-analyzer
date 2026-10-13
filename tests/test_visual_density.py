@@ -62,15 +62,12 @@ def test_analysis_decisions_and_footer_remain_reachable(workbench, size):
     w = workbench
     w.open(create_source(w.path.parent).path)
     w.window.resize(*size); QTest.qWait(50); choose(w, 'analysis')
-    for name in ('analysisModelName','researchModelButton','analysisScopeCombo','analysisLifecycleState','contextRunAnalysis'):
+    for name in ('analysisInputInfo','confirmAnalysis'):
         in_window(w, name)
-    assert w.item('analysisScopeCombo').property('height') >= 32
-    assert w.item('contextRunAnalysis').property('height') >= 34
+    assert w.item('confirmAnalysis').property('height') >= 34
     assert w.state.property('canAnalyze')
-    w.click('analysisAdvancedToggle')
-    for name in ('analysisPointModeCombo','contextRunAnalysis'):
-        in_window(w, name)
-    w.click('contextRunAnalysis')
+    assert w.window.findChild(type(w.state),'analysisSettings') is None
+    w.click('confirmAnalysis')
     spin(w.app, lambda: w.bridge.analysis['hasResult'])
     assert w.bridge.research.state['total'] == 231
 
@@ -123,7 +120,12 @@ def test_roi_summary_edit_and_list_remain_reachable(workbench, size):
 @pytest.mark.parametrize('button,menu', [('tiffMore','tiffMoreMenu'),('tiffProcess','tiffProcessMenu')])
 def test_popup_rows_fit_and_keep_keyboard_focus(workbench, size, button, menu):
     w = workbench
-    w.window.resize(*size); QTest.qWait(50); w.click(button)
+    w.window.resize(*size); QTest.qWait(50)
+    if button=='tiffProcess' and size[0]<1250:
+        assert not w.item(button).property('visible')
+        menu='processMenu'
+        invoke(w.item(menu),'open')
+    else: w.click(button)
     popup = w.item(menu)
     assert popup.property('visible')
     content = popup.property('contentItem')
@@ -133,7 +135,7 @@ def test_popup_rows_fit_and_keep_keyboard_focus(workbench, size, button, menu):
     QTest.keyClick(w.window, Qt.Key_Escape)
     QTest.qWait(30)
     assert not popup.property('visible')
-    assert w.item(button).property('activeFocus') or w.item('viewerMouseArea').property('activeFocus')
+    assert w.item(button).property('activeFocus') or w.item('viewerMouseArea').property('activeFocus') or (button=='tiffProcess' and size[0]<1250)
 
 
 def test_focus_hover_pressed_checked_and_disabled_feedback(workbench):

@@ -164,7 +164,7 @@ def test_overflow_shared_commands_stack_access_and_gating(workbench, tmp_path):
     w.same_action('toolbarOpen', 'menuOpenItem')
     assert not w.item('imagePrepareAnalysis').property('visible')
     assert not w.item('menuRunAnalysis').property('rowAvailable')
-    assert not w.item('roiAction').property('enabled')
+    assert w.item('roiAction').property('enabled')
     assert not w.bridge.requestAnalysis('FULL_IMAGE',0,0,0,0,{})
     for action, page in [('advancedLastAction',2),('advancedFirstAction',0),('advancedNextAction',1),('advancedPreviousAction',0)]:
         w.item(action).trigger(None)
@@ -178,6 +178,10 @@ def test_overflow_shared_commands_stack_access_and_gating(workbench, tmp_path):
     w.item('advancedMeasurementAction').trigger(None)
     assert w.item('stackMeasurementDialog').property('visible')
     invoke(w.item('stackMeasurementDialog'),'close')
+    QTest.qWait(80)
+    w.window.grabWindow()
+    active=[(o.objectName(),o.property('title')) for o in w.window.findChildren(QObject) if o.inherits('QQuickPopup') and o.property('visible')]
+    assert not active, active
     w.select('tiffMore','tiffMoreBrush')
     assert w.state.property('activeTool') == 'Brush'
     w.open(create_source(tmp_path).path)
@@ -215,6 +219,9 @@ def test_toolbar_layout_and_analysis_menu_entry(workbench, size):
     invoke(w.item('analysisMenu'), 'open')
     QTest.qWait(30)
     w.click('menuRunAnalysis')
+    assert len(triggered) == 0
+    assert w.item('analysisDialog').property('visible')
+    w.click('confirmAnalysis')
     assert len(triggered) == 1
     spin(w.app, lambda: w.bridge.analysis['hasResult'] or w.bridge.analysis['state'] == 'FAILED')
     assert w.bridge.analysis['hasResult'], w.bridge.analysis

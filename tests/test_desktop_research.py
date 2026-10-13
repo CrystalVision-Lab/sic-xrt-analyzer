@@ -146,7 +146,7 @@ def test_real_qml_run_button_results_overlay_and_export(qt_app, tmp_path, suffix
         invoke(window, "openInspectorTab", 2)
         qt_app.processEvents()
         assert bridge.research.state["total"] == 1
-        assert window.findChild(QObject, "researchModelStatus").property("text") == "모델 준비됨"
+        assert bridge.analysis["modelAvailable"] and not state.property("analysisRunning")
         overlay = window.findChild(QObject, "analysisOverlay")
         assert overlay.property("visible")
         assert window.findChild(QObject, "analysisExportButton").property("enabled")
