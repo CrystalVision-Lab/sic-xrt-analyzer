@@ -136,11 +136,16 @@ def prepare(
     segments = segments[:10000]
     return {
         "images": images,
+        "cursor": list(cursor),
+        "window": list(window),
         "planes": planes,
         "markers": markers,
         "segments": segments,
         "mapping": mapping,
-        "size": [float(r[2] * mapping["sx"]), float(r[3] * mapping["sy"])],
+        "size": [
+            float(pixels.shape[2] * volume.selection["xy_step"] * mapping["sx"]),
+            float(pixels.shape[1] * volume.selection["xy_step"] * mapping["sy"]),
+        ],
         "selected_world": world_point(volume, mapping, *volume.original(k, y, x)[:3]),
         "omitted_track_points": omitted,
         "outside_or_unsampled_track_points": skipped,

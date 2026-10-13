@@ -107,7 +107,7 @@ AppShell {
     function openImageDialog() { openDialog.open() }
     function selectWorkspace(index) {
         uiState.workspaceIndex = index
-        uiState.statusText = index === 0 ? "이미지 뷰어 화면" : index === 1 ? "Wafer Map · 공간 배치와 관측 후보" : index === 2 ? "어닐링 전·후 JPG 정합" : ["", "Wafer Map", "이미지 정합", "3D 뷰어"][index] + " · 미연결"
+        uiState.statusText = index === 0 ? "이미지 뷰어 화면" : index === 1 ? "Wafer Map · 공간 배치와 관측 후보" : index === 2 ? "어닐링 전·후 JPG 정합" : "TIFF Indexed Stack 3D · 물리 깊이 미검증"
     }
     function openContext(key) { inspectorCollapsed = false; return contextPanel.showContext(key) }
     function requestContext(key, reason) { return contextPanel.requestContext(key, reason) }
@@ -268,6 +268,12 @@ AppShell {
     Action { id: shortcutGuideAction; text: "단축키"; onTriggered: window.showInfo("단축키", "파일\n열기  Ctrl+O     닫기  Ctrl+W     종료  Ctrl+Q\n\n보기\n화면 맞춤  Ctrl+0     실제 크기  Ctrl+1\n확대·축소  Ctrl++ / Ctrl+-     전체 화면  F11\n\n도구\nPan  H     ROI  R\n\n메뉴\nAlt+F / E / V / W / A / T / S / H") }
     Action { id: reportIssueAction; text: "문제 보고"; onTriggered: { if (!fileBridge.openIssueTracker()) window.showInfo("문제 보고", "브라우저를 열지 못했습니다. GitHub 저장소의 Issues에서 보고해 주세요.") } }
     Action { id: aboutAction; objectName: "aboutAction"; text: "프로그램 정보"; onTriggered: window.showInfo("SiC XRT Analyzer", "XRT 이미지 검사·분석\n버전 " + fileBridge.appVersion + "\n" + fileBridge.systemInfo + "\n\nTIFF/JPG · ImageJ ROI 뷰어\n모델 분석 미연결\nCrystalVision-Lab") }
+    Connections {
+        target:fileBridge.stack3d
+        function onWorkspaceRequested(index) { window.selectWorkspace(index) }
+        function onSourceRequested(path) { window.selectImagePath(path) }
+        function onFocusRequested(x,y) {uiState.workspaceIndex=0;Qt.callLater(function(){viewer.focusCandidate(x,y)})}
+    }
     Connections { target: fileBridge.waferMap; function onWorkspaceRequested(index) { window.selectWorkspace(index) } }
     Connections { target: fileBridge.feedback; function onFocusRequested(x, y) { window.requestContext("feedback", "REVIEW_REQUESTED"); uiState.workspaceIndex = 0; Qt.callLater(function() { viewer.focusCandidate(x, y) }) } }
     Connections { target: fileBridge.research; function onFocusRequested(x, y) { window.requestContext("result", "CANDIDATE_SELECTED"); uiState.workspaceIndex = 0; uiState.updateCandidateRoi(); Qt.callLater(function() { viewer.focusCandidate(x, y) }) } }

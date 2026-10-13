@@ -67,8 +67,11 @@ class TiffImageProvider(QQuickImageProvider):
         self.project_review_image = QImage()
         self.registration_images = {}
         self.wafer_images = {}
+        self.stack3d_images = {}
 
     def requestImage(self, image_id: str, size: QSize, requested_size: QSize) -> QImage:
+        if image_id.startswith('stack3d-'):
+            return self.stack3d_images.get(image_id[8:].split('?')[0], QImage())
         if image_id.startswith('wafer-'):
             return self.wafer_images.get(image_id[6:].split('?')[0], QImage())
         if image_id.startswith('registration-'):
@@ -130,6 +133,8 @@ class FileBridge(QObject):
         self.registration_controller = RegistrationController(self)
         from .wafer_map_controller import WaferMapController
         self.wafer_map_controller = WaferMapController(self)
+        from .stack3d_controller import Stack3DController
+        self.stack3d_controller = Stack3DController(self)
         self.feedback_controller = FeedbackController(self)
         self.feedback_controller.changed.connect(self.research_controller.changed)
         from .review_controller import ReviewController
@@ -581,6 +586,7 @@ class FileBridge(QObject):
         self.roi_manager.invalidate_pending()
         path = self.localPath(url)
         # Filesystem/header/decode errors occur in the worker, with latest-request semantics.
+        self.stack3d_controller.openingFile(path)
         self.stack_viewer.open(path)
 
     @Slot(str)
@@ -641,6 +647,7 @@ class FileBridge(QObject):
 
     @Slot()
     def clearImage(self):
+        self.stack3d_controller.openingFile("")
         self.workbench.cancel()
         self.workbench.runtime.session += 1
         self._working_path = ''
@@ -659,6 +666,7 @@ class FileBridge(QObject):
     def waitForLoads(self):
         self.model_update_controller.shutdown()
         self.sync_controller.shutdown()
+        self.stack3d_controller.shutdown()
         self.wafer_map_controller.shutdown()
         self.registration_controller.shutdown()
         self.project_controller.shutdown()
@@ -687,6 +695,10 @@ class FileBridge(QObject):
     @Property(QObject, constant=True)
     def reviews(self):
         return self.review_controller
+
+    @Property(QObject, constant=True)
+    def stack3d(self):
+        return self.stack3d_controller
 
     @Property(QObject, constant=True)
     def waferMap(self):

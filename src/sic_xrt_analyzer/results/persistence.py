@@ -21,7 +21,9 @@ class ProjectStore:
             validate_project_assets as validate_maps,
         )
         validate_maps(path, project)
-        from sic_xrt_analyzer.stack3d.assets import validate_project_assets as validate_3d
+        from sic_xrt_analyzer.stack3d.assets import (
+            validate_project_assets as validate_3d,
+        )
         validate_3d(path, project)
         return project  # Metadata/assets only; never reads source pixels or runs inference.
 
@@ -47,7 +49,9 @@ class ProjectStore:
             validate_project_assets as validate_maps,
         )
         validate_maps(path, project)
-        from sic_xrt_analyzer.stack3d.assets import validate_project_assets as validate_3d
+        from sic_xrt_analyzer.stack3d.assets import (
+            validate_project_assets as validate_3d,
+        )
         validate_3d(path, project)
         encoded = dumps(project)
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -73,7 +77,9 @@ class ProjectStore:
                 oldref,newref=check_history(existing,project)
                 if oldref and oldref!=newref and oldref not in {ref for ref,_ in chain(path,newref,project)[1:]}:
                     raise ValueError("Cannot rewrite wafer map history")
-                from sic_xrt_analyzer.stack3d.assets import check_history as check_3d_history
+                from sic_xrt_analyzer.stack3d.assets import (
+                    check_history as check_3d_history,
+                )
                 check_3d_history(path, existing, project)
                 new_sources = {s.source_id: s for s in project.image_sources}
                 if any(s.source_id not in new_sources for s in existing.image_sources):

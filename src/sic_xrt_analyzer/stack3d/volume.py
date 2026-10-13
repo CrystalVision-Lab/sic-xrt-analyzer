@@ -171,6 +171,9 @@ def physical_calibration(source_record, page_count):
 def world_mapping(volume, calibration=None):
     r = volume.selection["roi"]
     pages = volume.selection["page_indices"]
+    step = volume.selection["xy_step"]
+    ny, nx = volume.pixels.shape[1:]
+    centre = [r[0] + (nx - 1) * step / 2, r[1] + (ny - 1) * step / 2]
     if calibration:
         sx, sy = calibration["pixel_spacing"]
         depths = np.asarray(calibration["page_depths"])[pages]
@@ -178,6 +181,7 @@ def world_mapping(volume, calibration=None):
         scale = 300 / span
         zs = (depths - (depths[0] + depths[-1]) / 2) * scale
         return {
+            "centre": centre,
             "sx": sx * scale,
             "sy": sy * scale,
             "zs": zs.tolist(),
@@ -187,6 +191,7 @@ def world_mapping(volume, calibration=None):
     scale = 300 / max(r[2], r[3])
     span = max(1, pages[-1] - pages[0])
     return {
+        "centre": centre,
         "sx": scale,
         "sy": scale,
         "zs": [(k - (pages[0] + pages[-1]) / 2) * 160 / span for k in pages],
@@ -199,9 +204,8 @@ def world_point(volume, mapping, x, y, page):
     pages = volume.selection["page_indices"]
     if page not in pages:
         raise ValueError("Track page not sampled in current volume")
-    r = volume.selection["roi"]
     return [
-        (x - r[0] - (r[2] - 1) / 2) * mapping["sx"],
-        -(y - r[1] - (r[3] - 1) / 2) * mapping["sy"],
+        (x - mapping["centre"][0]) * mapping["sx"],
+        -(y - mapping["centre"][1]) * mapping["sy"],
         mapping["zs"][pages.index(page)],
     ]
