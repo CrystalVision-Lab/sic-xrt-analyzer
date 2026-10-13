@@ -20,7 +20,7 @@ ToolbarButton {
                 required property int index
                 required property string modelData
                 objectName: "toolbarContext" + modelData
-                rowAvailable: !root.uiState.tiffMode || ["analysis", "result", "feedback"].indexOf(modelData) < 0
+                rowAvailable: !root.uiState.stackFeaturesVisible || ["analysis", "result", "feedback"].indexOf(modelData) < 0
                 text: ["이미지 정보", "뷰어 · 스택", "ROI 관리", "분석", "결과", "검수"][index]
                 checkable: true
                 checked: !root.hostWindow.inspectorCollapsed && root.hostWindow.contextPanel.requestedContext === modelData

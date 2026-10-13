@@ -148,7 +148,7 @@ class ProjectController(QObject):
         r=self.bridge.pipeline.result
         if r is None or r.status!=AnalysisState.COMPLETED or r.analysis_id==self.last_live:return
         self.last_live=r.analysis_id
-        if r.request.source.metadata.format!='JPEG':return
+        if r.request.source.metadata.page_count!=1:return
         manifest=getattr(getattr(self.bridge.pipeline.adapter,'classifier',None),'manifest',None)
         if self.project is None:
             self.project=AnalysisProject('새 분석 프로젝트');self.dirty=True
@@ -164,8 +164,8 @@ class ProjectController(QObject):
     @Slot()
     def captureCurrent(self):
         result=self.bridge.pipeline.result
-        if result is None or result.status!=AnalysisState.COMPLETED or result.request.source.metadata.format!='JPEG':
-            self.error='추가할 완료된 JPG 분석 결과가 없습니다.';self.changed.emit();return
+        if result is None or result.status!=AnalysisState.COMPLETED or result.request.source.metadata.page_count!=1:
+            self.error='추가할 완료된 2D 분석 결과가 없습니다.';self.changed.emit();return
         if self.project is None:
             self.project=AnalysisProject('새 분석 프로젝트');self.dirty=True
         manifest=getattr(getattr(self.bridge.pipeline.adapter,'classifier',None),'manifest',None)
@@ -231,7 +231,7 @@ class ProjectController(QObject):
         def write():
             updated=[]
             for s in snapshot.image_sources:
-                if s.acquisition_metadata.get('format')=='JPEG' and not s.content_hash:
+                if s.page_count==1 and not s.content_hash:
                     status=inspect_source(s)
                     if status.pixels_available:s=verify_content_hash(s,**options)
                 updated.append(s)
@@ -328,15 +328,15 @@ class ProjectController(QObject):
         source=next((s for s in self.project.image_sources if s.source_id==source_id),None)
         run=next((r for r in self.project.analysis_runs if r.run_id==run_id and r.source_id==source_id),None) if run_id else None
         if source is None or (run_id and run is None):return
-        if source.acquisition_metadata.get('format')=='TIFF' and run:
+        if source.page_count != 1 and run:
             self.error='TIFF는 스택 탐색·3D용 원본입니다. JPG 분석 결과와 구분합니다.';self.changed.emit();return
         snapshot=self.project
         token=Event();options=self._hash_options(token,self.epoch+1)
         def read():
-            status=inspect_source(source,verify_hash=bool(source.content_hash),**options) if (run or (source.acquisition_metadata.get('format')=='JPEG' and source.content_hash)) else inspect_source(source)
+            status=inspect_source(source,verify_hash=bool(source.content_hash),**options) if (run or (source.page_count==1 and source.content_hash)) else inspect_source(source)
             if run and not source.content_hash:
                 status=replace(status,pixels_available=False,status='HASH_UNAVAILABLE',detail='원본 SHA를 명시적으로 검증한 뒤 Overlay를 표시할 수 있습니다.')
-            rows,errors=dependency_rows(self.path,snapshot,source_id,run.page_index if run else 0) if self.path and status.pixels_available and source.acquisition_metadata.get('format')!='TIFF' else ([],[])
+            rows,errors=dependency_rows(self.path,snapshot,source_id,run.page_index if run else 0) if self.path and status.pixels_available and source.page_count == 1 else ([],[])
             return status,rows,errors
         def publish(value):
             status,rows,errors=value
@@ -425,7 +425,7 @@ class ProjectController(QObject):
         if self.busy:return
         e=self.bridge.research_controller.experiments
         if e.project is None or not e.manifest or e.saved_origin:
-            self.error='먼저 JPG의 TD02 실험 번들을 불러오세요.';self.changed.emit();return
+            self.error='먼저 단일 페이지 2D 이미지의 TD02 실험 번들을 불러오세요.';self.changed.emit();return
         if self.project is None:
             self.project=AnalysisProject('새 분석 프로젝트');self.dirty=True
         snapshot=self.project

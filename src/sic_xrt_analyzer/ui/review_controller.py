@@ -225,8 +225,8 @@ class ReviewController(QObject):
         source = next((s for s in p.image_sources if s.source_id == source_id), None)
         if (
             source is None
-            or source.acquisition_metadata.get("format") != "JPEG"
-            or current.metadata.format != "JPEG"
+            or source.page_count != 1
+            or current.metadata.page_count != 1
         ):
             return False
         if (
@@ -443,7 +443,7 @@ class ReviewController(QObject):
     @Slot()
     def edit(self):
         if not self.available(self.source_id, self.run_id):
-            self.error = "검증된 JPG와 동일 Run을 연결하세요."
+            self.error = "검증된 2D 원본와 동일 Run을 연결하세요."
             self.changed.emit()
             return
         row = self.index.get(self.target_id)
@@ -482,7 +482,7 @@ class ReviewController(QObject):
             return
         source, run = self.context()
         if not self.available(source, run):
-            self.error = "프로젝트에 등록·SHA 검증된 JPG를 여세요."
+            self.error = "프로젝트에 등록·SHA 검증된 2D 원본를 여세요."
             self.changed.emit()
             return
         if kind not in ("POINT", "POLYLINE", "POLYGON", "BRANCHED_GRAPH"):

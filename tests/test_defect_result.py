@@ -318,10 +318,14 @@ def test_linked_observation_requires_same_coords_score_and_model(qt_app, tmp_pat
     bridge.pipeline.result = None
 
 
-def test_tiff_keeps_viewer_but_rejects_experiment_analysis_ui(workbench, tmp_path, monkeypatch):
+def test_stack_keeps_viewer_but_rejects_experiment_analysis_ui(workbench, tmp_path, monkeypatch):
     w = workbench
     source, folder = bundle(tmp_path, dtype='uint16')
-    w.open(source.path)
+    import tifffile
+    import numpy as np
+    stack = tmp_path/'multi-page.tif'
+    tifffile.imwrite(stack, np.stack([source.read_full(),source.read_full()]), photometric='minisblack')
+    w.open(stack)
     def forbidden(*args):
         raise AssertionError('TIFF must not load an analysis experiment')
     monkeypatch.setattr('sic_xrt_analyzer.results.bpd_experiment.load_experiment_bundle', forbidden)

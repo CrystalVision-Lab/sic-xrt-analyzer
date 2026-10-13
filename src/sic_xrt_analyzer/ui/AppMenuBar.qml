@@ -84,7 +84,7 @@ MenuBar {
         AppMenuItem { rowAvailable: root.uiState.imagejFeaturesVisible; text: "도구 옵션…"; action: root.actions.advanced.tools }
         AppMenuItem { action: root.actions.settings; iconName: "settings" }
         MenuSeparator {}
-        AppMenuItem { rowAvailable: !root.uiState.tiffMode; action: root.actions.copyRoi }
+        AppMenuItem { rowAvailable: root.uiState.analysisEligible; action: root.actions.copyRoi }
     }
     AppMenu {
         id: viewMenu; objectName: "viewMenu"; title: "이미지 (Image)"
@@ -160,7 +160,7 @@ MenuBar {
         AppMenuItem { text: "모든 ImageJ 명령…"; action: root.actions.advanced.catalog }
     }
     AppMenu {
-        id: analysisMenu; objectName: "analysisMenu"; title: root.uiState.tiffMode ? "측정 (Analyze)" : "분석 (Analyze)"
+        id: analysisMenu; objectName: "analysisMenu"; title: root.uiState.stackFeaturesVisible ? "측정 (Analyze)" : "분석 (Analyze)"
         AppMenuItem { rowAvailable: root.uiState.imagejFeaturesVisible; text: "측정 (Measure)"; enabled: root.uiState.loadFlow.imagejReady; onTriggered: root.fileBridge.imagej.execute("command", "Measure", "", false) }
         AppMenuItem { rowAvailable: root.uiState.imagejFeaturesVisible; text: "측정 항목…"; onTriggered: root.hostWindow.imagejCommand("Set Measurements...", "area mean standard min centroid perimeter shape redirect=None decimal=3") }
         AppMenuItem { rowAvailable: root.uiState.imagejFeaturesVisible; text: "히스토그램"; enabled: root.uiState.loadFlow.imagejReady; onTriggered: root.hostWindow.imagejStatistics("Histogram") }
@@ -170,14 +170,14 @@ MenuBar {
         AppMenuItem { text: "ROI 관리자"; action: root.actions.advanced.roiManager }
         AppMenuItem { rowAvailable: root.uiState.imagejFeaturesVisible; text: "결과표"; action: root.actions.advanced.results }
         MenuSeparator {}
-        AppMenuItem { rowAvailable: !root.uiState.tiffMode; objectName: "menuRoiTool"; action: root.actions.roi; shortcutLabel: "R" }
-        AppMenuItem { rowAvailable: !root.uiState.tiffMode; action: root.actions.clearRoi }
+        AppMenuItem { rowAvailable: root.uiState.analysisEligible; objectName: "menuRoiTool"; action: root.actions.roi; shortcutLabel: "R" }
+        AppMenuItem { rowAvailable: root.uiState.analysisEligible; action: root.actions.clearRoi }
         MenuSeparator {}
-        AppMenuItem { rowAvailable: !root.uiState.tiffMode; objectName: "menuRunAnalysis"; action: root.actions.run; iconName: "run"; ToolTip.text: root.uiState.analysisReason; ToolTip.visible: hovered }
-        AppMenuItem { rowAvailable: !root.uiState.tiffMode; objectName: "menuCancelAnalysis"; action: root.actions.cancelAnalysis }
-        AppMenuItem { rowAvailable: !root.uiState.tiffMode; action: root.actions.modelInfo }
-        AppMenuItem { rowAvailable: !root.uiState.tiffMode; action: root.actions.modelUpdates }
-        AppMenuItem { rowAvailable: !root.uiState.tiffMode; text: "결과 보기"; enabled: root.uiState.hasResult; onTriggered: root.hostWindow.openContext("result") }
+        AppMenuItem { rowAvailable: root.uiState.analysisEligible; objectName: "menuRunAnalysis"; action: root.actions.run; iconName: "run"; ToolTip.text: root.uiState.analysisReason; ToolTip.visible: hovered }
+        AppMenuItem { rowAvailable: root.uiState.analysisEligible; objectName: "menuCancelAnalysis"; action: root.actions.cancelAnalysis }
+        AppMenuItem { rowAvailable: root.uiState.analysisEligible; action: root.actions.modelInfo }
+        AppMenuItem { rowAvailable: root.uiState.analysisEligible; action: root.actions.modelUpdates }
+        AppMenuItem { rowAvailable: root.uiState.analysisEligible; text: "결과 보기"; enabled: root.uiState.hasResult; onTriggered: root.hostWindow.openContext("result") }
     }
     AppMenu {
         id: toolsMenu; objectName: "toolsMenu"; title: "플러그인 (Plugins)"; available: root.uiState.imagejFeaturesVisible

@@ -37,7 +37,7 @@ def main():
     if "--smoke-report" in sys.argv:
         from sic_xrt_analyzer.distribution_smoke import main as smoke
 
-        return smoke(Path(sys.argv[sys.argv.index("--smoke-report") + 1]))
+        return smoke(Path(sys.argv[sys.argv.index("--smoke-report") + 1]), [sys.argv[i+1] for i,a in enumerate(sys.argv[:-1]) if a == "--verify-image"])
     from sic_xrt_analyzer.__main__ import main as app
 
     return app()

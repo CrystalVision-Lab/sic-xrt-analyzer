@@ -4,7 +4,7 @@ import sys
 from pathlib import Path
 
 from PySide6.QtCore import QTimer, QUrl
-from PySide6.QtGui import QGuiApplication
+from PySide6.QtGui import QGuiApplication, QIcon
 from PySide6.QtQml import QQmlApplicationEngine
 from PySide6.QtQuickControls2 import QQuickStyle
 
@@ -19,6 +19,7 @@ def main() -> int:
         app = QApplication(sys.argv)
     else:
         app = QGuiApplication(sys.argv)
+    app.setWindowIcon(QIcon(str(Path(__file__).parent / "ui/assets/app-logo.png")))
     app.setApplicationName("sic-xrt-analyzer")
     app.setOrganizationName("CrystalVision-Lab")
     QQuickStyle.setStyle("Basic")

@@ -15,7 +15,7 @@ ColumnLayout {
     signal saveRequested()
     spacing: theme.spacingXs
     ColumnLayout {
-        visible: !uiState.tiffMode
+        visible: uiState.analysisEligible
         Layout.fillWidth: true; spacing: theme.spacingXs
         SectionHeader { theme: root.theme; text: "분석 영역"; Layout.fillWidth: true }
         Text { objectName: "analysisRoiState"; text: flow.areaSummary; Accessible.name: text; color: theme.text; font.weight: Font.Medium; font.pixelSize: theme.bodySize; wrapMode: Text.Wrap; Layout.fillWidth: true }
@@ -27,7 +27,7 @@ ColumnLayout {
             AppButton { objectName: "roiRemoveArea"; theme: root.theme; action: root.actions.clearRoi; text: "제거"; quiet: true; visible: flow.hasArea }
         }
     }
-    Rectangle { visible: !uiState.tiffMode; Layout.fillWidth: true; implicitHeight: 1; color: theme.borderSubtle }
+    Rectangle { visible: uiState.analysisEligible; Layout.fillWidth: true; implicitHeight: 1; color: theme.borderSubtle }
     ColumnLayout {
         Layout.fillWidth: true; spacing: theme.spacingXs
         SectionHeader { theme: root.theme; text: "ImageJ ROI"; Layout.fillWidth: true }
@@ -100,8 +100,8 @@ ColumnLayout {
                 id: editorContent
                 width: editScroll.availableWidth; spacing: theme.spacingMd
                 RoiEditor { id: editor; theme: root.theme; uiState: root.uiState; actions: root.actions; Layout.fillWidth: true; onSaveRequested: root.saveRequested() }
-                AppButton { objectName: "selectImportedBoundsButton"; visible: !uiState.tiffMode; theme: root.theme; text: "분석 영역으로 외접 사각형 선택"; Layout.fillWidth: true; enabled: !uiState.loading && !uiState.analysisRunning && uiState.importedRois.items.some(function(r) { return r.selected && r.active }); onClicked: root.boundsRequested() }
-                Text { visible: !uiState.tiffMode; Layout.fillWidth: true; wrapMode: Text.Wrap; text: "명시적으로 선택한 외접 사각형만 분석 영역에 복사합니다. ROI 도형 마스크 분석은 연결되지 않았습니다."; color: theme.muted; font.pixelSize: theme.smallSize }
+                AppButton { objectName: "selectImportedBoundsButton"; visible: uiState.analysisEligible; theme: root.theme; text: "분석 영역으로 외접 사각형 선택"; Layout.fillWidth: true; enabled: !uiState.loading && !uiState.analysisRunning && uiState.importedRois.items.some(function(r) { return r.selected && r.active }); onClicked: root.boundsRequested() }
+                Text { visible: uiState.analysisEligible; Layout.fillWidth: true; wrapMode: Text.Wrap; text: "명시적으로 선택한 외접 사각형만 분석 영역에 복사합니다. ROI 도형 마스크 분석은 연결되지 않았습니다."; color: theme.muted; font.pixelSize: theme.smallSize }
             }
         }
     }

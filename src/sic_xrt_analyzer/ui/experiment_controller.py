@@ -95,11 +95,11 @@ class ExperimentController(QObject):
         from .research_controller import local_path
         self.cancel()
         if self.source is None or self.bridge.stack_viewer.initial_loading or self.bridge.stack_viewer.busy:
-            self.error = "2D JPG 이미지를 먼저 여세요."
+            self.error = "단일 페이지 2D JPG/TIFF 이미지를 먼저 여세요."
             self.changed.emit()
             return
-        if self.source.metadata.format == "TIFF":
-            self.error = "TIFF는 스택 탐색·3D용 데이터입니다. 결함 분석 결과는 2D JPG에서 사용하세요."
+        if self.source.metadata.page_count != 1 or self.bridge._stack_context:
+            self.error = "여러 페이지 TIFF는 스택 탐색·3D용입니다. 결함 분석 결과는 단일 페이지 2D 이미지에서 사용하세요."
             self.changed.emit()
             return
         source, folder = self.source, local_path(url).resolve()

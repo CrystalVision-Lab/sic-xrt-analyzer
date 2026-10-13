@@ -20,7 +20,7 @@ QtObject {
         ANALYSIS_START: "analysis", ANALYSIS_COMPLETE: "result", ANALYSIS_FAILED: "analysis", ANALYSIS_CANCELED: "analysis",
         CANDIDATE_SELECTED: "result", REVIEW_REQUESTED: "feedback", ROI_MANAGER_OPEN: "roi", ROI_IMPORT: "roi", ROI_EDIT: "roi", VIEWER_SETTINGS: "viewer"
     })
-    function available(key) { return !uiState.tiffMode || ["analysis", "result", "feedback"].indexOf(key) < 0 }
+    function available(key) { return !uiState.stackFeaturesVisible || ["analysis", "result", "feedback"].indexOf(key) < 0 }
     function requestContext(key, reason) {
         if (!available(key)) return false
         var index = keys.indexOf(key)

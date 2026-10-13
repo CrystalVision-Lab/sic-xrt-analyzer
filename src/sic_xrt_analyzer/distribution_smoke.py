@@ -8,7 +8,7 @@ import time
 from pathlib import Path
 
 
-def main(output):
+def main(output, image_paths=()):
     report = {
         "status": "FAIL",
         "frozen": bool(getattr(sys, "frozen", False)),
@@ -49,9 +49,15 @@ def main(output):
             assert np.array_equal(volume.pixels, pixels[:, 4:32, 3:35])
             report["tests"].append("uint16 ROI volume")
             jpeg = folder / "synthetic.jpg"
-            Image.new("RGB", (64, 48), (12, 34, 56)).save(jpeg)
+            Image.new("RGB", (2050, 2049), (12, 34, 56)).save(jpeg)
             assert JpegImageSource(jpeg).metadata.channels == 3
-            report["tests"].append("JPEG decoder")
+            jpeg_stack = open_stack(jpeg)
+            try:
+                assert jpeg_stack.prepare_native()
+                assert jpeg_stack.first_source.read_region(10, 20, 2, 3).shape == (3, 2, 3)
+            finally:
+                jpeg_stack.close()
+            report["tests"].append("large JPEG native codec and prepared cache")
             engine = QQmlApplicationEngine()
             bridge = FileBridge(
                 parent=engine,
@@ -125,6 +131,30 @@ def main(output):
             report["tests"].append("model validation worker path")
             assert not warnings, warnings
             report["qml_warnings"] = warnings
+            report["actual_images"] = []
+            for image_path in image_paths:
+                path = Path(image_path).resolve(strict=True)
+                import hashlib
+                with path.open("rb") as stream:
+                    before = hashlib.file_digest(stream, "sha256").hexdigest()
+                window.findChild(QObject, "uiState").setProperty("workspaceIndex", 0)
+                bridge.requestImage(QUrl.fromLocalFile(str(path)).toString())
+                spin(lambda: not bridge.stack_viewer.busy and (bridge.stack_viewer.frame is not None or bool(bridge.stack_viewer.error)), 180)
+                assert not bridge.stack_viewer.error, bridge.stack_viewer.error
+                source = bridge.original_source
+                assert source is not None and source.path == str(path)
+                meta = source.metadata
+                pixels = source.read_region(min(6000,meta.width-8), min(6000,meta.height-8), 8, 8)
+                assert pixels.dtype.name == meta.dtype
+                state = window.findChild(QObject, "uiState")
+                for _ in range(10): app.processEvents();time.sleep(.01)
+                assert state.property("analysisEligible") == (meta.page_count == 1)
+                shot = output.with_name(output.stem + "-" + str(len(report["actual_images"])) + ".png")
+                assert window.grabWindow().save(str(shot))
+                with path.open("rb") as stream:
+                    after = hashlib.file_digest(stream, "sha256").hexdigest()
+                assert before == after
+                report["actual_images"].append({"name":path.name,"width":meta.width,"height":meta.height,"dtype":meta.dtype,"pages":meta.page_count,"sha256":before,"analysis_button":state.property("analysisEligible"),"screenshot":shot.name})
             bridge.waitForLoads()
             window.hide()
             engine.deleteLater()

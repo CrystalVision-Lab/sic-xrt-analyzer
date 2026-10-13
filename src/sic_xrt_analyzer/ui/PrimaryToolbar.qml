@@ -27,7 +27,7 @@ Rectangle {
         Item { Layout.fillWidth: true }
         ContextTools { theme: root.theme; uiState: root.uiState; actions: root.actions; hostWindow: root.hostWindow }
         AppButton {
-            objectName: "imagePrepareAnalysis"; visible: !root.uiState.tiffMode; theme: root.theme; action: root.actions.prepareAnalysis
+            objectName: "imagePrepareAnalysis"; visible: root.uiState.analysisEligible; theme: root.theme; action: root.actions.prepareAnalysis
             text: "분석하기"; primary: true; implicitHeight: theme.toolbarButtonHeight
             Accessible.name: text; tip: "분석 범위와 모델을 확인하고 실행하세요."
         }

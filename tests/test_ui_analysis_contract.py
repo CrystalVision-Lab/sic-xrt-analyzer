@@ -57,7 +57,7 @@ def test_ui_original_metadata_and_pipeline_states(qt_app, tmp_path):
         bridge.pipeline.invalidate()
         qt_app.processEvents()
         assert state.property("modelAvailable")
-        assert not run.property("enabled")  # TIFF stays blocked even for a compatible test model.
+        assert run.property("enabled")  # A compatible single-page TIFF is a 2D input.
         from PIL import Image
 
         from sic_xrt_analyzer.analysis.contracts import AnalysisScope

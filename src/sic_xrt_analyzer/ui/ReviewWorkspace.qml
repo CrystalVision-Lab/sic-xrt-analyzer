@@ -19,7 +19,7 @@ ScrollView {
             TextField { id: reviewer; objectName: "projectReviewerInput"; Layout.fillWidth: true; text: review.reviewer; placeholderText: "로컬 연구원 ID"; maximumLength: 120 }
             AppButton { objectName: "projectReviewerApply"; theme: root.theme; text: "설정"; enabled: !review.pending; onClicked: fileBridge.reviews.setReviewer(reviewer.text) }
         }
-        Text { visible: !review.ready; text: "원본 JPG·Run 연결과 SHA 검증이 필요합니다. 이력은 확인할 수 있습니다."; color: theme.warning; wrapMode: Text.Wrap; Layout.fillWidth: true }
+        Text { visible: !review.ready; text: "원본 2D 이미지·Run 연결과 SHA 검증이 필요합니다. 이력은 확인할 수 있습니다."; color: theme.warning; wrapMode: Text.Wrap; Layout.fillWidth: true }
         AppButton { objectName: "reviewVerifySource"; theme: root.theme; text: "현재 원본 SHA 검증"; visible: !review.ready && !!review.sourceId; enabled: !uiState.project.busy; onClicked: fileBridge.projects.verifySource(review.sourceId) }
         Image { objectName: "projectReviewCrop"; Layout.preferredWidth: 112; Layout.preferredHeight: 112; fillMode: Image.PreserveAspectFit; smooth: false; cache: false; source: review.ready ? (review.selected.type === "OBSERVATION" ? uiState.research.thumbnailSource : review.crop || "") : "" }
         Text { objectName: "projectReviewModelScore"; visible: review.selected.type === "OBSERVATION"; text: "모델 점수 " + uiState.resultPresentation.confidence(review.selected.score) + " · 원점수 " + JSON.stringify(review.selected.scores || []); color: theme.muted; wrapMode: Text.Wrap; Layout.fillWidth: true }

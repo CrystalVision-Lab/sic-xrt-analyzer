@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "sic-xrt-analyzer"
-version = "0.1.0"
+version = "0.1.1"
 license = {file = "LICENSE"}
 description = "SiC XRT desktop analysis scaffold"
 readme = "README.md"
@@ -26,7 +26,7 @@ where = ["src"]
 target-version = "py311"
 
 [tool.setuptools.package-data]
-sic_xrt_analyzer = ["ui/*.qml", "model_updates/*.json"]
+sic_xrt_analyzer = ["ui/*.qml", "ui/assets/*.png", "ui/assets/*.ico", "model_updates/*.json"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

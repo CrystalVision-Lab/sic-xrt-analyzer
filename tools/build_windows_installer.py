@@ -20,7 +20,7 @@ def main():
     p.add_argument("--jdk", type=Path, required=True)
     p.add_argument("--compiler", type=Path, required=True)
     p.add_argument("--output", type=Path, required=True)
-    p.add_argument("--version", default="0.1.0")
+    p.add_argument("--version", default="0.1.1")
     p.add_argument("--source-directory", type=Path, required=True)
     p.add_argument("--reuse-bundle", type=Path)
     p.add_argument("--reuse-source-revision")

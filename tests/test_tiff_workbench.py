@@ -34,7 +34,7 @@ def test_single_tiff_measure_clear_and_jpeg_restore(workbench):
     w.open(path)
     assert w.state.property("tiffMode") and not w.state.property("stackFeaturesVisible")
     assert w.item("stackViewerToolGroup").property("visible")
-    assert not w.item("imagePrepareAnalysis").property("visible")
+    assert w.item("imagePrepareAnalysis").property("visible")
     w.click("tiffToolRectangle")
     QTest.mousePress(w.window, Qt.LeftButton, Qt.NoModifier, point(w, 40, 50))
     QTest.mouseMove(w.window, point(w, 100, 110), 20)
@@ -94,7 +94,7 @@ def test_friendly_processing_confirmation_creates_copy(workbench, kind):
     else:
         assert not np.array_equal(raw, processed)
     assert path.read_bytes() == before
-    assert not w.item("imagePrepareAnalysis").property("visible")
+    assert w.item("imagePrepareAnalysis").property("visible")
 
 
 def test_request_cancels_gesture_and_text_shortcuts_do_not_change_tool(workbench):
@@ -184,5 +184,5 @@ def test_picker_brush_fill_from_more_menu_preserve_original(workbench):
     assert filled[32, 32] == 255 and filled[5, 5] == 0 and filled[8, 12] == 255
     assert path.read_bytes() == before
     assert (
-        w.state.property("tiffMode") and not w.item("imagePrepareAnalysis").isVisible()
+        w.state.property("tiffMode") and w.item("imagePrepareAnalysis").isVisible()
     )

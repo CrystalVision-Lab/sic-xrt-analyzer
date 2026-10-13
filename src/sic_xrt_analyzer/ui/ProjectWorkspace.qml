@@ -85,7 +85,7 @@ Item {
                 TextField { id: pathInput; objectName: "projectPathInput"; Layout.fillWidth: true; color: theme.text; background: Rectangle { color: theme.panel; border.color: theme.border } }
                 AppButton { objectName: "projectChoosePath"; theme: root.theme; text: "찾아보기…"; onClicked: destination.open() }
             }
-            Text { Layout.fillWidth: true; text: "원본 JPG/TIFF는 포함하지 않습니다. 최초 JPG SHA 검증과 실험 종속 자산 저장을 수행합니다. 다른 위치 저장은 동일 프로젝트의 복사본이며 새 파일 경로가 필요합니다."; wrapMode: Text.Wrap; color: theme.muted; font.pixelSize: theme.smallSize }
+            Text { Layout.fillWidth: true; text: "원본 JPG/TIFF는 포함하지 않습니다. 최초 2D 원본 SHA 검증과 실험 종속 자산 저장을 수행합니다. 다른 위치 저장은 동일 프로젝트의 복사본이며 새 파일 경로가 필요합니다."; wrapMode: Text.Wrap; color: theme.muted; font.pixelSize: theme.smallSize }
             RowLayout {
                 AppButton { objectName: "projectCommitSave"; theme: root.theme; text: root.creating ? "프로젝트 생성" : "프로젝트 저장"; enabled: nameInput.text.trim().length > 0 && pathInput.text.length > 0 && !project.busy; onClicked: { editor.close(); if (root.creating) fileBridge.projects.create(nameInput.text, pathInput.text); else fileBridge.projects.save(pathInput.text, nameInput.text) } }
                 AppButton { objectName: "projectCancelSave"; theme: root.theme; text: "취소"; onClicked: { root.afterSave = null; editor.close() } }
@@ -106,8 +106,8 @@ Item {
             AppButton { objectName: "projectCentralSync"; theme: root.theme; text: "중앙 서버 · 동기화…"; onClicked: centralSyncDialog.open() }
             RowLayout {
                 AppButton { objectName: "projectRegisterImage"; theme: root.theme; text: "현재 원본 등록"; enabled: uiState.hasLoadedImage && !project.busy; onClicked: fileBridge.projects.registerCurrent() }
-                AppButton { objectName: "projectCaptureLive"; theme: root.theme; text: "현재 분석 추가"; enabled: uiState.analysis.hasResult && uiState.imageFormat === "JPEG" && !project.busy; onClicked: fileBridge.projects.captureCurrent() }
-                AppButton { objectName: "projectCaptureExperiment"; theme: root.theme; text: "실험 근거 추가"; enabled: uiState.experiment.total > 0 && uiState.imageFormat === "JPEG" && !project.busy; onClicked: fileBridge.projects.importCurrentExperiment() }
+                AppButton { objectName: "projectCaptureLive"; theme: root.theme; text: "현재 분석 추가"; enabled: uiState.analysis.hasResult && uiState.analysisEligible && !project.busy; onClicked: fileBridge.projects.captureCurrent() }
+                AppButton { objectName: "projectCaptureExperiment"; theme: root.theme; text: "실험 근거 추가"; enabled: uiState.experiment.total > 0 && uiState.analysisEligible && !project.busy; onClicked: fileBridge.projects.importCurrentExperiment() }
                 AppButton { objectName: "projectRestoreView"; theme: root.theme; text: "마지막 열람 복원"; enabled: !!project.lastView.source_id && !project.busy; onClicked: { hostWindow.confirmRoiDiscard(function() { fileBridge.projects.restoreView() }); workspace.close() } }
                 AppButton { objectName: "projectShowLive"; theme: root.theme; text: "현재 분석 보기"; enabled: !project.busy; onClicked: { fileBridge.research.show_live(); workspace.close(); hostWindow.requestContext("result", "MANUAL") } }
             }

@@ -463,8 +463,8 @@ class FileBridge(QObject):
     @Slot(str, int, int, int, int, "QVariantMap", result=bool)
     def requestAnalysis(self, scope, x, y, width, height, parameters):
         source = self.original_source or self.pipeline.source
-        if source is not None and source.metadata.format == 'TIFF':
-            return self.pipeline.reject(AnalysisError("INVALID_INPUT", "TIFF는 ImageJ 선택·측정과 스택 탐색용입니다. 모델 분석에는 JPG를 여세요"))
+        if source is not None and (source.metadata.page_count != 1 or self._stack_context):
+            return self.pipeline.reject(AnalysisError("INVALID_INPUT", "여러 페이지 TIFF는 스택·3D 탐색용입니다. 모델 분석에는 단일 페이지 2D 이미지를 여세요"))
         if self.review_controller.pending:
             self.review_controller.error="작성 중인 검수·영역을 기록하거나 취소한 뒤 분석하세요."
             self.review_controller.changed.emit()
