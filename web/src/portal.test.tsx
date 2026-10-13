@@ -54,12 +54,15 @@ describe("download and administrator safeguards", () => {
       </MemoryRouter>,
     );
     const button = await screen.findByRole("link", {
-      name: /Windows 설치 프로그램 다운로드/,
+      name: /Windows 다운로드/,
     });
     expect(button.getAttribute("href")).toBe(
       "/portal-api/releases/0.1.0/download",
     );
-    expect(screen.getByText(/코드 서명이 없습니다/)).toBeTruthy();
+    expect(screen.queryByText(/SHA-256/)).toBeNull();
+    expect(screen.queryByText("사용 전에 확인하세요")).toBeNull();
+    expect(screen.queryByText("사용 가이드", {selector:"h1"})).toBeNull();
+    expect(screen.getByRole("link", {name:/GPLv3 소스 다운로드/}).getAttribute("href")).toBe("/portal-api/releases/0.1.0/source");
     expect(screen.queryByText("관리자 인증키")).toBeNull();
   });
   it("does not fabricate a download when no version is published", async () => {
@@ -71,7 +74,7 @@ describe("download and administrator safeguards", () => {
     );
     expect(await screen.findByText("설치 파일을 준비 중입니다")).toBeTruthy();
     expect(
-      screen.queryByRole("link", { name: /Windows 설치 프로그램 다운로드/ }),
+      screen.queryByRole("link", { name: /Windows 다운로드/ }),
     ).toBeNull();
   });
   it("keeps the newest request when an obsolete response completes late", async () => {
@@ -121,7 +124,7 @@ it("navigates master-detail tabs with keyboard and keeps the current screenshot"
  render(<MemoryRouter><GuideWorkspace data={data}/></MemoryRouter>);
  fireEvent.keyDown(screen.getByRole("tab",{name:"Fit"}),{key:"ArrowRight"});
  await waitFor(()=>expect(screen.getByRole("tab",{name:"Zoom"}).getAttribute("aria-selected")).toBe("true"));
- expect(screen.getByRole("img").getAttribute("src")).toBe("/portal-api/guide/images/zoom");
+ expect(screen.getByRole("img").getAttribute("src")).toBe("/portal-api/guide/public/images/zoom");
  fireEvent.click(screen.getByRole("button",{name:/ROI/}));
  expect(screen.getByRole("tab",{name:"Edit"}).getAttribute("aria-selected")).toBe("true");
 });

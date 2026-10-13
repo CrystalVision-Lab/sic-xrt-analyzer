@@ -1439,126 +1439,75 @@ code,
 
 .guide-master{min-width:0;max-width:100%;}.guide-master nav{min-width:0;max-width:100%;}@media(max-width:760px){.guide-workspace{grid-template-columns:minmax(0,1fr);}.guide-master li{flex:0 0 150px;}}
 
-/* Aurora / Particles visual inspiration; original CSS implementation. */
-.download-stage {
-  position: relative;
-  isolation: isolate;
-  overflow: clip;
-  --glow-teal: #89dccf;
-  --glow-blue: #92bee7;
-  --glow-amber: #eac7a3;
-  --glow-opacity: .45;
-  --contour-opacity: .2;
+/* Full viewport Aurora / Dark Veil inspiration; original CSS, no WebGL loop. */
+html, body, #root { min-height: 100%; background: var(--canvas); color: var(--ink); }
+html { min-height: 100dvh; }
+.public-shell {
+  position: relative; isolation: isolate; min-height: 100dvh;
+  display: flex; flex-direction: column;
+  --glow-teal: #53c8bd; --glow-blue: #729cdd; --glow-amber: #e0bb96;
+  --glow-opacity: .42; --contour-opacity: .22;
 }
-.download-stage .research-hero { position: relative; z-index: 1; }
-.research-backdrop {
-  position: absolute;
-  inset: 0;
-  overflow: hidden;
-  pointer-events: none;
-  mask-image: linear-gradient(#000 72%, transparent 100%);
-}
-.backdrop-glow {
-  position: absolute;
-  width: min(850px, 65vw);
-  height: 560px;
-  border-radius: 50%;
-  opacity: var(--glow-opacity);
-  animation: aurora-drift 24s ease-in-out infinite alternate;
-  animation-play-state: paused;
-}
-.backdrop-glow-teal {
-  left: -15%; top: -43%;
-  background: radial-gradient(ellipse, var(--glow-teal), transparent 68%);
-}
-.backdrop-glow-blue {
-  right: -12%; top: -10%;
-  background: radial-gradient(ellipse, var(--glow-blue), transparent 68%);
-  animation-duration: 32s; animation-delay: -13s; animation-direction: alternate-reverse;
-}
-.backdrop-glow-amber {
-  width: min(600px, 50vw); height: 420px;
-  left: 36%; bottom: 0;
-  background: radial-gradient(ellipse, var(--glow-amber), transparent 68%);
-  opacity: calc(var(--glow-opacity) * .5);
-  animation-duration: 28s; animation-delay: -7s;
-}
-.backdrop-grid {
-  position: absolute; inset: 0;
-  background-image: radial-gradient(var(--teal) .6px, transparent .8px);
-  background-size: 32px 32px;
-  opacity: .09;
-  mask-image: linear-gradient(110deg, transparent 25%, #000 85%);
-}
-.backdrop-contours {
-  position: absolute;
-  inset: -7% -5% 0 20%;
-  color: var(--teal);
-  opacity: var(--contour-opacity);
-  animation: contour-drift 40s ease-in-out infinite alternate;
-  animation-play-state: paused;
-}
-.backdrop-contours svg { width: 100%; height: 100%; stroke: currentColor; stroke-width: .8; }
-.backdrop-particle {
-  position: absolute;
-  left: var(--x); top: var(--y);
-  width: var(--size); height: var(--size);
-  border-radius: 50%;
-  background: var(--teal);
-  box-shadow: 0 0 10px color-mix(in srgb, var(--teal) 35%, transparent);
-  opacity: .38;
-  animation: particle-float var(--duration) ease-in-out var(--delay) infinite alternate;
-  animation-play-state: paused;
-}
-.backdrop-veil {
-  position: absolute; inset: 0;
-  background: linear-gradient(100deg, color-mix(in srgb, var(--canvas) 50%, transparent), transparent 70%);
-}
-.research-backdrop[data-motion="running"] :is(.backdrop-glow, .backdrop-contours, .backdrop-particle) {
-  animation-play-state: running;
-}
-.backdrop-motion {
-  position: absolute;
-  right: max(24px, calc((100% - 1240px) / 2));
-  bottom: 16px;
-  z-index: 2;
-  display: inline-flex; align-items: center; gap: 6px;
-  padding: 7px 10px;
-  border: 1px solid var(--line);
-  border-radius: 20px;
-  background: var(--surface);
-  color: var(--muted);
-  font-size: 10px;
-}
+.public-shell > main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.public-shell .site-header { background: color-mix(in srgb, var(--canvas) 74%, transparent); border-color: color-mix(in srgb, var(--line) 70%, transparent); }
+.public-shell .nav nav a, .public-shell .admin-link { color: var(--muted); }
+.public-shell .nav nav a.active { color: var(--teal); }
+.public-shell .site-footer { border-top: 1px solid color-mix(in srgb, var(--line) 70%, transparent); padding-block: 22px; margin-top: auto; display: flex; justify-content: space-between; gap: 20px; color: var(--muted); font-size: 11px; }
+.public-shell .source-download { margin-right: 95px; display: inline-flex; align-items: center; gap: 5px; }
+.research-backdrop { position: fixed; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; background: var(--canvas); }
+.backdrop-glow { position: absolute; width: 120vmax; height: 100vmax; border-radius: 50%; opacity: var(--glow-opacity); animation: aurora-drift 26s ease-in-out infinite alternate paused; }
+.backdrop-glow-teal { left: -62vmax; top: -38vmax; background: radial-gradient(ellipse, var(--glow-teal), transparent 65%); }
+.backdrop-glow-blue { right: -66vmax; bottom: -38vmax; background: radial-gradient(ellipse, var(--glow-blue), transparent 66%); animation-duration: 34s; animation-delay: -14s; animation-direction: alternate-reverse; }
+.backdrop-glow-amber { width: 110vmax; height: 70vmax; left: -24vmax; bottom: -58vmax; background: radial-gradient(ellipse, var(--glow-amber), transparent 68%); animation-duration: 31s; animation-delay: -9s; }
+.backdrop-grid { position: absolute; inset: 0; background-image: radial-gradient(var(--teal) .6px, transparent .9px); background-size: 36px 36px; opacity: .08; mask-image: radial-gradient(ellipse at center, transparent 15%, #000 90%); }
+.backdrop-contours { position: absolute; inset: -18% -18%; color: var(--teal); opacity: var(--contour-opacity); animation: contour-drift 45s ease-in-out infinite alternate paused; }
+.backdrop-contours svg { width: 100%; height: 100%; stroke: currentColor; stroke-width: .65; }
+.backdrop-particle { position: absolute; left: var(--x); top: var(--y); width: var(--size); height: var(--size); border-radius: 50%; background: var(--teal); box-shadow: 0 0 10px var(--teal); opacity: .4; animation: particle-float var(--duration) ease-in-out var(--delay) infinite alternate paused; }
+.backdrop-veil { position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 42%, color-mix(in srgb, var(--canvas) 52%, transparent), transparent 78%); }
+.research-backdrop[data-motion="running"] :is(.backdrop-glow, .backdrop-contours, .backdrop-particle) { animation-play-state: running; }
+.backdrop-motion { position: fixed; bottom: 16px; right: 18px; z-index: 5; display: inline-flex; align-items: center; gap: 6px; padding: 7px 10px; border: 1px solid var(--line); border-radius: 20px; background: var(--canvas); color: var(--muted); font-size: 10px; }
 .backdrop-motion:hover { color: var(--teal); }
-[data-theme="dark"] .download-stage {
-  --glow-teal: #156d71; --glow-blue: #174e90; --glow-amber: #724828;
-  --glow-opacity: .75; --contour-opacity: .13;
-}
-@keyframes aurora-drift {
-  from { transform: translate3d(-4%, -5%, 0) rotate(-12deg) scale(1); }
-  to { transform: translate3d(12%, 13%, 0) rotate(16deg) scale(1.12); }
-}
-@keyframes contour-drift {
-  from { transform: translate3d(-2%, 2%, 0) rotate(-5deg); }
-  to { transform: translate3d(3%, -2%, 0) rotate(6deg); }
-}
-@keyframes particle-float {
-  from { transform: translate3d(0, 8px, 0); opacity: .18; }
-  to { transform: translate3d(8px, -18px, 0); opacity: .62; }
-}
+[data-theme="dark"] .public-shell { --glow-teal: #147572; --glow-blue: #234a98; --glow-amber: #845033; --glow-opacity: .68; --contour-opacity: .21; }
+.download-scene { flex: 1; padding-block: clamp(60px, 10vh, 120px) 85px; min-height: 660px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+.institute-wordmark { position: relative; width: 245px; margin-bottom: 52px; }
+.institute-wordmark img { display: block; width: 100%; height: auto; background: transparent; }
+.institute-wordmark .wordmark-contrast { display: none; position: absolute; inset: 0; filter: brightness(0) invert(1); mask-image: linear-gradient(to right, transparent 35%, #000 35%); }
+[data-theme="dark"] .institute-wordmark .wordmark-contrast { display: block; opacity: .82; }
+.download-scene .eyebrow { font-size: 10px; letter-spacing: 3px; }
+.download-scene h1 { font-size: clamp(44px, 6vw, 82px); line-height: 1.12; letter-spacing: -.06em; margin-top: 22px; color: var(--ink); }
+.download-scene h1 span { color: var(--teal); }
+.download-subtitle { color: var(--muted); font-size: 17px; margin-top: 22px; }
+.download-action { margin-top: 42px; max-width: 100%; }
+.download-primary { display: inline-flex; align-items: center; justify-content: center; gap: 18px; min-height: 60px; padding: 18px 29px; border: 1px solid #1e8c86; border-radius: 14px; background: linear-gradient(125deg, #138d81, #096d72); box-shadow: 0 12px 36px #087c7226, inset 0 1px 0 #ffffff26; color: white; font-size: 16px; font-weight: 600; }
+.download-primary:hover { background: linear-gradient(125deg, #169d8f, #08777d); box-shadow: 0 15px 42px #087c7238; }
+.download-version { display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 17px; font-size: 11px; color: var(--muted); }
+.download-version > span { border-left: 1px solid var(--line); padding-left: 9px; }
+.notes-page { width: min(780px, calc(100% - 80px)); padding-block: 70px 90px; }
+.notes-page h1 { font-size: clamp(28px, 3vw, 40px); margin-top: 17px; }
+.latest-note { margin-top: 42px; }
+.note-edition { display: flex; gap: 16px; align-items: center; font-size: 12px; color: var(--muted); padding-bottom: 20px; border-bottom: 1px solid var(--line); }
+.note-edition > span:last-child { color: var(--teal); }
+.note-improvements { display: grid; gap: 34px; margin-top: 32px; }
+.note-improvements > section { display: flex; gap: 20px; align-items: flex-start; }
+.note-improvements svg { color: var(--teal); margin-top: 4px; flex-shrink: 0; }
+.note-improvements h2 { font-size: 19px; }
+.note-improvements p, .note-summary { font-size: 14px; line-height: 1.9; margin-top: 10px; color: var(--muted); }
+.public-shell .guide-section { border-top: 0; padding-top: 45px; }
+.public-shell .guide-heading h1 { font-size: 32px; margin-top: 12px; }
+.public-shell .guide-detail { background: color-mix(in srgb, var(--surface) 94%, transparent); }
+@keyframes aurora-drift { from { transform: translate3d(-3%, -4%, 0) rotate(-9deg) scale(1); } to { transform: translate3d(10%, 9%, 0) rotate(15deg) scale(1.09); } }
+@keyframes contour-drift { from { transform: translate3d(-2%, 2%, 0) rotate(-5deg); } to { transform: translate3d(3%, -2%, 0) rotate(6deg); } }
+@keyframes particle-float { from { transform: translate3d(0, 8px, 0); opacity: .18; } to { transform: translate3d(8px, -18px, 0); opacity: .62; } }
 @media (max-width: 760px) {
-  .download-stage .research-hero { padding-bottom: 58px; }
-  .backdrop-glow { width: 100vw; height: 480px; }
-  .backdrop-glow-teal { left: -40%; top: -15%; }
-  .backdrop-glow-blue { right: -50%; top: 30%; }
-  .backdrop-contours { inset: 10% -50% 15% -30%; }
-  .backdrop-motion { right: 16px; bottom: 12px; }
+  .download-scene { min-height: 560px; padding-block: 55px 80px; }
+  .institute-wordmark { width: 210px; margin-bottom: 42px; }
+  .download-scene h1 { max-width: 300px; font-size: 49px; line-height: 1.15; }
+  .download-subtitle { font-size: 14px; }
+  .download-primary { padding: 17px 23px; gap: 12px; font-size: 14px; }
+  .download-version { font-size: 10px; gap: 6px; }
+  .public-shell .source-download { margin-right: 0; }
+  .public-shell .site-footer { flex-direction: column; gap: 10px; padding-block: 20px 50px; }
+  .notes-page { width: calc(100% - 32px); padding-block: 40px 65px; }
+  .backdrop-contours { inset: -15% -100%; }
 }
-@media (prefers-reduced-motion: reduce) {
-  .research-backdrop :is(.backdrop-glow, .backdrop-contours, .backdrop-particle) { animation: none !important; }
-}
-
-.download-stage :is(.hero-lead, .download-meta, .download-note, .download-support) { color: var(--muted); }
-.download-stage .download-note p { color: inherit; }
-.download-stage :is(.download-card, .hash) { border-color: var(--line); }
+@media (prefers-reduced-motion: reduce) { .research-backdrop :is(.backdrop-glow, .backdrop-contours, .backdrop-particle) { animation: none !important; } }

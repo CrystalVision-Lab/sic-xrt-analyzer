@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import { Pause, Play } from "lucide-react";
 
 // Fixed decoration: no random render values, canvas loop, external assets or data requests.
@@ -9,9 +9,7 @@ const particles = [
 ];
 
 export function ResearchBackdrop() {
-  const root = useRef<HTMLDivElement>(null);
   const [enabled, setEnabled] = useState(true);
-  const [inView, setInView] = useState(true);
   const [visible, setVisible] = useState(() => !document.hidden);
   const [reduced, setReduced] = useState(() =>
     window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false,
@@ -23,27 +21,23 @@ export function ResearchBackdrop() {
     const onVisibility = () => setVisible(!document.hidden);
     media?.addEventListener("change", onMotion);
     document.addEventListener("visibilitychange", onVisibility);
-    const observer = typeof IntersectionObserver === "undefined" ? null :
-      new IntersectionObserver(entries => setInView(entries.some(entry => entry.isIntersecting)));
-    if (root.current) observer?.observe(root.current);
     return () => {
       media?.removeEventListener("change", onMotion);
       document.removeEventListener("visibilitychange", onVisibility);
-      observer?.disconnect();
     };
   }, []);
 
-  const playing = enabled && inView && visible && !reduced;
+  const playing = enabled && visible && !reduced;
   return <>
-    <div ref={root} className="research-backdrop" aria-hidden="true" data-motion={playing ? "running" : "paused"}>
+    <div className="research-backdrop" aria-hidden="true" data-motion={playing ? "running" : "paused"}>
       <div className="backdrop-glow backdrop-glow-teal" />
       <div className="backdrop-glow backdrop-glow-blue" />
       <div className="backdrop-glow backdrop-glow-amber" />
       <div className="backdrop-grid" />
       <div className="backdrop-contours">
-        <svg viewBox="0 0 1200 800" fill="none" focusable="false">
-          {Array.from({ length: 8 }, (_, i) => <ellipse key={i} cx="835" cy="340"
-            rx={330 + i * 27} ry={155 + i * 21} transform="rotate(-24 835 340)" />)}
+        <svg viewBox="0 0 1600 1000" preserveAspectRatio="xMidYMid slice" fill="none" focusable="false">
+          {Array.from({ length: 8 }, (_, i) => <ellipse key={i} cx="800" cy="680"
+            rx={570 + i * 36} ry={210 + i * 28} transform="rotate(-22 800 680)" />)}
         </svg>
       </div>
       {particles.map(([x, y, size, duration], i) => <span key={i} className="backdrop-particle"
