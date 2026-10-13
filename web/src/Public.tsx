@@ -58,6 +58,11 @@ const improvements = [
   { icon: Sparkles, title: "2D TIFF도 분석할 수 있어요", text: "단일 페이지 TIFF에서 분석·저장·검수를 연결했습니다. 여러 페이지 TIFF는 스택·3D 탐색으로 구분합니다." },
   { icon: RefreshCw, title: "새 버전을 프로그램에서 확인해요", text: "업데이트 알림과 설치 파일 다운로드를 추가했습니다." },
 ];
+const workflowImprovements = [
+  { icon: Image, title: "분석 결과를 이어서 봐요", text: "창을 닫거나 다른 화면을 다녀와도 이미지별 결과를 다시 열 수 있습니다." },
+  { icon: Sparkles, title: "찾는 과정을 영상에서 확인해요", text: "처리 영역과 완료된 후보를 실시간으로 표시하고, BPD 영역 제안·ROI 레이어·선택 신고를 연결했습니다." },
+  { icon: RefreshCw, title: "작업 화면을 간단하게 정리했어요", text: "폴더로 여는 Wafer Map, 전·후 비교, TIFF 선택 영역의 3D 보기로 작업을 줄였습니다." },
+];
 export function NotesPage() {
   const { data, error, loading } = useData<Release[]>("releases");
   const latest = latestRelease(data);
@@ -65,7 +70,7 @@ export function NotesPage() {
     <p className="eyebrow">DEVELOPMENT NOTES</p><h1 id="notes-title">조금 더 편한 연구를 위해.</h1>
     {loading ? <Loading /> : error ? <ErrorBox error={error} /> : latest ? <article className="latest-note">
       <div className="note-edition"><span>이번 업데이트</span><span>v{latest.manifest.version}</span></div>
-      {latest.manifest.version === "0.1.1" ? <div className="note-improvements">{improvements.map(({icon: Icon, title, text}) => <section key={title}><Icon size={22} aria-hidden="true" /><div><h2>{title}</h2><p>{text}</p></div></section>)}</div> : <p className="note-summary">{latest.manifest.notes}</p>}
+      {(latest.manifest.version === "0.1.1" || latest.manifest.version.startsWith("0.2.")) ? <div className="note-improvements">{(latest.manifest.version.startsWith("0.2.") ? workflowImprovements : improvements).map(({icon: Icon, title, text}) => <section key={title}><Icon size={22} aria-hidden="true" /><div><h2>{title}</h2><p>{text}</p></div></section>)}</div> : <p className="note-summary">{latest.manifest.notes}</p>}
     </article> : <Empty title="개발노트를 준비 중입니다" />}
   </section></PublicShell>;
 }

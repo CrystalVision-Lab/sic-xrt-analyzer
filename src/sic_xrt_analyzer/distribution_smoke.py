@@ -109,6 +109,46 @@ def main(output, image_paths=(), verify_updates=False):
             if c.state["rhi_available"]:
                 assert window.findChild(QObject, "stack3dPerspective")
                 report["tests"].append("QtQuick3D runtime")
+            # Compiled UI lifecycle with a clearly synthetic classifier. This
+            # tests packaging/signals/cache, not scientific model performance.
+            from sic_xrt_analyzer.analysis.desktop_adapter import DesktopResearchAdapter
+            class QaClassifier:
+                def __init__(self):
+                    self.manifest={"architecture":"synthetic-package-qa","model_sha256":"0"*64}
+                def predict(self,patches):
+                    return np.tile(np.array([.8,.1,.1]),(len(patches),1))
+            from PIL import ImageDraw
+            qa_image=Image.open(jpeg)
+            ImageDraw.Draw(qa_image).rectangle((250,250,260,260),fill=(255,255,255))
+            qa_image.save(jpeg)
+            bridge.pipeline.adapter=DesktopResearchAdapter(None,QaClassifier())
+            window.findChild(QObject,"uiState").setProperty("workspaceIndex",0)
+            bridge.requestImage(QUrl.fromLocalFile(str(jpeg)).toString())
+            spin(lambda: bridge.original_source is not None and bridge.original_source.path==str(jpeg) and not bridge.stack_viewer.busy)
+            action=window.findChild(QObject,"prepareAnalysisAction")
+            action.trigger(None)
+            dialog=window.findChild(QObject,"analysisDialog")
+            assert dialog.property("visible")
+            window.findChild(QObject,"confirmAnalysis").clicked.emit()
+            spin(lambda:bridge.analysis["hasResult"] or bridge.analysis["state"]=="FAILED")
+            assert bridge.analysis["hasResult"],bridge.analysis["errorMessage"]
+            completed=bridge.pipeline.result
+            assert completed.detections
+            state=window.findChild(QObject,"uiState")
+            assert state.property("hasResult")
+            window.setProperty("inspectorCollapsed",True)
+            assert bridge.pipeline.result is completed
+            window.setProperty("inspectorCollapsed",False)
+            assert bridge.pipeline.result is completed
+            bridge.displayLayers.add(200,200,128,128)
+            layer=bridge.displayLayers.rows[0]
+            bridge.displayLayers.toggle(layer["id"],False)
+            assert not bridge.displayLayers.rows[0]["visible"]
+            bridge.pipeline.set_source(None)
+            bridge.pipeline.set_source(bridge.original_source)
+            assert bridge.pipeline.result.analysis_id==completed.analysis_id
+            report["tests"].append("synthetic modal/progress/cache/ROI-layer lifecycle (not model accuracy)")
+            spin(lambda:not bridge.projects.busy)
             if verify_updates:
                 bridge.appUpdates.checkUpdates()
                 spin(lambda: not bridge.appUpdates.busy, 30)
