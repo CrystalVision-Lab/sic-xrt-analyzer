@@ -83,7 +83,6 @@ try {
   } else {
     // Private credential is read locally and supplied only to the intended same-origin login.
     // Never print it, put it in a URL, record a trace or save authenticated screenshots to Git.
-    if (!["localhost","127.0.0.1"].includes(new URL(origin).hostname)) throw new Error("Authenticated QA is restricted to localhost; use XRT_QA_PUBLIC_ONLY=1 for public URLs");
     if (!["localhost", "127.0.0.1"].includes(new URL(origin).hostname)) throw new Error("Authenticated QA is restricted to localhost; use XRT_QA_PUBLIC_ONLY=1 for public URLs");
     const credential = JSON.parse(
       await readFile("../artifacts/sync106-private/admin.json", "utf8"),

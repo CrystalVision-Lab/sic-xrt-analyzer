@@ -254,6 +254,19 @@ class Store:
                         "download_requests": requests,
                     }
                 )
+            if public:
+                return [
+                    {
+                        "id": r["id"],
+                        "manifest": r["manifest"],
+                        "created_at": r["created_at"],
+                        "state": {
+                            "status": r["state"]["status"],
+                            "channel": r["state"]["channel"],
+                        },
+                    }
+                    for r in result
+                ]
             return result
 
     def transition(self, ident, status, channel, reason, previous, actor):

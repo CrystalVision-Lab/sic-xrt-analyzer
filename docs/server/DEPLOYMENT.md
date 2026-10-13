@@ -83,3 +83,8 @@ Linux CI에서 독립 서버 패키지와 PostgreSQL 검사를 통과시키지�
 ## 모델 Registry 및 업데이트 (TD-08)
 
 start 시 Alembic 0003이 불변 모델 테이블을 추가한다. 기존 연구·Dataset 자료는 보존한다. 상시 API는 Model Volume read-only, ONNX 검증은 별도 model-admin 일회성 프로세스다. 운영 신규 승인 모델은0개다. [모델 Registry 운영](MODEL-REGISTRY.md), [Release 보안](MODEL-RELEASE-SECURITY.md), [Desktop 모델 관리](../desktop/MODEL-UPDATES.md)를 따른다. 백업은 xrt-server-backup-2로 DB/Crop/모델·서명을 포함하며 Private Key는 별도 보호한다.
+
+
+## 다운로드 사이트 및 연구 관리자 포털 (DEPLOY-TD-01)
+
+기존 연구 API18766과 PostgreSQL0003은 유지한다. 웹18770과 독립 포털은 deploy/portal.compose.yml overlay로 운영한다. tools/portal_ops.py start/status/stop/backup을 사용한다. 새로운 포털 키는 private 폴더에 보호하며 상시 서비스에 admin.json을 노출하지 않는다. 연구 백업과 포털 백업을 각각 생성한다. [구성·임시 URL·라이선스 보류·검증](../deploy/XRT-DEPLOY-TD-01.md)을 따른다.

@@ -300,9 +300,24 @@ def create_app(state=None, downloads=None, key=None, upstream=None, transport=No
         )
         if ".." in path or "\\" in path or not read:
             raise HTTPException(404, "ROUTE_UNAVAILABLE")
-        result = fetch(
-            row["credential"], path, params=list(request.query_params.multi_items())
-        )
+        with client.stream(
+            "GET",
+            "/api/v1/" + path,
+            headers={"Authorization": "Bearer " + row["credential"]},
+            params=list(request.query_params.multi_items()),
+        ) as upstream_response:
+            parts = []
+            received = 0
+            for part in upstream_response.iter_bytes(65536):
+                received += len(part)
+                if received > 32 * 1024**2:
+                    raise HTTPException(413, "UPSTREAM_TOO_LARGE")
+                parts.append(part)
+            result = httpx.Response(
+                upstream_response.status_code,
+                headers=upstream_response.headers,
+                content=b"".join(parts),
+            )
         if result.status_code in (401, 403):
             raise HTTPException(401, "ADMIN_SESSION_UNAVAILABLE")
         if len(result.content) > 32 * 1024**2:
