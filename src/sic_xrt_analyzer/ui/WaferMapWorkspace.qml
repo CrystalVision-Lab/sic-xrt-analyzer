@@ -10,6 +10,7 @@ Rectangle {
     property var controller: fileBridge.waferMap
     property var state: controller.state
     property bool editTiles: false
+    property bool selectedJpeg: (state.sources||[]).some(function(s){return s.id===root.state.selected && s.format==="JPEG"})
     property var loadedUrls: []
     signal projectRequested()
     color: theme.viewer
@@ -21,7 +22,7 @@ Rectangle {
         map.requestPaint()
         var tiles=state.tiles||[]
         var urls=[]
-        for(var i=0;i<tiles.length;i++)if(tiles[i].preview)urls.push("image://tiff/wafer-"+tiles[i].source_id+"?r="+state.revision)
+        for(var i=0;i<tiles.length;i++)if(tiles[i].preview)urls.push("image://tiff/wafer-"+tiles[i].source_id+"?key="+tiles[i].preview_key)
         for(i=0;i<loadedUrls.length;i++)if(urls.indexOf(loadedUrls[i])<0)map.unloadImage(loadedUrls[i])
         loadedUrls=urls
         for(i=0;i<urls.length;i++)if(!map.isImageLoaded(urls[i]))map.loadImage(urls[i])
@@ -40,7 +41,7 @@ Rectangle {
             ComboBox {objectName:"mapGroup";Layout.fillWidth:true;model:root.state.groups||[];textRole:"label";currentIndex:root.indexOf(model,"id",root.state.group_id);onActivated:root.controller.selectGroup(model[currentIndex].id)}
             Button {objectName:"mapAddGroup";text:"관측 그룹 추가";enabled:root.state.available&&!root.state.busy;onClicked:groupDialog.open()}
             ComboBox {objectName:"mapHistory";Layout.preferredWidth:180;model:root.state.history||[];textRole:"label";displayText:"배치 이력 ▾";onActivated:root.controller.restoreHistory(model[currentIndex].ref)}
-            Button {objectName:"mapSave";text:root.state.dirty ? "배치 저장 *" : "배치 저장";enabled:root.state.available&&root.state.job!=="save";onClicked:saveDialog.open()}
+            Button {objectName:"mapSave";text:root.state.dirty ? "배치 저장 *" : "배치 저장";enabled:root.state.available&&root.state.job!=="save"&&(root.state.sources||[]).some(function(s){return s.format==="JPEG"});onClicked:saveDialog.open()}
         }
         RowLayout {
             Layout.fillWidth:true;Layout.fillHeight:true;spacing:8
@@ -94,11 +95,11 @@ Rectangle {
                         if(outline){c.strokeStyle="#93c2d0";c.beginPath();c.arc(outline.centre[0],outline.centre[1],outline.radius,0,2*Math.PI);c.stroke()}
                         var tiles=root.state.tiles||[]
                         for(var i=0;i<tiles.length;i++){
-                            var t=tiles[i],b=t.border,m=t.matrix,url="image://tiff/wafer-"+t.source_id+"?r="+root.state.revision
+                            var t=tiles[i],b=t.border,m=t.matrix,url="image://tiff/wafer-"+t.source_id+"?key="+t.preview_key
                             if(t.preview&&isImageLoaded(url)){c.save();c.setTransform(m[0][0],m[1][0],m[0][1],m[1][1],m[0][2],m[1][2]);c.globalAlpha=.65;c.drawImage(url,-.5,-.5,t.width,t.height);c.restore()}
                             c.strokeStyle=t.source_id===root.state.selected ? "#4ad2df" : t.status==="VERIFIED" ? "#8cdb9d" : "#dfb260";c.lineWidth=t.source_id===root.state.selected?3:1.5
                             c.beginPath();c.moveTo(b[0][0],b[0][1]);for(var j=1;j<b.length;j++)c.lineTo(b[j][0],b[j][1]);c.closePath();c.stroke()
-                            c.fillStyle=c.strokeStyle;c.font="11px sans-serif";c.fillText(t.name+(t.preview?"":" · "+t.availability),b[0][0]+4,b[0][1]+14)
+                            c.fillStyle=c.strokeStyle;c.font="11px sans-serif";c.fillText(t.name+" · "+t.run_label+(t.preview?"":" · "+t.availability),b[0][0]+4,b[0][1]+14)
                         }
                         var rows=root.state.paths||[],colours={BPD:"#f6b85b",TED:"#58ced6",TSD:"#c798f9",reviews:"#92db7a",human:"#f4efff",experimental:"#fa8bad",model_geometry:"#7b8d99"}
                         for(i=0;i<rows.length;i++){
@@ -131,7 +132,7 @@ Rectangle {
             Layout.fillWidth:true;spacing:6
             Layout.preferredHeight:childrenRect.height
             Button {objectName:"mapEdit";text:"타일 이동";checkable:true;checked:root.editTiles;onToggled:root.editTiles=checked}
-            Button {objectName:"mapPlace";text:"위치·회전·크기";enabled:!!root.state.selected;onClicked:placementDialog.open()}
+            Button {objectName:"mapPlace";text:"위치·회전·크기";enabled:root.selectedJpeg;onClicked:placementDialog.open()}
             Button {objectName:"mapVerify";text:"물리 기준점 검증";enabled:root.state.mode==="PHYSICAL"&&!!root.state.placement.source_id;onClicked:verifyDialog.open()}
             Button {objectName:"mapUnplace";text:"미배치로";enabled:!!root.state.placement.source_id;onClicked:root.controller.unplace()}
             Button {objectName:"mapReset";text:"저장 위치로";enabled:!!root.state.selected;onClicked:root.controller.resetPlacement()}
@@ -139,7 +140,7 @@ Rectangle {
             Button {objectName:"mapDiscard";text:"취소";enabled:root.state.job!=="save";onClicked:root.controller.discard()}
             Button {objectName:"mapOpen";text:"원본";enabled:!!root.state.selected;onClicked:root.controller.openSelected(false)}
             Button {objectName:"mapResult";text:"결과·선택 위치";enabled:!!root.state.selected;onClicked:root.controller.openSelected(true)}
-            Button {objectName:"mapCompare";text:"전·후 비교";enabled:!!root.state.selected;onClicked:compareDialog.open()}
+            Button {objectName:"mapCompare";text:"전·후 비교";enabled:root.selectedJpeg;onClicked:compareDialog.open()}
         }
         Text {Layout.fillWidth:true;color:root.state.error ? root.theme.error : root.theme.muted;font.pixelSize:11;wrapMode:Text.Wrap;text:root.state.error||root.state.message||""}
     }

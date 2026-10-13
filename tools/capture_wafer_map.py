@@ -11,8 +11,8 @@ from uuid import uuid4
 
 import numpy as np
 from PIL import Image
-from PySide6.QtCore import QObject, QPointF, QSettings, Qt, QUrl
-from PySide6.QtGui import QFont, QFontDatabase, QGuiApplication
+from PySide6.QtCore import QObject, QPoint, QPointF, QSettings, Qt, QUrl
+from PySide6.QtGui import QFont, QFontDatabase, QGuiApplication, QWheelEvent
 from PySide6.QtQml import QQmlApplicationEngine
 from PySide6.QtQuickControls2 import QQuickStyle
 from PySide6.QtTest import QTest
@@ -384,14 +384,64 @@ def main():
                     "canvas": [c.width, c.height],
                 }
             )
+        # Real QML wheel dispatch; original-pixel anchor must stay fixed.
+        tile_before = next(t for t in c.frame["tiles"] if t["source_id"] == sid)
+        anchor = [c.width * 0.55, c.height * 0.45]
+        from sic_xrt_analyzer.wafer_map.mapping import inverse, points
+
+        original_anchor = points(inverse(tile_before["matrix"]), [anchor])[0]
+        zoom_before = c.zoom
+        canvas = item("waferMapCanvas")
+        location = canvas.mapToScene(QPointF(*anchor))
+        event = QWheelEvent(
+            location,
+            window.mapToGlobal(location),
+            QPoint(0, 0),
+            QPoint(0, 120),
+            Qt.NoButton,
+            Qt.NoModifier,
+            Qt.NoScrollPhase,
+            False,
+        )
+        app.sendEvent(window, event)
+        settled()
+        assert c.zoom > zoom_before
+        tile_after = next(t for t in c.frame["tiles"] if t["source_id"] == sid)
+        anchor_error = float(
+            np.linalg.norm(
+                np.asarray(points(inverse(tile_after["matrix"]), [anchor])[0])
+                - original_anchor
+            )
+        )
+        assert anchor_error < 1e-9
+        initial_urls = item("waferMapWorkspace").property("loadedUrls").toVariant()
+        initial_decodes = c.scene.decode_count
         timings = []
         for n in range(20):
             ts = time.perf_counter()
-            c.pan(5 * (-1) ** n, 3)
-            c.zoomAt(1.01 if n % 2 else 1 / 1.01, c.width / 2, c.height / 2)
+            pos = canvas.mapToScene(QPointF(c.width / 2, c.height / 2)).toPoint()
+            delta = QPoint(5 * (-1) ** n, 3)
+            QTest.mousePress(window, Qt.RightButton, Qt.NoModifier, pos)
+            QTest.mouseMove(window, pos + delta, 1)
+            QTest.mouseRelease(window, Qt.RightButton, Qt.NoModifier, pos + delta)
+            wheel = QWheelEvent(
+                QPointF(pos),
+                window.mapToGlobal(QPointF(pos)),
+                QPoint(),
+                QPoint(0, 120 if n % 2 else -120),
+                Qt.NoButton,
+                Qt.NoModifier,
+                Qt.NoScrollPhase,
+                False,
+            )
+            app.sendEvent(window, wheel)
             settled()
             window.grabWindow()
             timings.append((time.perf_counter() - ts) * 1000)
+        assert c.scene.decode_count == initial_decodes
+        assert (
+            item("waferMapWorkspace").property("loadedUrls").toVariant() == initial_urls
+        )
         # Deliberate synthetic-only physical input; no actual wafer proof asserted.
         c.addGroup(
             "QA SYNTHETIC physical controls",
@@ -439,7 +489,9 @@ def main():
             "warnings": warnings,
             "layouts": layouts,
             "backend": window.rendererInterface().graphicsApi().name,
-            "pan_zoom_settle_and_grab_ms_includes_50ms_wait": timings,
+            "qtest_pan_wheel_settle_and_grab_ms_includes_50ms_wait": timings,
+            "mouse_wheel_anchor_error_original_px": anchor_error,
+            "pan_zoom_preview_urls_and_decode_count_stable": True,
             "cache_items": len(c.scene.previews),
             "counts_full": 2946,
             "counts_roi": 791,

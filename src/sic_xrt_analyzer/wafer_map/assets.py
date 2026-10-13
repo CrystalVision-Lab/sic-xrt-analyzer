@@ -191,7 +191,8 @@ def _validate(a, project=None):
             raise ValueError("배치 SHA 오류")
         if len(p["size"]) != 2 or any(type(v) is not int or v < 1 for v in p["size"]):
             raise ValueError("배치 해상도 오류")
-        datetime.fromisoformat(p["created_at"])
+        if datetime.fromisoformat(p["created_at"]).tzinfo is None:
+            raise ValueError("배치 시각에 timezone 필요")
         g = groups[p["group_id"]]
         matrix(p["matrix"], g["axes"])
         if p["status"] not in ("UNVERIFIED", "VERIFIED"):
@@ -376,6 +377,12 @@ def placement_metadata(ref, p, groups):
 
 
 def append(project, a, path):
+    if not any(
+        s.acquisition_metadata.get("format") == "JPEG" for s in project.image_sources
+    ):
+        raise ValueError(
+            "Wafer Map 저장에는 JPG 원본 등록이 필요합니다. TIFF는 Stack/향후 3D용입니다."
+        )
     validate(a, project)
     ref = publish(path, a)
     groups = {g["id"]: g for g in a["groups"]}

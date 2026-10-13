@@ -20,7 +20,7 @@ from sic_xrt_analyzer.wafer_map.mapping import (
     layout,
     points,
 )
-from sic_xrt_analyzer.wafer_map.scene import Scene
+from sic_xrt_analyzer.wafer_map.scene import Scene, hit_path
 
 from .latest_reader import LatestReader
 
@@ -126,7 +126,14 @@ class WaferMapController(QObject):
                     ]
                     self.asset["runs"][s.source_id] = runs[-1].run_id if runs else ""
             if self.selected not in {s.source_id for s in p.image_sources}:
-                self.selected = ""
+                self.selected = next(
+                    (
+                        s.source_id
+                        for s in p.image_sources
+                        if s.acquisition_metadata.get("format") == "JPEG"
+                    ),
+                    p.image_sources[0].source_id if p.image_sources else "",
+                )
             if self.active:
                 self.requestFrame(self.width, self.height)
         self.changed.emit()
@@ -625,6 +632,14 @@ class WaferMapController(QObject):
             if p["group_id"] == self.asset["selected_group"]
             for xy in footprint(p["matrix"], *p["size"])
         ]
+        group = next(
+            g for g in self.asset["groups"] if g["id"] == self.asset["selected_group"]
+        )
+        if group["geometry"]:
+            geo = group["geometry"]
+            x, y = geo["centre"]
+            radius = geo["radius"]
+            bounds.extend([[x - radius, y - radius], [x + radius, y + radius]])
         if bounds:
             v = np.asarray(bounds)
             lo = v.min(0)
@@ -644,6 +659,7 @@ class WaferMapController(QObject):
         else:
             self.centre = [0.0, 0.0]
             self.zoom = 1.0
+        self.zoom = float(self.zoom)
         self.requestFrame(self.width, self.height)
 
     def yDirection(self):
@@ -682,10 +698,7 @@ class WaferMapController(QObject):
     def hit(self, x, y):
         xy = np.asarray([x, y])
         for row in reversed(self.frame.get("paths", [])):
-            if any(
-                np.min(np.linalg.norm(np.asarray(p) - xy, axis=1)) <= 7
-                for p in row["paths"]
-            ):
+            if any(hit_path(p, xy) for p in row["paths"]):
                 self.selected = row["source_id"]
                 self.selected_target = row
                 self.changed.emit()

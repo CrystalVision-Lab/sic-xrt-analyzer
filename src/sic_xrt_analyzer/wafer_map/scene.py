@@ -255,6 +255,10 @@ class Scene:
             if p["group_id"] == group["id"]
         }
         source_map = {s.source_id: s for s in project.image_sources}
+        run_labels = {
+            r.run_id: r.scope.value + " · " + r.run_id[:8]
+            for r in project.analysis_runs
+        }
         screen = view(centre, zoom, width, height, group["axes"])
         tiles = []
         images = {}
@@ -302,6 +306,9 @@ class Scene:
                 {
                     "source_id": sid,
                     "name": s.display_name,
+                    "run_label": run_labels.get(
+                        asset["runs"].get(sid, ""), "표시 결과 없음"
+                    ),
                     "matrix": transform.tolist(),
                     "width": s.width,
                     "height": s.height,
@@ -309,6 +316,7 @@ class Scene:
                     "status": p["status"],
                     "availability": status,
                     "preview": image is not None,
+                    "preview_key": str(image.cacheKey()) if image is not None else "",
                 }
             )
             shown[sid] = transform
@@ -350,7 +358,7 @@ class Scene:
         if geo:
             outline = {
                 "centre": points(screen, [geo["centre"]])[0],
-                "radius": geo["radius"] * zoom,
+                "radius": float(geo["radius"] * zoom),
             }
         totals = Counter()
         for c in counts_by_source.values():
@@ -381,3 +389,21 @@ class Scene:
                 "display_paths": len(paths_out),
             },
         }
+
+
+def hit_path(path, xy, tolerance=7):
+    """Hit actual segment interiors as well as point/edge vertices, in screen pixels."""
+    vertices = np.asarray(path, float)
+    if len(vertices) == 1:
+        return np.linalg.norm(vertices[0] - xy) <= tolerance
+    start = vertices[:-1]
+    edge = vertices[1:] - start
+    lengths = (edge * edge).sum(axis=1)
+    t = np.divide(
+        ((np.asarray(xy) - start) * edge).sum(axis=1),
+        lengths,
+        out=np.zeros_like(lengths),
+        where=lengths > 0,
+    )
+    closest = start + np.clip(t, 0, 1)[:, None] * edge
+    return np.min(np.linalg.norm(closest - xy, axis=1)) <= tolerance

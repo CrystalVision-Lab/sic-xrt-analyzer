@@ -242,9 +242,17 @@ def test_history_atomic_revision_save_as_and_missing_source(study, tmp_path):
     publish_dependencies(new, r, [], path)
     ProjectStore().save(new, r)
     assert ProjectStore().load(new) == r
+    from sic_xrt_analyzer.sync.protocol import encode, project_projection
+
+    projection = encode(project_projection(r))
+    assert b"wafer-maps" not in projection and b"RELATIVE_LAYOUT" not in projection
     assert hashlib.sha256(Path(s.source_reference).read_bytes()).hexdigest() == sha
     Path(s.source_reference).unlink()
     assert ProjectStore().load(new) == r
+    from sic_xrt_analyzer.sync.protocol import encode, project_projection
+
+    projection = encode(project_projection(r))
+    assert b"wafer-maps" not in projection and b"RELATIVE_LAYOUT" not in projection
     for table in (
         "analysis_runs",
         "observations",
@@ -309,6 +317,7 @@ def test_run_selection_culling_cache_and_counts(study):
     assert scene.decode_count == 1
     nextframe = scene.render(p, a, [320, 256], 2, 900, 700)
     assert scene.decode_count == 1 and frame["summary"] == nextframe["summary"]
+    assert frame["tiles"][0]["preview_key"] == nextframe["tiles"][0]["preview_key"]
     offscreen = scene.render(p, a, [100000, 100000], 1, 900, 700)
     assert (
         not offscreen["tiles"]
@@ -340,6 +349,11 @@ def test_graph_edges_and_mask_bounds_are_exact(study):
         ),
     )
     assert paths(g) == [[(10, 10), (15, 12), (20, 10)], [[10, 10], [10, 20]]]
+    from sic_xrt_analyzer.wafer_map.scene import hit_path
+
+    assert hit_path([[0, 0], [100, 100]], [50, 50])
+    assert not hit_path([[0, 0], [100, 100]], [50, 80])
+    assert hit_path([[0, 0], [0, 0]], [0, 0])
     i = DefectInstance(
         str(uuid4()),
         s.source_id,
@@ -376,6 +390,8 @@ def test_failed_registration_is_not_identity(study):
     m = compose(r, target, g, s, other, "QA known target")
     expected = np.asarray(target["matrix"]) @ np.asarray(r["matrix"])
     assert np.allclose(m, expected)
+    with pytest.raises(ValueError):
+        compose(r, target, {**g, "id": "different-wafer-group"}, s, other, "QA")
     with pytest.raises(ValueError):
         compose(r, target, g, s, other, "")
     with pytest.raises(ValueError):

@@ -148,6 +148,7 @@ def compose(registration, target, group, source, target_source, same_target_evid
         registration["status"] != "ACCEPTED"
         or not registration["matrix"]
         or target["status"] != "VERIFIED"
+        or target["group_id"] != group["id"]
         or group["mode"] != "PHYSICAL"
         or not same_target_evidence.strip()
     ):

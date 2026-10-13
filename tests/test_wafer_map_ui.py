@@ -129,8 +129,8 @@ def test_physical_requires_independent_points_and_no_implicit_verification(
         "synthetic origin",
         "X_RIGHT_Y_DOWN",
         "QA-only known grid",
-        "",
-        "",
+        "4 5 10",
+        "QA-only",
     )
     settled(qt_app, c)
     assert not c.error, c.error
