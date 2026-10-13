@@ -170,3 +170,23 @@ def compose(registration, target, group, source, target_source, same_target_evid
     )
     # Composition is a proposal: independent source control points are still required to verify it.
     return result.tolist()
+
+
+def view(centre, zoom, width, height, axes="X_RIGHT_Y_DOWN"):
+    """Physical +Y up maps toward screen -Y; relative/image +Y maps down."""
+    sign = -1 if axes == "X_RIGHT_Y_UP" else 1
+    values = np.asarray([*centre, zoom, width, height], float)
+    if (
+        values.shape != (5,)
+        or not np.isfinite(values).all()
+        or min(zoom, width, height) <= 0
+    ):
+        raise ValueError("유한한 지도 화면 크기·양수 배율이 필요합니다")
+    return matrix(
+        [
+            [zoom, 0, width / 2 - zoom * centre[0]],
+            [0, sign * zoom, height / 2 - sign * zoom * centre[1]],
+            [0, 0, 1],
+        ],
+        axes,
+    )

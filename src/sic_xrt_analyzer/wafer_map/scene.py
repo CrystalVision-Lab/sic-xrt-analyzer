@@ -9,7 +9,7 @@ from PySide6.QtGui import QImage
 from sic_xrt_analyzer.imaging.image_stack import JpegImageSource
 from sic_xrt_analyzer.results.sources import inspect_source, verify_content_hash
 
-from .mapping import points
+from .mapping import points, view
 
 
 def check(cancelled):
@@ -131,6 +131,7 @@ class Scene:
                 return
             if sum(len(p) for p in ps) > 4096:
                 counts["omitted_large_shapes"] += 1
+                by_source[source]["omitted_large_shapes"] += 1
                 return
             rows.append(
                 {
@@ -254,13 +255,7 @@ class Scene:
             if p["group_id"] == group["id"]
         }
         source_map = {s.source_id: s for s in project.image_sources}
-        screen = np.array(
-            [
-                [zoom, 0, width / 2 - zoom * centre[0]],
-                [0, zoom, height / 2 - zoom * centre[1]],
-                [0, 0, 1],
-            ]
-        )
+        screen = view(centre, zoom, width, height, group["axes"])
         tiles = []
         images = {}
         shown = {}

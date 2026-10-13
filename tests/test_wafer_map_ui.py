@@ -86,6 +86,12 @@ def test_draft_edit_save_reload_history_and_layers(workspace, qt_app):
     assert not bridge.projects.dirty and bridge.projects.saved_snapshot == stored
     c.place(999, 888, 45, 0.1, 0.1)
     settled(qt_app, c)
+    c.resetPlacement()
+    settled(qt_app, c)
+    assert np.allclose(c.selectedPlacement()["matrix"], m)
+    c.undo()
+    settled(qt_app, c)
+    assert not np.allclose(c.selectedPlacement()["matrix"], m)
     bridge.projects.open(str(path))
     spin(qt_app, lambda: not bridge.projects.busy and not c.busy)
     assert assets.active_reference(bridge.projects.project) == ref
@@ -216,3 +222,48 @@ def test_tiff_cancel_missing_and_candidate_source_route(workspace, qt_app):
     assert "TIFF" in c.error
     assert bridge.pipeline.result is None
     assert not warnings, warnings
+
+
+def test_y_up_pan_zoom_anchor_and_move_are_screen_consistent(workspace, qt_app):
+    _bridge, c, _window, warnings, _path, _s = workspace
+    c.addGroup(
+        "QA Y-up",
+        "PHYSICAL",
+        "QA-WAFER",
+        "QA-UP",
+        "mm",
+        "QA origin",
+        "X_RIGHT_Y_UP",
+        "QA-only",
+        "",
+        "",
+    )
+    c.place(1, 2, 0, 0.01, 0.02)
+    c.fit()
+    settled(qt_app, c)
+    from sic_xrt_analyzer.wafer_map.mapping import inverse, points, view
+
+    group = c.asset["groups"][-1]
+    anchor = [c.width * 0.7, c.height * 0.3]
+    world = points(
+        inverse(view(c.centre, c.zoom, c.width, c.height, group["axes"])), [anchor]
+    )[0]
+    c.zoomAt(2, *anchor)
+    settled(qt_app, c)
+    assert np.allclose(
+        points(view(c.centre, c.zoom, c.width, c.height, group["axes"]), [world])[0],
+        anchor,
+    )
+    original = np.array(c.selectedPlacement()["matrix"])
+    border = np.array(c.frame["tiles"][0]["border"])
+    c.move(30, 20)
+    settled(qt_app, c)
+    assert np.allclose(np.array(c.frame["tiles"][0]["border"]) - border, [30, 20])
+    c.undo()
+    settled(qt_app, c)
+    assert np.allclose(c.selectedPlacement()["matrix"], original)
+    before = np.array(c.frame["tiles"][0]["border"])
+    c.pan(20, -30)
+    settled(qt_app, c)
+    assert np.allclose(np.array(c.frame["tiles"][0]["border"]) - before, [20, -30])
+    assert not warnings

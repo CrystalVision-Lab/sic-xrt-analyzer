@@ -81,7 +81,7 @@ class WaferMapController(QObject):
         self.undo_stack = []
         self.history = []
         self.dirty = False
-        self.scene.clear()
+        self.scene = Scene()
         self.bridge.provider.wafer_images = {}
 
     def _project_changed(self):
@@ -189,8 +189,10 @@ class WaferMapController(QObject):
         zoom = self.zoom
         w, h = self.width, self.height
 
+        scene = self.scene
+
         def work(cancelled):
-            return self.scene.render(p, a, centre, zoom, w, h, cancelled)
+            return scene.render(p, a, centre, zoom, w, h, cancelled)
 
         def publish(frame):
             self.frame = frame
@@ -362,12 +364,34 @@ class WaferMapController(QObject):
         if not self.moving:
             self._edit()
         p["matrix"][0][2] = float(p["matrix"][0][2] + dx / self.zoom)
-        p["matrix"][1][2] = float(p["matrix"][1][2] + dy / self.zoom)
+        p["matrix"][1][2] = float(
+            p["matrix"][1][2] + dy * self.yDirection() / self.zoom
+        )
         p["status"] = "UNVERIFIED"
         p["evidence"] = {"origin": "manual_drag"}
         p["placement_id"] = str(uuid4())
         p["created_at"] = utc_now().isoformat()
         self.dirty = True
+        self._changed()
+
+    @Slot()
+    def resetPlacement(self):
+        if not self.asset or not self.selected or self.job == "save":
+            return
+        self._edit()
+        self.asset["placements"] = [
+            p for p in self.asset["placements"] if p["source_id"] != self.selected
+        ]
+        previous = next(
+            (
+                p
+                for p in (self.saved or {}).get("placements", [])
+                if p["source_id"] == self.selected
+            ),
+            None,
+        )
+        if previous:
+            self.asset["placements"].append(copy.deepcopy(previous))
         self._changed()
 
     @Slot()
@@ -622,10 +646,22 @@ class WaferMapController(QObject):
             self.zoom = 1.0
         self.requestFrame(self.width, self.height)
 
+    def yDirection(self):
+        group = next(
+            (
+                g
+                for g in (self.asset or {}).get("groups", [])
+                if g["id"] == self.asset["selected_group"]
+            ),
+            {},
+        )
+        return -1 if group.get("axes") == "X_RIGHT_Y_UP" else 1
+
     @Slot(float, float)
     def pan(self, dx, dy):
         self.centre = (
-            np.asarray(self.centre) - np.asarray([dx, dy]) / self.zoom
+            np.asarray(self.centre)
+            - np.asarray([dx, dy * self.yDirection()]) / self.zoom
         ).tolist()
         self.requestFrame(self.width, self.height)
 
@@ -635,15 +671,11 @@ class WaferMapController(QObject):
             return
         old = self.zoom
         self.zoom = max(1e-6, min(1e6, old * factor))
-        anchor = (
-            np.asarray(self.centre)
-            + (np.asarray([x, y]) - np.asarray([self.width, self.height]) / 2) / old
-        )
-        self.centre = (
-            anchor
-            - (np.asarray([x, y]) - np.asarray([self.width, self.height]) / 2)
-            / self.zoom
-        ).tolist()
+        offset = (
+            np.asarray([x, y]) - np.asarray([self.width, self.height]) / 2
+        ) * np.asarray([1, self.yDirection()])
+        anchor = np.asarray(self.centre) + offset / old
+        self.centre = (anchor - offset / self.zoom).tolist()
         self.requestFrame(self.width, self.height)
 
     @Slot(float, float, result=bool)
@@ -791,8 +823,8 @@ class WaferMapController(QObject):
         if p:
             m = np.asarray(p["matrix"])
             params = [
-                m[0, 2],
-                m[1, 2],
+                float(m[0, 2]),
+                float(m[1, 2]),
                 math.degrees(math.atan2(m[1, 0], m[0, 0])),
                 float(np.linalg.norm(m[:2, 0])),
                 float(np.linalg.norm(m[:2, 1])),

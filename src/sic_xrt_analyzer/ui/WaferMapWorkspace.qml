@@ -71,6 +71,10 @@ Rectangle {
                             CheckBox {required property var modelData;objectName:"mapLayer-"+modelData.key;text:modelData.label;checked:root.state.layers ? !!root.state.layers[modelData.key] : false;Layout.fillWidth:true;onToggled:root.controller.setLayer(modelData.key,checked);contentItem:Text {text:parent.text;color:modelData.color;font.pixelSize:11;leftPadding:27;verticalAlignment:Text.AlignVCenter}}
                         }
                         Text {Layout.fillWidth:true;wrapMode:Text.Wrap;color:root.theme.text;font.pixelSize:11;text:"선택 그룹 관측 후보\nBPD "+((root.state.summary||{}).BPD||0)+" · TED "+((root.state.summary||{}).TED||0)+" · TSD "+((root.state.summary||{}).TSD||0)+"\nHUMAN "+((root.state.summary||{}).human||0)+" · 실험 객체 "+((root.state.summary||{}).experimental||0)+"\n검수 충돌 "+((root.state.review_summary||{}).conflicts||0)}
+                        Text {text:"선택 위치 / 좌표 근거";color:root.theme.text;font.bold:true;Layout.topMargin:8}
+                        Text {Layout.fillWidth:true;wrapMode:Text.Wrap;font.pixelSize:10;color:root.theme.muted;text:"그룹: "+(root.state.group ? root.state.group.label : "—")+"\nWafer: "+(root.state.group && root.state.group.wafer_id || "미확정")+" · "+(root.state.unit || "relative")+"\n좌표계: "+(root.state.group ? root.state.group.coordinate_system : "—")+"\n축: "+(root.state.group ? root.state.group.axes : "—")+"\n원점: "+(root.state.group ? root.state.group.origin : "—")}
+                        Text {Layout.fillWidth:true;wrapMode:Text.Wrap;font.pixelSize:10;color:root.theme.warning;text:root.state.placement && root.state.placement.source_id ? root.state.placement.status+" · "+root.state.placement.editor+"\n위치 "+root.state.params[0].toFixed(3)+", "+root.state.params[1].toFixed(3)+" · 회전 "+root.state.params[2].toFixed(2)+"°\n원본 px 크기 "+root.state.params[3].toPrecision(5)+" × "+root.state.params[4].toPrecision(5) : "선택 이미지 미배치"}
+                        Text {Layout.fillWidth:true;wrapMode:Text.Wrap;font.pixelSize:10;color:root.theme.text;text:root.state.target && root.state.target.target_id ? "선택: "+root.state.target.target_type+" · "+root.state.target.label+"\nID "+root.state.target.target_id+"\nGeometry "+root.state.target.geometry_id : "후보·객체를 누르면 원본 결과 위치로 이동할 수 있습니다."}
                         Text {text:"Run 중복 합산·물리 결함 Merge 없음\n빈 영역은 미관측 / 결과 없음\n물리 위치·Coverage 검증 전 Density/Heatmap 비활성";Layout.fillWidth:true;wrapMode:Text.Wrap;font.pixelSize:10;color:root.theme.muted}
                     }
                 }
@@ -85,7 +89,7 @@ Rectangle {
                         var zoom=root.state.zoom||1,centre=root.state.centre||[0,0],step=Math.pow(10,Math.floor(Math.log(80/zoom)/Math.LN10));var pixels=step*zoom
                         c.strokeStyle="#253037";c.lineWidth=1
                         for(var x=(width/2-centre[0]*zoom)%pixels;x<width;x+=pixels){c.beginPath();c.moveTo(x,0);c.lineTo(x,height);c.stroke()}
-                        for(var y=(height/2-centre[1]*zoom)%pixels;y<height;y+=pixels){c.beginPath();c.moveTo(0,y);c.lineTo(width,y);c.stroke()}
+                        for(var y=(height/2-centre[1]*zoom*(root.state.group && root.state.group.axes==="X_RIGHT_Y_UP"?-1:1))%pixels;y<height;y+=pixels){c.beginPath();c.moveTo(0,y);c.lineTo(width,y);c.stroke()}
                         var outline=root.state.outline
                         if(outline){c.strokeStyle="#93c2d0";c.beginPath();c.arc(outline.centre[0],outline.centre[1],outline.radius,0,2*Math.PI);c.stroke()}
                         var tiles=root.state.tiles||[]
@@ -106,7 +110,7 @@ Rectangle {
                             }
                         }
                         c.fillStyle=root.theme.muted;c.font="11px sans-serif";c.fillText(root.state.mode==="PHYSICAL" ? "단위 "+root.state.unit+" · "+root.state.group.coordinate_system : "상대 좌표 · 물리 위치 아님",10,height-28)
-                        c.fillText("표시 생략 "+(root.state.omitted||0)+"점 · 원본 집계 유지 · Mask는 외접 영역",10,height-12)
+                        c.fillText("표시 생략 "+(root.state.omitted||0)+"점 · 대형 형상 생략 "+((root.state.summary||{}).omitted_large_shapes||0)+"개 · 원본 집계 유지 · Mask는 외접 영역",10,height-12)
                     }
                     MouseArea {
                         anchors.fill:parent;acceptedButtons:Qt.LeftButton|Qt.RightButton;preventStealing:true
@@ -123,23 +127,24 @@ Rectangle {
                 BusyIndicator {anchors.right:parent.right;anchors.top:parent.top;width:30;height:30;running:root.state.busy;visible:running}
             }
         }
-        RowLayout {
-            Layout.fillWidth:true
+        Flow {
+            Layout.fillWidth:true;spacing:6
+            Layout.preferredHeight:childrenRect.height
             Button {objectName:"mapEdit";text:"타일 이동";checkable:true;checked:root.editTiles;onToggled:root.editTiles=checked}
             Button {objectName:"mapPlace";text:"위치·회전·크기";enabled:!!root.state.selected;onClicked:placementDialog.open()}
             Button {objectName:"mapVerify";text:"물리 기준점 검증";enabled:root.state.mode==="PHYSICAL"&&!!root.state.placement.source_id;onClicked:verifyDialog.open()}
-            Button {text:"미배치로";enabled:!!root.state.placement.source_id;onClicked:root.controller.unplace()}
-            Button {text:"Undo";onClicked:root.controller.undo()}
-            Button {text:"취소";enabled:root.state.job!=="save";onClicked:root.controller.discard()}
-            Item {Layout.fillWidth:true}
+            Button {objectName:"mapUnplace";text:"미배치로";enabled:!!root.state.placement.source_id;onClicked:root.controller.unplace()}
+            Button {objectName:"mapReset";text:"저장 위치로";enabled:!!root.state.selected;onClicked:root.controller.resetPlacement()}
+            Button {objectName:"mapUndo";text:"Undo";onClicked:root.controller.undo()}
+            Button {objectName:"mapDiscard";text:"취소";enabled:root.state.job!=="save";onClicked:root.controller.discard()}
             Button {objectName:"mapOpen";text:"원본";enabled:!!root.state.selected;onClicked:root.controller.openSelected(false)}
             Button {objectName:"mapResult";text:"결과·선택 위치";enabled:!!root.state.selected;onClicked:root.controller.openSelected(true)}
-            Button {text:"전·후 비교";enabled:!!root.state.selected;onClicked:compareDialog.open()}
+            Button {objectName:"mapCompare";text:"전·후 비교";enabled:!!root.state.selected;onClicked:compareDialog.open()}
         }
         Text {Layout.fillWidth:true;color:root.state.error ? root.theme.error : root.theme.muted;font.pixelSize:11;wrapMode:Text.Wrap;text:root.state.error||root.state.message||""}
     }
     Dialog {
-        id:saveDialog;title:"배치와 선택 Run·레이어 저장";modal:true;anchors.centerIn:parent;standardButtons:Dialog.Save|Dialog.Cancel
+        id:saveDialog;objectName:"mapSaveDialog";title:"배치와 선택 Run·레이어 저장";modal:true;anchors.centerIn:parent;standardButtons:Dialog.Save|Dialog.Cancel
         ColumnLayout {Text {text:"로컬 편집자 ID · 공식 과학 검증/서버 업로드 아님";color:root.theme.muted} TextField {id:editor;objectName:"mapEditor";placeholderText:"배치 편집자 식별값";Layout.fillWidth:true}}
         onAccepted:root.controller.save(editor.text)
     }
@@ -157,41 +162,41 @@ Rectangle {
         onApplied:{root.controller.place(Number(positionX.text),Number(positionY.text),Number(angle.text),Number(scaleX.text),Number(scaleY.text));close();Qt.callLater(function(){root.controller.fit()})}
     }
     Dialog {
-        id:groupDialog;title:"관측 그룹 / 좌표계";modal:true;anchors.centerIn:parent;width:490;height:Math.min(600,root.height-20);standardButtons:Dialog.Ok|Dialog.Cancel
+        id:groupDialog;objectName:"mapGroupDialog";title:"관측 그룹 / 좌표계";modal:true;anchors.centerIn:parent;width:490;height:Math.min(600,root.height-20);standardButtons:Dialog.Ok|Dialog.Cancel
         ScrollView {anchors.fill:parent;clip:true
             GridLayout {columns:2;width:groupDialog.width-45
                 Text {text:"이름";color:root.theme.text} TextField {id:groupName;objectName:"mapGroupName";Layout.fillWidth:true;placeholderText:"명시적으로 지정한 관측 그룹"}
                 Text {text:"좌표 모드";color:root.theme.text} ComboBox {id:groupMode;objectName:"mapGroupMode";model:["TEMPORARY","PHYSICAL"];Layout.fillWidth:true}
-                Text {text:"Wafer ID";color:root.theme.text} TextField {id:waferId;Layout.fillWidth:true;enabled:groupMode.currentIndex===1}
-                Text {text:"좌표계 ID";color:root.theme.text} TextField {id:coordinateId;Layout.fillWidth:true;enabled:groupMode.currentIndex===1}
+                Text {text:"Wafer ID";color:root.theme.text} TextField {id:waferId;objectName:"mapWaferId";Layout.fillWidth:true;enabled:groupMode.currentIndex===1}
+                Text {text:"좌표계 ID";color:root.theme.text} TextField {id:coordinateId;objectName:"mapCoordinateId";Layout.fillWidth:true;enabled:groupMode.currentIndex===1}
                 Text {text:"단위";color:root.theme.text} ComboBox {id:unit;model:["mm","um"];Layout.fillWidth:true;enabled:groupMode.currentIndex===1}
-                Text {text:"원점 정의";color:root.theme.text} TextField {id:origin;Layout.fillWidth:true;placeholderText:"측정 기준점 / 중심 등"}
+                Text {text:"원점 정의";color:root.theme.text} TextField {id:origin;objectName:"mapOrigin";Layout.fillWidth:true;placeholderText:"측정 기준점 / 중심 등"}
                 Text {text:"축 방향";color:root.theme.text} ComboBox {id:axes;model:["X_RIGHT_Y_DOWN","X_RIGHT_Y_UP"];Layout.fillWidth:true;enabled:groupMode.currentIndex===1}
-                Text {text:"좌표계·측정 근거";color:root.theme.text} TextArea {id:evidence;Layout.fillWidth:true;Layout.preferredHeight:75;wrapMode:TextArea.Wrap}
-                Text {text:"실측 원형 외곽 (선택)";color:root.theme.text} TextField {id:geometry;Layout.fillWidth:true;placeholderText:"중심 X Y 반경 · 단위 동일";enabled:groupMode.currentIndex===1}
-                Text {text:"외곽 검수자";color:root.theme.text} TextField {id:geometryReviewer;Layout.fillWidth:true;enabled:groupMode.currentIndex===1}
+                Text {text:"좌표계·측정 근거";color:root.theme.text} TextArea {id:evidence;objectName:"mapEvidence";Layout.fillWidth:true;Layout.preferredHeight:75;wrapMode:TextArea.Wrap}
+                Text {text:"실측 원형 외곽 (선택)";color:root.theme.text} TextField {id:geometry;objectName:"mapOutline";Layout.fillWidth:true;placeholderText:"중심 X Y 반경 · 단위 동일";enabled:groupMode.currentIndex===1}
+                Text {text:"외곽 검수자";color:root.theme.text} TextField {id:geometryReviewer;objectName:"mapOutlineReviewer";Layout.fillWidth:true;enabled:groupMode.currentIndex===1}
                 Text {Layout.columnSpan:2;Layout.fillWidth:true;wrapMode:Text.Wrap;text:"실제 측정 근거가 없으면 임시 그룹을 사용하세요. 물리 그룹 생성만으로 이미지 위치가 검증되지는 않습니다.";color:root.theme.warning}
             }
         }
         onAccepted:root.controller.addGroup(groupName.text,groupMode.currentText,waferId.text,coordinateId.text,unit.currentText,origin.text,axes.currentText,evidence.text,geometry.text,geometryReviewer.text)
     }
     Dialog {
-        id:verifyDialog;title:"독립 기준점으로 배치 검증";modal:true;anchors.centerIn:parent;width:460;standardButtons:Dialog.Ok|Dialog.Cancel
+        id:verifyDialog;objectName:"mapVerifyDialog";title:"독립 기준점으로 배치 검증";modal:true;anchors.centerIn:parent;width:460;standardButtons:Dialog.Ok|Dialog.Cancel
         ColumnLayout {width:parent.width
             Text {text:"최소 비공선 3쌍 · 각 줄: 원본 X Y 지도 X Y";color:root.theme.text;wrapMode:Text.Wrap;Layout.fillWidth:true}
             TextArea {id:landmarks;objectName:"mapCalibrationPoints";Layout.preferredHeight:125;Layout.fillWidth:true;placeholderText:"10 10 0.1 0.1\n…";wrapMode:TextArea.Wrap}
-            TextField {id:calibrationSource;placeholderText:"독립 측정 출처 / Calibration 근거";Layout.fillWidth:true}
-            TextField {id:calibrationReviewer;placeholderText:"검수자 식별값";Layout.fillWidth:true}
-            TextField {id:calibrationTolerance;placeholderText:"지도 단위 허용 오차 (최대 10px 크기)";Layout.fillWidth:true}
+            TextField {id:calibrationSource;objectName:"mapCalibrationSource";placeholderText:"독립 측정 출처 / Calibration 근거";Layout.fillWidth:true}
+            TextField {id:calibrationReviewer;objectName:"mapCalibrationReviewer";placeholderText:"검수자 식별값";Layout.fillWidth:true}
+            TextField {id:calibrationTolerance;objectName:"mapCalibrationTolerance";placeholderText:"지도 단위 허용 오차 (최대 10px 크기)";Layout.fillWidth:true}
             Text {text:"로컬 근거 검사는 공식 전문가 과학 검증을 자동 증명하지 않습니다.";color:root.theme.warning;wrapMode:Text.Wrap;Layout.fillWidth:true}
         }
         onAccepted:root.controller.verifyPlacement(calibrationSource.text,calibrationReviewer.text,landmarks.text,Number(calibrationTolerance.text))
     }
     Dialog {
-        id:compareDialog;title:"전후 JPG 비교 연결";modal:true;anchors.centerIn:parent;width:420;standardButtons:Dialog.Close
+        id:compareDialog;objectName:"mapCompareDialog";title:"전후 JPG 비교 연결";modal:true;anchors.centerIn:parent;width:420;standardButtons:Dialog.Close
         ColumnLayout {width:parent.width
             ComboBox {id:otherSource;Layout.fillWidth:true;model:(root.state.sources||[]).filter(function(s){return s.format==="JPEG"&&s.id!==root.state.selected});textRole:"name"}
-            Button {text:"TD-10 정합 작업공간";Layout.fillWidth:true;enabled:otherSource.currentIndex>=0;onClicked:{root.controller.compare(otherSource.model[otherSource.currentIndex].id);compareDialog.close()}}
+            Button {objectName:"mapCompareOpen";text:"TD-10 정합 작업공간";Layout.fillWidth:true;enabled:otherSource.currentIndex>=0;onClicked:{root.controller.compare(otherSource.model[otherSource.currentIndex].id);compareDialog.close()}}
             ComboBox {id:relation;Layout.fillWidth:true;model:root.state.registrations||[];textRole:"label"}
             TextField {id:sameTarget;Layout.fillWidth:true;placeholderText:"동일 Wafer·관측 대상 독립 근거"}
             Button {text:"검증 Target 배치와 합성 제안";Layout.fillWidth:true;enabled:relation.currentIndex>=0;onClicked:{root.controller.composeRegistration(relation.model[relation.currentIndex].ref,sameTarget.text);compareDialog.close()}}

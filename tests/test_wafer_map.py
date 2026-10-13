@@ -380,3 +380,68 @@ def test_failed_registration_is_not_identity(study):
         compose(r, target, g, s, other, "")
     with pytest.raises(ValueError):
         compose({**r, "source_id": other.source_id}, target, g, s, other, "QA")
+
+
+def test_physical_y_up_screen_roundtrip_and_transformed_graph(study):
+    from sic_xrt_analyzer.wafer_map.mapping import view
+
+    p, a, _s, _path = study
+    g = physical_group()
+    g["axes"] = "X_RIGHT_Y_UP"
+    a["groups"].append(g)
+    a["selected_group"] = g["id"]
+    a["placements"][0].update(
+        group_id=g["id"], matrix=layout(1, 2, 25, 0.01, 0.02, g["axes"])
+    )
+    f = Scene().render(p, a, [3, 4], 20, 900, 700)
+    screen = view([3, 4], 20, 900, 700, g["axes"])
+    assert points(screen, [[3, 5]])[0][1] < points(screen, [[3, 4]])[0][1]
+    expected = screen @ np.asarray(a["placements"][0]["matrix"])
+    assert np.allclose(f["tiles"][0]["matrix"], expected)
+    pts = [[0, 0], [600, 500], [140, 210]]
+    assert np.allclose(points(inverse(expected), points(expected, pts)), pts, atol=1e-9)
+
+
+def test_corrected_review_conflict_group_totals_and_mask_bounds(study):
+    from test_result_domain import review
+
+    from sic_xrt_analyzer.results.contracts import (
+        ExistenceDecision,
+        GeometryDecision,
+        ReviewStatus,
+    )
+
+    p, a, s, _path = study
+    g = DefectGeometry(
+        str(uuid4()),
+        s.source_id,
+        0,
+        DefectGeometryKind.MASK_REFERENCE,
+        GeometrySource.HUMAN,
+        bbox=(20, 30, 50, 60),
+        mask_reference="geometry/references/qa.png",
+        mask_encoding="png",
+    )
+    p = p.evolve(geometries=(*p.geometries, g))
+    e = review(
+        p,
+        status=ReviewStatus.CORRECTED,
+        geometry_decision=GeometryDecision.CORRECTED,
+        corrected_geometry_reference=g.geometry_id,
+        existence=ExistenceDecision.PRESENT,
+    )
+    fork = review(p, reviewer="qa-other", existence=ExistenceDecision.ABSENT)
+    p = replace(p, schema_version="1.1.0").evolve(review_events=(e, fork))
+    before = p.geometries
+    f = Scene().render(p, a, [320, 256], 1, 900, 700)
+    row = next(r for r in f["paths"] if r["layer"] == "reviews" and r["mask_bounds"])
+    assert (
+        row["target_id"] == p.observations[0].observation_id
+        and row["label"] == "CONFLICT"
+    )
+    assert np.allclose(row["paths"][0], points(f["tiles"][0]["matrix"], paths(g)[0]))
+    assert f["review_summary"]["conflicts"] == 1 and p.geometries == before
+    a["groups"].append(physical_group())
+    a["selected_group"] = "physical"
+    empty = Scene().render(p, a, [320, 256], 1, 900, 700)
+    assert empty["summary"] == {} and empty["review_summary"] == {}
