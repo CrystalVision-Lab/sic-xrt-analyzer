@@ -300,6 +300,9 @@ def main():
             dialog("modelUpdatesDialog")
             cap("models")
             close("modelUpdatesDialog")
+            dialog("appUpdatesDialog")
+            cap("app-update")
+            close("appUpdatesDialog")
             dialog("centralSyncDialog")
             cap("sync-connect")
             scroll = s.item("syncScroll").property("contentItem")
@@ -447,6 +450,8 @@ def main():
                     "tiff-process",
                 ):
                     target = [52, 45]
+                if screen == "app-update":
+                    target = [46, 31]
                 notes = "화면은 실제 원본 데이터로 촬영했습니다. 원본 파일은 읽기 전용으로 유지합니다."
                 if key in ("results", "review"):
                     notes += " 모델 제안의 실제 정확도와 예시 검수 기록은 연구원 정답 승인으로 간주하지 않습니다."

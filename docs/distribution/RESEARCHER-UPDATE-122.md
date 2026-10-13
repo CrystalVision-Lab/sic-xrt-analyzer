@@ -11,7 +11,7 @@
 - Wafer Map·전후 정합 및 Crop 동기화의 JPG 계약은 유지한다. 2D TIFF의 로컬 분석·프로젝트·검수 확장과 구분한다.
 
 ## 실제 사용 가이드
-14개 작업 영역, 64개 탭, 실제 UI 화면 57개를 제공한다. 설치·실행, 2D 보기, ROI, 분석, 결과, 검수, 프로젝트, TIFF 스택, ImageJ, 페이지 기반 3D, 정합, Wafer Map, 모델 업데이트와 동기화를 포함한다. 왼쪽 작업 목록 → 상단 화면 탭 → 실제 화면과 번호·화살표·설명으로 구성하며 화면 확대와 키보드 탭 이동을 지원한다. 라이트·다크 선택은 우측 상단에 있고 브라우저에는 xrt-theme:v1만 저장한다.
+14개 작업 영역, 65개 탭, 실제 UI 화면 58개를 제공한다. 설치·실행, 2D 보기, ROI, 분석, 결과, 검수, 프로젝트, TIFF 스택, ImageJ, 페이지 기반 3D, 정합, Wafer Map, 모델 업데이트와 동기화를 포함한다. 왼쪽 작업 목록 → 상단 화면 탭 → 실제 화면과 번호·화살표·설명으로 구성하며 화면 확대와 키보드 탭 이동을 지원한다. 라이트·다크 선택은 우측 상단에 있고 브라우저에는 xrt-theme:v1만 저장한다.
 
 실제 화면은 Git·웹 빌드·설치 파일에 넣지 않는다. artifacts/sync106-private/research-guide의 PNG·manifest만 portal에 read-only로 마운트한다. 캡처용 프로젝트·Outbox·보고서는 해당 마운트에 포함하지 않는다. API는 PNG 파일명, 경로, 크기 ≤8 MiB와 SHA를 확인한다.
 
@@ -25,11 +25,11 @@
 
 ## 검증
 - 새 frozen 실행 파일: 대형 JPEG codec·정밀 캐시, uint16 ROI volume, Main.qml, D3D11/QtQuick3D, 포함 OpenJDK/ImageJ worker, 작업 복사본, 모델 검증 helper PASS. 실제 After annealing_1.jpg(12349×12273 RGB8), 단일 TIFF(동일 크기 RGB8), N119 TIFF(3072×3012 uint16 158페이지)에서 분석 버튼 true/true/false와 원본 SHA 보존 확인. QML 경고 0.
-- 실제 가이드 촬영: 14 영역/64 탭/57 화면, 원본·기존 프로젝트·모델 SHA 보존, 모델 새 추론 0, 서버 전송 0, QML 경고 0.
+- 실제 가이드 촬영: 14 영역/65 탭/58 화면, 원본·기존 프로젝트·모델 SHA 보존, 모델 새 추론 0, 서버 전송 0, QML 경고 0.
 - Windows 전체 첫 실행: 736 PASS/2 FAIL/5 SKIP, 1845.81초. 하나는 TIFF 전체 차단이라는 기존 기대이며 새 2D 정책으로 수정했다. 하나는 동시 빌드 중 JVM 준비 30초 초과였다. 해당 TIFF/JPG 분석·내보내기 및 Wand를 순차 재실행하여 3 PASS/24.14초. 실패 로그는 artifacts/distribution122/full-regression.log와 retry-sequential.log에 남겼다.
 - Windows 가상 메모리 압박이 관찰돼 실제 배포 검사와 화면 촬영을 순차로 실행했다. Frozen 재검사의 Java 512 MiB 설정은 QA 프로세스에만 적용했다. 앱 기본 Java 설정은 바꾸지 않았다.
 - 가이드 BFF 13 PASS(기존 Starlette/httpx deprecation warning 1), React 6 PASS, TypeScript/Vite build PASS, Ruff PASS.
-- 브라우저: 실제 서버 인증·원본 PNG·64개 탭·화살표 응답 확인. 최초 모바일 목록의 가로 넘침을 발견해 수정했다. 최종 테마/화면 확대/로그아웃 결과와 CI는 최종 갱신한다.
+- 브라우저: 실제 서버 인증·원본 PNG·64개 탭·화살표 응답 확인. 최초 모바일 목록의 가로 넘침을 발견해 수정했다. 후속 light/dark·390/1100/1440 화면 6개, 화면 확대/Escape·테마 저장소·로그아웃 뒤 PNG 401 PASS. 기본 브라우저 QA 19 PASS. 추가 앱 업데이트 화면 1개와 원본 SHA 보존/QML 경고 0 확인.
 
 ## 배포·실행
 사이트는 기존 PC의 127.0.0.1:18770, 연구 API는 127.0.0.1:18766이다. 기존 Cloudflare 임시 터널을 유지한다. Windows 다운로드는 0.1.1 설치 파일과 동일 소스·GPLv3 빌드 자료를 함께 제공한다. 코드 서명은 없다. 실제 연구 원본·모델·Credential은 배포 파일에 포함하지 않는다.
@@ -37,3 +37,6 @@
 개발 실행: D:\capstone\sic-xrt-analyzer에서 .\.venv\Scripts\python.exe -m sic_xrt_analyzer. 기존 설치 사용자는 프로그램을 종료한 뒤 새 설치 프로그램을 실행한다. 기존 0.1.0 사용자의 설치/실행 상태를 QA용 설치로 덮어쓰지 않았다. 새 번들의 실제 실행 검증과 구분한다.
 
 운영 갱신: .\.venv\Scripts\python.exe tools/portal_ops.py start. 가이드 host 폴더는 별도 private 백업에 PNG·manifest 및 SHA를 함께 보관한다. portal_ops backup의 기본 DB/installer/source 백업과 구분한다. 임시 URL은 PC·Docker·터널이 켜진 동안 유지된다.
+
+## 앱 업데이트 추가 — Issue #123
+시작 시 새 버전 알림, 도움말의 수동 확인, 검증 다운로드와 종료 후 설치를 추가했다. 최초 0.1.0은 새 설치 파일을 한 번 직접 설치해야 한다. 별도 앱/모델 업데이트 정책과 25개 회귀 근거는 [프로그램 업데이트](APPLICATION-UPDATES.md)에 기록했다. 설치 입력을 변경했으므로 기존 7c682 번들을 재사용하지 않고 60bc23d부터 전체 다시 빌드한다.
