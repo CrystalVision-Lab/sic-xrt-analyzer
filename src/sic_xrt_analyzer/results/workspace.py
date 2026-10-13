@@ -234,6 +234,8 @@ def publish_dependencies(project_path, project, dependencies, old_path=None):
     from sic_xrt_analyzer.registration.assets import copy_assets
     if old_path:
         copy_assets(old_path, project_path, project)
+        from sic_xrt_analyzer.wafer_map.assets import copy_assets as copy_maps
+        copy_maps(old_path, project_path, project)
     for d in dependency_descriptors(project):
         prefix = str(Path(d['reference']).parent).replace('\\','/')
         spec = next((x for x in dependencies if x[0]==prefix),None)

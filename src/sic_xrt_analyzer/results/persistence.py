@@ -17,6 +17,10 @@ class ProjectStore:
         project = loads(data)
         from sic_xrt_analyzer.registration.assets import validate_project_assets
         validate_project_assets(path, project)
+        from sic_xrt_analyzer.wafer_map.assets import (
+            validate_project_assets as validate_maps,
+        )
+        validate_maps(path, project)
         return project  # Metadata/assets only; never reads source pixels or runs inference.
 
     def save(self, path, project, *, expected_revision=None):
@@ -37,6 +41,10 @@ class ProjectStore:
             raise ValueError("Project/lock paths cannot be symlinks")
         from sic_xrt_analyzer.registration.assets import validate_project_assets
         validate_project_assets(path, project)
+        from sic_xrt_analyzer.wafer_map.assets import (
+            validate_project_assets as validate_maps,
+        )
+        validate_maps(path, project)
         encoded = dumps(project)
         path.parent.mkdir(parents=True, exist_ok=True)
         with _write_lock(lock_path):
@@ -57,6 +65,10 @@ class ProjectStore:
                     )
                 if project.revision <= existing.revision:
                     raise ValueError("Cannot overwrite newer project history")
+                from sic_xrt_analyzer.wafer_map.assets import chain, check_history
+                oldref,newref=check_history(existing,project)
+                if oldref and oldref!=newref and oldref not in {ref for ref,_ in chain(path,newref,project)[1:]}:
+                    raise ValueError("Cannot rewrite wafer map history")
                 new_sources = {s.source_id: s for s in project.image_sources}
                 if any(s.source_id not in new_sources for s in existing.image_sources):
                     raise ValueError("Cannot delete prior image sources")
