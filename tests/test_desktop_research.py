@@ -136,12 +136,7 @@ def test_real_qml_run_button_results_overlay_and_export(qt_app, tmp_path, suffix
             # Contrast changes are display-only and must not affect model pixels.
             bridge.setDisplayRange(0, 80)
             spin(qt_app, lambda: not bridge.stack_viewer.busy)
-        if suffix == "tif":
-            assert not window.findChild(QObject,"runAction").property("enabled")
-            assert not bridge.requestAnalysis("FULL_IMAGE",0,0,0,0,{})
-            assert not bridge.analysis["hasResult"]
-            assert not warnings,warnings
-            return
+        # A compatible single-page RGB TIFF follows the same analysis/export flow.
         assert window.findChild(QObject, "runAction").property("enabled")
         state.setProperty("analysisScope", "FULL_IMAGE")
         run = window.findChild(QObject, "runAction")

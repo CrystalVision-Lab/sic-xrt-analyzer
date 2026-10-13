@@ -1,3 +1,4 @@
+import { ThemeToggle } from "./Theme";
 import { useState } from "react";
 import { Link, NavLink, Route, Routes, useLocation } from "react-router-dom";
 import {
@@ -60,7 +61,7 @@ function Login({ onLogin }: { onLogin: (s: Session) => void }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   return (
-    <div className="login-page">
+    <div className="login-page"><div className="login-theme"><ThemeToggle/></div>
       <Link to="/" className="login-back">
         <ArrowLeft size={17} /> 다운로드 사이트로
       </Link>
@@ -139,7 +140,8 @@ export default function Admin() {
   const initial = useData<Session>("session");
   const [session, setSession] = useState<Session>();
   const [signedOut, setSignedOut] = useState(false);
-  const active = session ?? (!signedOut ? initial.data : undefined);
+  const candidate = session ?? (!signedOut ? initial.data : undefined);
+  const active = candidate?.user.role === "ADMIN" ? candidate : undefined;
   const location = useLocation();
   if (initial.loading && !active) return <Loading />;
   if (!active) {
@@ -193,7 +195,7 @@ export default function Admin() {
             <strong>{title}</strong>
           </div>
           <div>
-            <Pill tone="teal">ADMIN</Pill>
+            <ThemeToggle/><Pill tone="teal">ADMIN</Pill>
             <span className="admin-user">{active.user.name}</span>
             <button
               className="icon-button"

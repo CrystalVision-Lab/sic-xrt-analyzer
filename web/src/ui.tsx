@@ -2,7 +2,6 @@ import {
   LoaderCircle,
   AlertCircle,
   Inbox,
-  Layers3,
   ArrowUpRight,
 } from "lucide-react";
 import { useEffect, useRef, type ReactNode } from "react";
@@ -16,7 +15,7 @@ export function Brand({ inverse = false }: { inverse?: boolean }) {
       aria-label="SiC XRT Analyzer 홈"
     >
       <span className="brand-symbol">
-        <Layers3 size={23} />
+        <img src="/app-logo.png" alt="" />
       </span>
       <span>
         SiC XRT<span className="brand-sub">ANALYZER</span>

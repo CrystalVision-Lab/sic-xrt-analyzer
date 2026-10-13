@@ -117,7 +117,7 @@ try {
     if (
       (await page.evaluate(
         () =>
-          Object.keys(localStorage).length + Object.keys(sessionStorage).length,
+          Object.keys(localStorage).filter(k=>k!=="xrt-theme:v1").length + Object.keys(sessionStorage).length,
       )) !== 0
     )
       throw new Error("Unexpected browser credential storage");

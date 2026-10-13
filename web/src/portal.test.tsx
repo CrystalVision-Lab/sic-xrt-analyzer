@@ -10,11 +10,15 @@ import {
 } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { DownloadPage } from "./Public";
+import { GuideWorkspace } from "./Guide";
+import { ThemeToggle } from "./Theme";
 import { Modal } from "./ui";
 import { useData } from "./api";
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
+  localStorage.clear();
+  delete document.documentElement.dataset.theme;
 });
 const json = (value: unknown) => ({ ok: true, json: async () => value });
 const release = (id: string, channel: string) => ({
@@ -42,11 +46,7 @@ describe("download and administrator safeguards", () => {
   it("uses the posted stable release and keeps admin data off the public page", async () => {
     vi.stubGlobal(
       "fetch",
-      vi
-        .fn()
-        .mockResolvedValue(
-          json([release("0.2.0", "BETA"), release("0.1.0", "STABLE")]),
-        ),
+      vi.fn((path:string) => Promise.resolve(path.endsWith("/releases") ? json([release("0.2.0", "BETA"), release("0.1.0", "STABLE")]) : {ok:false,status:401,json:async()=>({detail:"SESSION_REQUIRED"})})),
     );
     render(
       <MemoryRouter>
@@ -63,7 +63,7 @@ describe("download and administrator safeguards", () => {
     expect(screen.queryByText("관리자 인증키")).toBeNull();
   });
   it("does not fabricate a download when no version is published", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(json([])));
+    vi.stubGlobal("fetch", vi.fn((path:string) => Promise.resolve(path.endsWith("/releases") ? json([]) : {ok:false,status:401,json:async()=>({detail:"SESSION_REQUIRED"})})));
     render(
       <MemoryRouter>
         <DownloadPage />
@@ -113,4 +113,19 @@ describe("download and administrator safeguards", () => {
     fireEvent.keyDown(document, { key: "Escape" });
     expect(close).toHaveBeenCalledOnce();
   });
+});
+
+it("navigates master-detail tabs with keyboard and keeps the current screenshot", async()=>{
+ const makeTab=(id:string,title:string)=>({id,title,image_id:id,summary:title,steps:["Select actual data"],callouts:[]});
+ const data={schema:"xrt_research_guide/v1",groups:[{id:"viewer",title:"Viewer",subtitle:"Read-only",tabs:[makeTab("fit","Fit"),makeTab("zoom","Zoom")]},{id:"roi",title:"ROI",subtitle:"Coordinates",tabs:[makeTab("edit","Edit")]}]};
+ render(<MemoryRouter><GuideWorkspace data={data}/></MemoryRouter>);
+ fireEvent.keyDown(screen.getByRole("tab",{name:"Fit"}),{key:"ArrowRight"});
+ await waitFor(()=>expect(screen.getByRole("tab",{name:"Zoom"}).getAttribute("aria-selected")).toBe("true"));
+ expect(screen.getByRole("img").getAttribute("src")).toBe("/portal-api/guide/images/zoom");
+ fireEvent.click(screen.getByRole("button",{name:/ROI/}));
+ expect(screen.getByRole("tab",{name:"Edit"}).getAttribute("aria-selected")).toBe("true");
+});
+it("persists only the theme preference",()=>{
+ render(<ThemeToggle/>);fireEvent.click(screen.getByRole("button",{name:"다크 모드로 전환"}));
+ expect(document.documentElement.dataset.theme).toBe("dark");expect(localStorage.getItem("xrt-theme:v1")).toBe("dark");expect(localStorage.length).toBe(1);
 });
