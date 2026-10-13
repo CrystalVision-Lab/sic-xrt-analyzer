@@ -318,3 +318,7 @@ JPG 분석 결과 또는 저장된 Run에서 후보·구조를 선택하고 **�
 TIFF를 열거나 프로젝트에 등록하고 **3D 뷰어**에서 원본 사각 ROI·페이지 범위·샘플 간격을 지정한 뒤 **3D 생성**을 누릅니다. 원본 uint16 ROI는 최대 64 MiB로 추출하며 실제 Qt Quick 3D Perspective/Orbit/Pan/Zoom과 XY/X–Page/Y–Page 단면, 원본 픽셀 확인·2D 위치 복귀를 제공합니다. 연구원은 Point/Rectangle 수동 Track과 검수 상태를 로컬 프로젝트의 SHA 불변 Asset으로 저장할 수 있습니다. 재열기는 metadata 복원 후 명시적으로 ROI를 다시 생성합니다.
 
 기본 축은 X/Y px + 원본 Page Index이며 **실제 물리 Z축 미검증(PHYSICAL_3D_NOT_READY)**입니다. 수동 Track은 **실제 동일 결함 확인 미검증(DEFECT_TRACKING_PRELIMINARY)**입니다. TIFF 결함 ML 분석·자동 추적·원본 수정·3D 서버 전송을 실행하지 않습니다. [실행·사용법·계약·실제 TIFF/합성 검증·계측·제약](docs/result/XRT-RESULT-TD-12-TIFF-3D-VIEWER.md).
+
+## 연구원 배포 업데이트 0.1.1
+
+대형 JPG 배포 디코더 누락과 단일 TIFF 분석·저장·검수 연결을 수정했습니다. 다중 페이지 TIFF는 스택·3D 탐색으로 유지합니다. 연구원 사이트는 실제 화면 57개를 14개 작업·64개 탭으로 안내하고 우측 상단에서 다크 모드를 선택합니다. 실제 데이터 화면은 기존 연구원 계정과 프로젝트 권한으로 로그인한 뒤 표시합니다. [검증·실행·제약](docs/distribution/RESEARCHER-UPDATE-122.md), [로고 제작](docs/distribution/BRANDING.md).
