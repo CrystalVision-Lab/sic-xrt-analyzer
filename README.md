@@ -306,3 +306,10 @@ JPG 분석 결과 또는 저장된 Run에서 후보·구조를 선택하고 **�
 실제 좌표 근거가 없는 현재 데이터는 **단위 없는 임시 상대 배치**이며 실제 Wafer ID는 미확정입니다. 물리 모드는 실제 WaferID·좌표계·단위·origin·축·독립 기준점/측정 근거를 직접 제공해야 합니다. 합성 기준점 검사 성공을 실제 Wafer 정확도 검증으로 해석하지 않습니다. Full과 ROI를 합산하거나 후보를 실제 결함 총수로 표시하지 않습니다. TIFF는 기존 Stack/ImageJ·향후 3D용으로 유지합니다.
 
 [사용법·좌표/저장 계약·실제 데이터 회귀·CPU 계측·69개 화면·남은 제약](docs/result/XRT-RESULT-TD-11-WAFER-MAP.md). 전체 상태는 **PARTIAL**, 임시 배치 구현 검증 완료/실제 물리 좌표 검증 미준비입니다. 실행은 D 프로젝트의 `.venv\Scripts\python.exe -m sic_xrt_analyzer`입니다.
+
+
+## TIFF ROI 3D · 수동 페이지 관측 (RESULT-TD-12)
+
+TIFF를 열거나 프로젝트에 등록하고 **3D 뷰어**에서 원본 사각 ROI·페이지 범위·샘플 간격을 지정한 뒤 **3D 생성**을 누릅니다. 원본 uint16 ROI는 최대 64 MiB로 추출하며 실제 Qt Quick 3D Perspective/Orbit/Pan/Zoom과 XY/X–Page/Y–Page 단면, 원본 픽셀 확인·2D 위치 복귀를 제공합니다. 연구원은 Point/Rectangle 수동 Track과 검수 상태를 로컬 프로젝트의 SHA 불변 Asset으로 저장할 수 있습니다. 재열기는 metadata 복원 후 명시적으로 ROI를 다시 생성합니다.
+
+기본 축은 X/Y px + 원본 Page Index이며 **실제 물리 Z축 미검증(PHYSICAL_3D_NOT_READY)**입니다. 수동 Track은 **실제 동일 결함 확인 미검증(DEFECT_TRACKING_PRELIMINARY)**입니다. TIFF 결함 ML 분석·자동 추적·원본 수정·3D 서버 전송을 실행하지 않습니다. [실행·사용법·계약·실제 TIFF/합성 검증·계측·제약](docs/result/XRT-RESULT-TD-12-TIFF-3D-VIEWER.md).

@@ -104,7 +104,16 @@ def main():
         ui = w.findChild(QObject, "uiState")
         c = b.stack3d
         times = []
+        render_submissions = []
+        c.renderChanged.connect(
+            lambda: (
+                render_submissions.append(time.perf_counter())
+                if c.volume is not None and c.scene
+                else None
+            )
+        )
         w.frameSwapped.connect(lambda: times.append(time.perf_counter()))
+        report["orthogonal_tab_to_qt_frameSwapped_ms"] = []
 
         def spin(predicate, timeout=120):
             end = time.monotonic() + timeout
@@ -154,7 +163,16 @@ def main():
             app.processEvents()
 
         def tab(index):
-            w.findChild(QObject, "stack3dTabs").setProperty("currentIndex", index)
+            item = w.findChild(QObject, "stack3dTabs")
+            changed = item.property("currentIndex") != index
+            before = len(times)
+            started = time.perf_counter()
+            item.setProperty("currentIndex", index)
+            if changed and c.volume is not None:
+                spin(lambda before=before: len(times) > before, timeout=10)
+                report["orthogonal_tab_to_qt_frameSwapped_ms"].append(
+                    {"tab": index, "ms": (times[before] - started) * 1000}
+                )
             QTest.qWait(120)
 
         def click(name):
@@ -181,6 +199,9 @@ def main():
         assert c.state["rhi_available"], c.state["backend"]
         report["backend"] = c.state["backend"]
         shot("06-perspective")
+        report["first_3d_qt_frameSwapped_after_scene_submission_ms"] = (
+            next(t for t in times if t >= render_submissions[0]) - render_submissions[0]
+        ) * 1000
         report["engine_extraction_ms"] = c.volume.seconds * 1000
         report["display_prepare_ms"] = c.state["slice_prepare_ms"]
         report["shape"] = c.state["shape"]
@@ -215,6 +236,8 @@ def main():
             input_timings.append((submit - started) * 1000)
             swap_delays.append((times[before] - started) * 1000)
         camera_before = list(c.camera)
+        zoom_delays = []
+        zoom_submit = []
         for _n in range(4):
             event = QWheelEvent(
                 QPointF(pos),
@@ -226,13 +249,20 @@ def main():
                 Qt.NoScrollPhase,
                 False,
             )
+            before = len(times)
+            started = time.perf_counter()
             QGuiApplication.sendEvent(w, event)
+            zoom_submit.append((time.perf_counter() - started) * 1000)
+            spin(lambda before=before: len(times) > before, timeout=10)
+            zoom_delays.append((times[before] - started) * 1000)
             QTest.qWait(20)
         assert c.camera[4] < camera_before[4]
         QTest.mousePress(w, Qt.RightButton, Qt.NoModifier, pos)
         QTest.mouseMove(w, pos + QPoint(30, 20))
         QTest.mouseRelease(w, Qt.RightButton, Qt.NoModifier, pos + QPoint(30, 20))
         assert c.camera[2:4] != [0, 0]
+        report["qtest_zoom_submit_ms"] = zoom_submit
+        report["qtest_zoom_to_qt_frameSwapped_ms"] = zoom_delays
         report["qtest_orbit_submit_ms"] = input_timings
         report["qtest_orbit_to_qt_frameSwapped_ms"] = swap_delays
         report["frameSwapped_is_not_physical_display_latency"] = True
@@ -257,8 +287,13 @@ def main():
         settled()
         c.setXY(120, 112)
         settled()
+        overlay_started = time.perf_counter()
         c.record("POINT", "QA", "REVIEWED")
         settled()
+        report["track_overlay_worker_ready_ms"] = (
+            time.perf_counter() - overlay_started
+        ) * 1000
+        report["track_overlay_display_prepare_ms"] = c.state["slice_prepare_ms"]
         shot("12-track-3d-overlay")
         assert len(c.scene["markers"]) == 3 and len(c.scene["segments"]) == 28
         c.save("QA")
