@@ -23,7 +23,6 @@ OutputDir={#OutputPath}
 OutputBaseFilename=SiCXrtAnalyzer-{#AppVersion}-windows-x64-setup
 Compression=lzma2
 SolidCompression=yes
-LZMAUseSeparateProcess=yes
 LZMANumBlockThreads=2
 WizardStyle=modern
 DisableProgramGroupPage=yes

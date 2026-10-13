@@ -4,7 +4,10 @@ Publisher: CrystalVision Lab
 Original research images, private projects, credentials, ONNX model weights and training data are not distributed in this installer. Models must be selected separately or obtained through an authenticated, approved registry. No scientific model performance approval is implied.
 
 This onedir distribution preserves separate dynamically linked libraries.
-PySide6 / Qt: LGPL v3 / GPL v3 or commercial terms as supplied by Qt.
+PySide6 / Qt libraries: LGPL v3 / GPL v3 or commercial terms as supplied by Qt.
+Qt Quick 3D in this application is GPL v3 or commercial ONLY, not LGPL.
+Public binary distribution is on hold pending publisher selection of GPLv3 with corresponding source delivery or a suitable commercial Qt distribution. This development QA build is not a public release.
+Exact module license: https://doc.qt.io/qt-6.11/qtquick3d-index.html#licenses-and-attributions
 Qt source and license information: https://www.qt.io/licensing/open-source-lgpl-obligations and https://download.qt.io/official_releases/qt/
 Eclipse Temurin OpenJDK 21: GPL v2 with Classpath Exception; bundled legal/ and release files retain the original notices. Corresponding source: https://github.com/adoptium/temurin21-binaries and https://github.com/openjdk/jdk21u
 ImageJ 1.x: public domain; https://imagej.net/ij/
