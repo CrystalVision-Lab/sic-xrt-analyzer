@@ -7,15 +7,24 @@
 #ifndef OutputPath
  #error OutputPath is required
 #endif
+#ifndef AppGuid
+ #define AppGuid "81CAB3F6-F3BE-4B05-ACB8-E9F47113CC32"
+#endif
+#ifndef UpdateHelper
+ #error UpdateHelper is required
+#endif
+#ifndef AppDisplayName
+ #define AppDisplayName "SiC XRT Analyzer"
+#endif
 [Setup]
-AppId={{81CAB3F6-F3BE-4B05-ACB8-E9F47113CC32}
-AppName=SiC XRT Analyzer
+AppId={{{#AppGuid}}
+AppName={#AppDisplayName}
 AppVersion={#AppVersion}
 AppPublisher=CrystalVision Lab
 LicenseFile=..\LICENSE
 AppPublisherURL=https://github.com/CrystalVision-Lab/sic-xrt-analyzer
 DefaultDirName={localappdata}\Programs\CrystalVisionLab\SiCXrtAnalyzer
-DefaultGroupName=SiC XRT Analyzer
+DefaultGroupName={#AppDisplayName}
 PrivilegesRequired=lowest
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
@@ -27,18 +36,67 @@ SolidCompression=yes
 LZMANumBlockThreads=2
 WizardStyle=modern
 DisableProgramGroupPage=yes
+ShowLanguageDialog=no
 UninstallDisplayIcon={app}\SiCXrtAnalyzer.exe
 CloseApplications=yes
+RestartApplications=no
+SetupMutex=CrystalVisionLab_SicXrt_{#AppGuid}
+UsePreviousAppDir=yes
 [Languages]
 Name: "korean"; MessagesFile: "compiler:Languages\Korean.isl"
 Name: "english"; MessagesFile: "compiler:Default.isl"
 [Tasks]
 Name: "desktopicon"; Description: "Create a desktop shortcut"; Flags: unchecked
 [Files]
+Source: "{#UpdateHelper}"; DestName: "XrtUpdateHandoff.exe"; Flags: dontcopy
 Source: "{#BundleDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "PYTHON-LICENSE.txt"; DestDir: "{app}\_internal"; Flags: ignoreversion
 [Icons]
 Name: "{group}\SiC XRT Analyzer"; Filename: "{app}\SiCXrtAnalyzer.exe"; WorkingDir: "{app}"
 Name: "{autodesktop}\SiC XRT Analyzer"; Filename: "{app}\SiCXrtAnalyzer.exe"; Tasks: desktopicon
 [Run]
+Filename: "{app}\SiCXrtAnalyzer.exe"; WorkingDir: "{app}"; Flags: nowait skipifnotsilent; Check: IsXrtUpdate
 Filename: "{app}\SiCXrtAnalyzer.exe"; Description: "Launch SiC XRT Analyzer"; Flags: nowait postinstall skipifsilent
+
+[Code]
+function IsXrtUpdate(): Boolean;
+begin
+  Result := ExpandConstant('{param:XRTUPDATE|0}') = '1';
+end;
+
+function VerifiedLegacyUpdateCache(): Boolean;
+var Name, Parent, Installed: String; I: Integer;
+begin
+  Result := False;
+  Name := ExtractFileName(ExpandConstant('{srcexe}'));
+  Parent := ExtractFileName(RemoveBackslashUnlessRoot(ExtractFileDir(ExpandConstant('{srcexe}'))));
+  Log('Update cache check: ' + Name + ' / ' + Parent);
+  if (Length(Name) <> 68) or (Lowercase(ExtractFileExt(Name)) <> '.exe') or (Lowercase(Parent) <> 'app-updates') then Exit;
+  for I := 1 to 64 do
+    if Pos(Lowercase(Name[I]), '0123456789abcdef') = 0 then Exit;
+  if RegQueryStringValue(HKCU64, 'Software\Microsoft\Windows\CurrentVersion\Uninstall\{{#AppGuid}}_is1', 'InstallLocation', Installed) then
+  begin
+    Log('Existing installation: ' + Installed);
+    Result := FileExists(AddBackslash(Installed) + 'SiCXrtAnalyzer.exe');
+  end;
+end;
+
+function CurrentProcessId(): LongWord;
+  external 'GetCurrentProcessId@kernel32.dll stdcall';
+
+function InitializeSetup(): Boolean;
+var ExitCode: Integer; Installed, Handoff, Params: String;
+begin
+  Result := True;
+  { The old 0.2.0 caller provides only /NORESTART. A tiny sidecar waits for
+    this setup to exit; setup must not execute itself during initialization. }
+  if (not WizardSilent) and VerifiedLegacyUpdateCache() then begin
+    RegQueryStringValue(HKCU64, 'Software\Microsoft\Windows\CurrentVersion\Uninstall\{{#AppGuid}}_is1', 'InstallLocation', Installed);
+    ExtractTemporaryFile('XrtUpdateHandoff.exe');
+    Handoff := ChangeFileExt(ExpandConstant('{srcexe}'), '.handoff.exe');
+    if FileCopy(ExpandConstant('{tmp}\XrtUpdateHandoff.exe'), Handoff, False) then begin
+      Params := IntToStr(CurrentProcessId()) + ' "' + ExpandConstant('{srcexe}') + '" "' + RemoveBackslashUnlessRoot(Installed) + '"';
+      if Exec(Handoff, Params, '', SW_HIDE, ewNoWait, ExitCode) then Result := False;
+    end;
+  end;
+end;

@@ -24,7 +24,7 @@ def main():
     p.add_argument("--compiler", type=Path, required=True)
     p.add_argument("--output", type=Path, required=True)
     p.add_argument("--version", default=__version__)
-    p.add_argument("--notes", default="대형 JPG 원본 JPEG 디코더 누락 수정. 단일 페이지 2D TIFF 분석·저장·검수를 연결하고 multi-page TIFF는 스택·3D 탐색으로 구분합니다. 대표 로고와 프로그램 새 버전 알림·검증 다운로드·종료 후 설치를 추가했습니다. 원본·모델·인증값은 설치 파일에 포함하지 않습니다.")
+    p.add_argument("--notes", default="선택한 검은 결함의 연결 3D 표면, 실제 촬영 구역의 웨이퍼 모자이크, 설치 화면 없는 업데이트와 자동 재실행을 제공합니다.")
     p.add_argument("--source-directory", type=Path, required=True)
     p.add_argument("--work-cache", type=Path)
     p.add_argument("--reuse-bundle", type=Path)
@@ -125,9 +125,13 @@ def main():
             or file.name.lower() in ("admin.json", "db-password.txt")
         ):
             raise RuntimeError("Private file in package")
+    helper=out/'XrtUpdateHandoff.exe'
+    csc=Path(os.environ.get('WINDIR','C:/Windows'))/'Microsoft.NET/Framework64/v4.0.30319/csc.exe'
+    run([str(csc),'/nologo','/target:winexe','/out:'+str(helper),str(ROOT/'installer/UpdateHandoff.cs')],cwd=ROOT)
     run(
         [
             str(args.compiler.resolve()),
+            '/DUpdateHelper='+str(helper),
             "/DAppVersion=" + args.version,
             "/DBundleDir=" + str(bundle),
             "/DOutputPath=" + str(out),

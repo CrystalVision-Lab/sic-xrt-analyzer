@@ -228,6 +228,9 @@ def test_install_shutdown_only_and_tamper_recheck(
     p = u.directory / (u.release["manifest"]["sha256"] + ".exe")
     p.write_bytes(data)
     u.path = u.verified = p
+    app_executable=tmp_path / "installed" / "SiCXrtAnalyzer.exe"
+    app_executable.parent.mkdir();app_executable.write_bytes(b"MZ-existing-install")
+    monkeypatch.setattr(module.sys,"executable",str(app_executable))
     calls = []
     monkeypatch.setattr(
         module.subprocess, "Popen", lambda *a, **k: calls.append((a, k))
@@ -235,7 +238,11 @@ def test_install_shutdown_only_and_tamper_recheck(
     assert u.armInstall() and calls == []
     u.shutdown()
     u.launch_after_exit()
-    assert calls[0][0][0] == [str(p), "/NORESTART"]
+    command=calls[0][0][0]
+    assert command[0]==str(p) and '/VERYSILENT' in command and '/XRTUPDATE=1' in command
+    assert '/DIR='+str(app_executable.parent) in command
+    assert '/NORESTARTAPPLICATIONS' in command
+    assert calls[0][1]['creationflags']==module.subprocess.CREATE_NO_WINDOW
     calls.clear()
     p.write_bytes(b"tampered")
     u.launch_after_exit()

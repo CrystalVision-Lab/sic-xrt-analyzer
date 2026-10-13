@@ -192,3 +192,13 @@ class AppUpdateClient:
             return target
         finally:
             partial.unlink(missing_ok=True)
+
+
+def update_command(installer, executable):
+    """Use the running per-user installation, never an inferred/default folder."""
+    target=Path(executable).resolve()
+    if target.name.lower()!='sicxrtanalyzer.exe' or not target.is_file():
+        raise ValueError("INSTALL_LOCATION_UNAVAILABLE")
+    return [str(installer), '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART',
+            '/CLOSEAPPLICATIONS', '/NORESTARTAPPLICATIONS', '/XRTUPDATE=1',
+            '/DIR='+str(target.parent), '/LOG='+str(Path(installer).parent/'install.log')]

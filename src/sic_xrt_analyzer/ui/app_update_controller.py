@@ -14,6 +14,7 @@ from sic_xrt_analyzer.application_updates import (
     DEFAULT_ORIGIN,
     AppUpdateClient,
     normalize_origin,
+    update_command,
 )
 
 from .latest_reader import LatestReader
@@ -63,6 +64,7 @@ class AppUpdateController(QObject):
             default = Path(bridge._settings.fileName()).parent / "app-updates"
         self.directory = Path(os.getenv("SIC_XRT_APP_UPDATE_DIR", str(default)))
         self.launch_error = ""
+        self.install_after_download = False
 
     @Property("QVariantMap", notify=changed)
     def state(self):
@@ -179,6 +181,13 @@ class AppUpdateController(QObject):
         self._start("download", lambda c: c.download(release, self.directory, progress))
 
     @Slot()
+    def update(self):
+        if self.busy or self.release is None:return
+        self.install_after_download=True
+        if self.path:self.verifyInstall()
+        else:self.download()
+
+    @Slot()
     def verifyInstall(self):
         if self.busy or not self.state["canInstall"]:
             return
@@ -211,6 +220,8 @@ class AppUpdateController(QObject):
             or b.sync_controller.busy
             or b.stack_viewer.busy
             or b.stack3d_controller.busy
+            or b.defect3d_controller.busy
+            or b.folder_map.busy
             or b.workbench.busy
             or b.model_update_controller.busy
             or b.registration_controller.busy
@@ -222,6 +233,7 @@ class AppUpdateController(QObject):
     @Slot()
     def cancel(self):
         self.cancel_token.set()
+        self.install_after_download=False
         self.verified = self.armed = None
 
     def _progress(self, value):
@@ -252,6 +264,9 @@ class AppUpdateController(QObject):
             self.bridge._settings.setValue("applicationUpdates/cached", self.path.name)
             self.status = "다운로드·SHA-256 확인 완료. 설치하면 프로그램을 종료합니다."
             self.progress = 100
+            if self.install_after_download:
+                self.install_after_download=False
+                self.verifyInstall()
         elif result["kind"] == "verify":
             self.verified = result["value"]
             self.status = "설치 준비 완료. 저장하지 않은 작업을 확인합니다."
@@ -267,7 +282,7 @@ class AppUpdateController(QObject):
             return
         try:
             AppUpdateClient(self.origin).verify(self.armed, self.release)
-            # Normal interactive Inno Setup, no silent install and no shell strings.
-            subprocess.Popen([str(self.armed), "/NORESTART"], cwd=str(self.directory))
+            command=update_command(self.armed,sys.executable)
+            subprocess.Popen(command,cwd=str(self.directory),creationflags=getattr(subprocess,'CREATE_NO_WINDOW',0))
         except (OSError, ValueError):
             self.launch_error = "설치 프로그램을 실행할 수 없습니다. 다운로드 사이트에서 직접 설치하세요."

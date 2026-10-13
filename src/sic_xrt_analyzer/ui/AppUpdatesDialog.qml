@@ -25,11 +25,11 @@ Dialog {
             ProgressBar { visible: root.update.busy; value: root.update.progress / 100; Layout.fillWidth: true }
             RowLayout {
                 Button { objectName: "checkAppUpdatesButton"; text: "새 버전 확인"; enabled: !root.update.busy; onClicked: root.controller.checkUpdates() }
-                Button { objectName: "downloadAppUpdateButton"; text: "업데이트 다운로드"; enabled: !root.update.busy && !!root.update.version; onClicked: root.controller.download() }
-                Button { objectName: "installAppUpdateButton"; text: "종료 후 설치"; enabled: !root.update.busy && root.update.canInstall; onClicked: root.controller.verifyInstall() }
+                Button { objectName: "downloadAppUpdateButton"; text: "업데이트"; enabled: !root.update.busy && !!root.update.version; onClicked: root.controller.update() }
+                Button { objectName: "installAppUpdateButton"; text: "업데이트 적용"; visible: false; enabled: !root.update.busy && root.update.canInstall; onClicked: root.controller.verifyInstall() }
                 Button { text: "취소"; enabled: root.update.busy; onClicked: root.controller.cancel() }
             }
-            Label { textFormat: Text.PlainText; text: "설치는 직접 승인한 뒤 진행합니다. 원본 이미지·분석 프로젝트·AI 모델을 설치 파일에 포함하지 않습니다. 설치 파일은 코드 서명 없이 배포되며 HTTPS와 SHA-256으로 전송 무결성을 확인합니다."; wrapMode: Text.Wrap; Layout.fillWidth: true }
+            Label { textFormat: Text.PlainText; text: "업데이트를 누르면 검증 후 프로그램을 종료하고 새 버전으로 다시 실행합니다. 원본·프로젝트·모델은 유지합니다."; wrapMode: Text.Wrap; Layout.fillWidth: true }
             Label { text: "소스로 실행 중입니다. 다운로드한 설치 파일로 설치한 프로그램에서 자동 설치 연결을 사용할 수 있습니다."; visible: !root.update.frozen; wrapMode: Text.Wrap; Layout.fillWidth: true }
             Label { text: "배포 사이트 주소 (HTTPS)"; font.bold: true }
             TextField { id: origin; objectName: "appUpdateOrigin"; text: root.update.origin; enabled: !root.update.busy; Layout.fillWidth: true; placeholderText: "https://배포사이트" }
