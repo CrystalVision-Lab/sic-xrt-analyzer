@@ -3,7 +3,7 @@ import { readFile, mkdir, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 const origin="http://127.0.0.1:18770";
 const output=resolve(process.env.XRT_QA_OUTPUT??"../artifacts/distribution122/browser-guide");await mkdir(output,{recursive:true});
-const browser=await chromium.launch({headless:true});const page=await browser.newPage({viewport:{width:1440,height:1000}});const errors=[];page.on("pageerror",e=>errors.push(e.message));
+const browser=await chromium.launch({headless:true,executablePath:"C:/Program Files/Google/Chrome/Application/chrome.exe"});const page=await browser.newPage({viewport:{width:1440,height:1000}});const errors=[];page.on("pageerror",e=>errors.push(e.message));
 const privateAuth=JSON.parse(await readFile(resolve("../artifacts/sync106-private/admin.json"),"utf8"));
 const report={status:"RUNNING",origin,screens:0,tabs:0,themes:[],private_credentials_sent_to:"LOOPBACK_ONLY"};
 try{

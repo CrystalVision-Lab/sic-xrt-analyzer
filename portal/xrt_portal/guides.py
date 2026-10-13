@@ -1,9 +1,11 @@
 """Private read-only screenshots. No dataset pixels or credentials enter the web build."""
+
 import hashlib
 import json
 import re
 from pathlib import Path
 from uuid import UUID
+
 
 class Guides:
     def __init__(self, directory):
@@ -33,9 +35,17 @@ class Guides:
         if not re.fullmatch(r"[a-z0-9-]{1,80}\.png", name):
             raise ValueError("GUIDE_IMAGE_NAME")
         path = self.directory / name
-        if path.is_symlink() or not path.is_file() or path.resolve().parent != self.directory:
+        if (
+            path.is_symlink()
+            or not path.is_file()
+            or path.resolve().parent != self.directory
+        ):
             raise ValueError("GUIDE_IMAGE_PATH")
         raw = path.read_bytes() if path.stat().st_size <= 8 * 1024**2 else b""
-        if len(raw) != record["size"] or hashlib.sha256(raw).hexdigest() != record["sha256"] or not raw.startswith(b"\x89PNG\r\n\x1a\n"):
+        if (
+            len(raw) != record["size"]
+            or hashlib.sha256(raw).hexdigest() != record["sha256"]
+            or not raw.startswith(b"\x89PNG\r\n\x1a\n")
+        ):
             raise ValueError("GUIDE_IMAGE_INTEGRITY")
         return raw

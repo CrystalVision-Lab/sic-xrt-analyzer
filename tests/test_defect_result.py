@@ -321,8 +321,8 @@ def test_linked_observation_requires_same_coords_score_and_model(qt_app, tmp_pat
 def test_stack_keeps_viewer_but_rejects_experiment_analysis_ui(workbench, tmp_path, monkeypatch):
     w = workbench
     source, folder = bundle(tmp_path, dtype='uint16')
-    import tifffile
     import numpy as np
+    import tifffile
     stack = tmp_path/'multi-page.tif'
     tifffile.imwrite(stack, np.stack([source.read_full(),source.read_full()]), photometric='minisblack')
     w.open(stack)
