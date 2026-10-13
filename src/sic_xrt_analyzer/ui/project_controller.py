@@ -112,6 +112,9 @@ class ProjectController(QObject):
         self.changed.emit()
 
     def _analysis_busy(self):
+        wafer=getattr(self.bridge,"wafer_map_controller",None)
+        if wafer and wafer.job=="save":
+            self.error="Wafer Map 배치 저장을 완료한 뒤 전환하세요.";self.changed.emit();return True
         registration=getattr(self.bridge,"registration_controller",None)
         if registration and registration.job=="approve-save":
             self.error="정합 승인 저장 완료 후 프로젝트를 전환하세요."
@@ -190,6 +193,8 @@ class ProjectController(QObject):
 
     @Slot(str, str)
     def save(self, filename='', name=''):
+        wafer=getattr(self.bridge,'wafer_map_controller',None)
+        if wafer and wafer.job=='save':self.error='배치 저장 중입니다.';self.changed.emit();return
         review=getattr(self.bridge,'review_controller',None)
         if review and review.pending:
             self.error='작성 중인 판정·도형을 검수 기록으로 확정한 뒤 프로젝트를 저장하세요.';self.changed.emit();return
@@ -248,6 +253,8 @@ class ProjectController(QObject):
     def _activate(self, project, path, availability, assets):
         registration=getattr(self.bridge,"registration_controller",None)
         if registration:registration.resetProject()
+        wafer=getattr(self.bridge,"wafer_map_controller",None)
+        if wafer:wafer.resetProject()
         review=getattr(self.bridge,'review_controller',None)
         if review:review.cancel()
         self.project=self.saved_snapshot=project;self.path=str(path);self.dirty=False;self.read_only=False

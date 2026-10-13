@@ -41,10 +41,7 @@ RowLayout {
             id: viewer; theme: root.theme; uiState: root.uiState; actions: root.actions
             onFileDropped: function(url) { root.fileDropped(url) }
         }
-        Rectangle {
-            objectName: "workspacePlaceholder1"; color: root.theme.viewer
-            Text { anchors.centerIn:parent; text:"Wafer Map · 미연결"; color:root.theme.muted }
-        }
+        WaferMapWorkspace { theme: root.theme; uiState: root.uiState; onProjectRequested: root.projectRequested() }
         RegistrationWorkspace { theme: root.theme; uiState: root.uiState }
         Rectangle {
             objectName: "workspacePlaceholder3"; color: root.theme.viewer

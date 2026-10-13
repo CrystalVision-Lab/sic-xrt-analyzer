@@ -66,8 +66,11 @@ class TiffImageProvider(QQuickImageProvider):
         self.experiment_image = QImage()
         self.project_review_image = QImage()
         self.registration_images = {}
+        self.wafer_images = {}
 
     def requestImage(self, image_id: str, size: QSize, requested_size: QSize) -> QImage:
+        if image_id.startswith('wafer-'):
+            return self.wafer_images.get(image_id[6:].split('?')[0], QImage())
         if image_id.startswith('registration-'):
             return self.registration_images.get(image_id.split('-')[1].split('?')[0], QImage())
         if image_id.startswith('projectreview'):
@@ -125,6 +128,8 @@ class FileBridge(QObject):
         self.project_controller = ProjectController(self)
         from .registration_controller import RegistrationController
         self.registration_controller = RegistrationController(self)
+        from .wafer_map_controller import WaferMapController
+        self.wafer_map_controller = WaferMapController(self)
         self.feedback_controller = FeedbackController(self)
         self.feedback_controller.changed.connect(self.research_controller.changed)
         from .review_controller import ReviewController
@@ -654,6 +659,7 @@ class FileBridge(QObject):
     def waitForLoads(self):
         self.model_update_controller.shutdown()
         self.sync_controller.shutdown()
+        self.wafer_map_controller.shutdown()
         self.registration_controller.shutdown()
         self.project_controller.shutdown()
         self.review_controller.crop_reader.shutdown()
@@ -681,6 +687,10 @@ class FileBridge(QObject):
     @Property(QObject, constant=True)
     def reviews(self):
         return self.review_controller
+
+    @Property(QObject, constant=True)
+    def waferMap(self):
+        return self.wafer_map_controller
 
     @Property(QObject, constant=True)
     def registration(self):
