@@ -63,6 +63,11 @@ const workflowImprovements = [
   { icon: Sparkles, title: "찾는 과정을 영상에서 확인해요", text: "처리 영역과 완료된 후보를 실시간으로 표시하고, BPD 영역 제안·ROI 레이어·선택 신고를 연결했습니다." },
   { icon: RefreshCw, title: "작업 화면을 간단하게 정리했어요", text: "폴더로 여는 Wafer Map, 전·후 비교, TIFF 선택 영역의 3D 보기로 작업을 줄였습니다." },
 ];
+const connectedImprovements = [
+  { icon: Sparkles, title: "결함 하나를 입체로 살펴보세요", text: "TIFF에서 검은 결함을 클릭하면 앞뒤 페이지의 연결 부분을 모아 배경 없는 3D 표면으로 보여줍니다." },
+  { icon: Image, title: "사진들을 하나의 웨이퍼로 연결해요", text: "촬영 구역을 묶고 사진의 연결 근거를 확인해 이어 붙입니다. 어닐링 전·후 촬영은 따로 볼 수 있습니다." },
+  { icon: RefreshCw, title: "업데이트 후 바로 다시 시작해요", text: "기존 설치 위치에 새 버전을 적용하고 프로그램을 자동으로 다시 실행합니다." },
+];
 export function NotesPage() {
   const { data, error, loading } = useData<Release[]>("releases");
   const latest = latestRelease(data);
@@ -70,7 +75,7 @@ export function NotesPage() {
     <p className="eyebrow">DEVELOPMENT NOTES</p><h1 id="notes-title">조금 더 편한 연구를 위해.</h1>
     {loading ? <Loading /> : error ? <ErrorBox error={error} /> : latest ? <article className="latest-note">
       <div className="note-edition"><span>이번 업데이트</span><span>v{latest.manifest.version}</span></div>
-      {(latest.manifest.version === "0.1.1" || latest.manifest.version.startsWith("0.2.")) ? <div className="note-improvements">{(latest.manifest.version.startsWith("0.2.") ? workflowImprovements : improvements).map(({icon: Icon, title, text}) => <section key={title}><Icon size={22} aria-hidden="true" /><div><h2>{title}</h2><p>{text}</p></div></section>)}</div> : <p className="note-summary">{latest.manifest.notes}</p>}
+      {(latest.manifest.version === "0.1.1" || latest.manifest.version.startsWith("0.2.") || latest.manifest.version.startsWith("0.3.")) ? <div className="note-improvements">{(latest.manifest.version.startsWith("0.3.") ? connectedImprovements : latest.manifest.version.startsWith("0.2.") ? workflowImprovements : improvements).map(({icon: Icon, title, text}) => <section key={title}><Icon size={22} aria-hidden="true" /><div><h2>{title}</h2><p>{text}</p></div></section>)}</div> : <p className="note-summary">{latest.manifest.notes}</p>}
     </article> : <Empty title="개발노트를 준비 중입니다" />}
   </section></PublicShell>;
 }
