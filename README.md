@@ -297,3 +297,12 @@ JPG 분석 결과 또는 저장된 Run에서 후보·구조를 선택하고 **�
 기존 프로젝트에 JPG 두 장을 등록·저장한 뒤 왼쪽 **이미지 정합**에서 Before/After를 직접 선택합니다. SHA 확인 후 SIFT/ORB, 제한된 Phase/ECC 또는 수동 Landmark를 실행하고 나란히/겹침/분할/차이를 비교할 수 있습니다. 원본 좌표와 분석·검수 기록은 유지하며 정합 자산을 별도로 저장합니다. 실패를 Identity 성공으로 처리하지 않습니다. 로컬 검수 승인과 실제 과학적 정확도는 별개입니다. TIFF는 기존 Stack/ImageJ 용도이며 정합 Source 목록에서 제외됩니다.
 
 [구현·사용·검증·제약](docs/result/XRT-RESULT-TD-10-IMAGE-REGISTRATION.md)을 참고하세요.
+
+
+## Wafer Map — JPG 배치와 저장 결과 탐색 (RESULT-TD-11)
+
+프로젝트를 열고 왼쪽 **Wafer Map**에서 JPG를 선택한 뒤 **위치·회전·크기**로 배치하거나 드래그합니다. 이미지마다 하나의 완료 Run(Full/ROI)을 선택하고 BPD/TED/TSD·검수/HUMAN·실험 레이어를 탐색할 수 있습니다. 선택 대상을 원본 Viewer·결과·Before/After 비교로 열고, 편집자 ID와 함께 배치/Run/레이어를 저장·재열기·이력 복원합니다.
+
+실제 좌표 근거가 없는 현재 데이터는 **단위 없는 임시 상대 배치**이며 실제 Wafer ID는 미확정입니다. 물리 모드는 실제 WaferID·좌표계·단위·origin·축·독립 기준점/측정 근거를 직접 제공해야 합니다. 합성 기준점 검사 성공을 실제 Wafer 정확도 검증으로 해석하지 않습니다. Full과 ROI를 합산하거나 후보를 실제 결함 총수로 표시하지 않습니다. TIFF는 기존 Stack/ImageJ·향후 3D용으로 유지합니다.
+
+[사용법·좌표/저장 계약·실제 데이터 회귀·CPU 계측·69개 화면·남은 제약](docs/result/XRT-RESULT-TD-11-WAFER-MAP.md). 전체 상태는 **PARTIAL**, 임시 배치 구현 검증 완료/실제 물리 좌표 검증 미준비입니다. 실행은 D 프로젝트의 `.venv\Scripts\python.exe -m sic_xrt_analyzer`입니다.
