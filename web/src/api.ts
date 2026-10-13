@@ -11,6 +11,7 @@ export type Manifest = {
   components: string[];
   model_included: boolean;
   signature: string;
+  distribution_clearance: {status:string;reference:string};
   notes: string;
   minimum_os: string;
 };

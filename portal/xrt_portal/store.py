@@ -110,6 +110,7 @@ class Store:
             "components",
             "model_included",
             "signature",
+            "distribution_clearance",
             "notes",
             "minimum_os",
         }
@@ -121,6 +122,15 @@ class Store:
             or p["signature"] not in ("UNSIGNED", "AUTHENTICODE_VALID")
         ):
             raise ValueError("APP_MANIFEST_FIELDS")
+        clearance = p["distribution_clearance"]
+        if (
+            not isinstance(clearance, dict)
+            or set(clearance) != {"status", "reference"}
+            or clearance["status"] not in ("PENDING", "APPROVED")
+            or not isinstance(clearance["reference"], str)
+            or not 10 <= len(clearance["reference"]) <= 2000
+        ):
+            raise ValueError("DISTRIBUTION_CLEARANCE")
         import re
 
         Version(p["version"])
@@ -267,6 +277,8 @@ class Store:
                 raise ValueError("PRERELEASE_NOT_STABLE")
             if status == "PUBLISHED":
                 m = json.loads(r["payload"])
+                if m["distribution_clearance"]["status"] != "APPROVED":
+                    raise ValueError("DISTRIBUTION_NOT_CLEARED")
                 file = self.downloads / (m["sha256"] + ".exe")
                 if not file.is_file() or file.is_symlink() or sha(file) != m["sha256"]:
                     raise ValueError("APP_FILE_INTEGRITY")

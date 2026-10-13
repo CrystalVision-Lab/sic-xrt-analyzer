@@ -450,6 +450,7 @@ function ManageReleases({ session }: { session: Session }) {
                 <tr key={r.id}>
                   <td>
                     <strong>v{r.manifest.version}</strong>
+                {r.manifest.distribution_clearance?.status!=="APPROVED"&&<small>배포 라이선스 확인 대기</small>}
                     <small>{size(r.manifest.size)} · Windows x64</small>
                   </td>
                   <td>{r.state.channel}</td>
@@ -465,6 +466,7 @@ function ManageReleases({ session }: { session: Session }) {
                   <td>
                     <div className="table-actions">
                       <button
+                        disabled={r.manifest.distribution_clearance?.status !== "APPROVED"}
                         onClick={() => {
                           setSelected(r);
                           setReason("");

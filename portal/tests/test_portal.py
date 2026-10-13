@@ -63,6 +63,10 @@ def artifact(store, tmp_path, version="0.1.0"):
         "components": ["VIEWER"],
         "model_included": False,
         "signature": "UNSIGNED",
+        "distribution_clearance": {
+            "status": "APPROVED",
+            "reference": "SYNTHETIC NON-DISTRIBUTABLE TEST FIXTURE ONLY",
+        },
         "notes": "Synthetic test fixture only, never published to operational portal.",
         "minimum_os": "Windows 10/11",
     }
@@ -254,3 +258,25 @@ def test_backup_preserves_release_history_but_removes_sessions(website):
     assert (output / "releases" / (m["sha256"] + ".exe")).is_file()
     with pytest.raises(FileExistsError):
         store.backup(output)
+
+
+def test_pending_distribution_cannot_be_published(website):
+    _c, store, _state, path = website
+    _ident, file, m = artifact(store, path)
+    m["version"] = "0.2.0"
+    m["distribution_clearance"] = {
+        "status": "PENDING",
+        "reference": "Publisher distribution decision required",
+    }
+    ident = store.register(m, file, "qa-admin")
+    pending = next(r for r in store.listing() if r["id"] == ident)
+    with pytest.raises(ValueError, match="DISTRIBUTION_NOT_CLEARED"):
+        store.transition(
+            ident,
+            "PUBLISHED",
+            "BETA",
+            "Must not publish without clearance",
+            pending["event_id"],
+            "qa-admin",
+        )
+    assert store.listing(public=True) == []

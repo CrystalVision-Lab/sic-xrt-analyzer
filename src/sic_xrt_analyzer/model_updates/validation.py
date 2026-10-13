@@ -134,6 +134,7 @@ def validate_bundle(bundle, timeout=45, cancel=None):
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         env=env,
+        creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
     )
     deadline = time.monotonic() + timeout
     try:

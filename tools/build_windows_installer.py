@@ -109,6 +109,10 @@ def main():
         ],
         "model_included": False,
         "signature": "UNSIGNED",
+        "distribution_clearance": {
+            "status": "PENDING",
+            "reference": "Publisher must select GPLv3 with corresponding source or licensed commercial Qt distribution before publication.",
+        },
         "notes": "첫 Windows 연구용 설치 배포. TIFF/JPG·원본 ROI·페이지 기반 3D·검수 프로젝트·ImageJ/Fiji와 별도 모델 연결을 제공합니다. 실제 Z축·결함 연속성은 미검증이며 원본·모델·인증값은 포함하지 않습니다.",
         "minimum_os": "Windows 10 / 11 (64-bit)",
     }
