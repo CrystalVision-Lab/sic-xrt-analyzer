@@ -543,3 +543,23 @@ def test_scientific_gate_rejects_incomplete_expert_metadata(
     assert scientific_gate(Session(), c, "unused", "BETA")["eligible"] == (
         missing == "complete"
     )
+
+
+def test_portal_evaluation_is_read_only_and_keeps_scientific_gate(api, candidate):
+    from sqlalchemy import func, select
+    from xrt_server.models import ModelEvent
+
+    cid, _cfg, *_ = candidate
+    headers = {"Authorization": "Bearer " + api[6]}
+    with api[2]() as db:
+        before = db.scalar(select(func.count()).select_from(ModelEvent))
+    response = api[0].get(
+        "/api/v1/admin/portal/models/" + cid + "/evaluation", headers=headers
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["candidate_id"] == cid
+    assert body["evaluation"]["scientific_metrics"] is False
+    assert body["deployment_gate"]["eligible"] is False
+    with api[2]() as db:
+        assert db.scalar(select(func.count()).select_from(ModelEvent)) == before
