@@ -38,7 +38,7 @@ ONNX는 기존 128px RGB 점 분류 모델이다. 별도 국소 대비·연결 �
 - 실제 폴더: 355개 표시, 읽을 수 없는 JPG 1개를 별도 오류로 구분. 반복 축소 시 0.05배 유지.
 - JPG/TIFF/ONNX SHA 전후 일치. QML 경고 0. 실제 자료·캡처·실패 로그는 artifacts에만 보관한다.
 - 최종 통합 회귀: 771 PASS / 5 SKIP (Windows 비대상 GUI 검사). 캐시 재열기 및 버전 일치 수정 포함. 이후 ROI 도형 첨부·겹침 표시 보강에 대해 관련 46건 및 실제 QML Polygon 신고/레이어 검사 1건이 추가 PASS했다.
-- CI e2301a3: quality, server-postgres, distribution-portal 모두 PASS.
+- CI e2301a3 및 최종 코드 895aff4: quality, server-postgres, distribution-portal 모두 PASS. 최종 코드 run 38473522255.
 - 첫 전체 검사에서 기존 사이드바 기대값 11건이 실패하여 모든 함수·좌표·저장 검증을 유지한 채 갱신했다. 재검사 50건, 기존 검수 컴포넌트 실제 입력/저장/충돌 4건 PASS.
 - 설치·앱 내부·패키지 버전 일치 gate를 추가했다. 내부 상수가 남은 첫 빌드는 중단했고 게시하지 않았다.
 - 설치 실행 파일 최종 검증 및 게시 결과는 릴리스 완료 뒤 추가한다.
@@ -46,3 +46,42 @@ ONNX는 기존 128px RGB 점 분류 모델이다. 별도 국소 대비·연결 �
 ## 배포
 
 목표 버전 0.2.0. 기존 in-app update와 GPLv3 대응 소스 계약을 이용한다. 운영 원본, 연구 자료, 모델과 Credential은 설치 파일에 포함하지 않는다. 기존 Native Dialog 안정화 코드는 변경하지 않았다. 기존 stacked PR은 병합/rebase/retarget하지 않았다.
+
+
+## 0.2.0 배포 완료 — 2026-10-14
+
+- 상태: 현재 PC 서버에 **PUBLISHED / BETA**. 기존 0.1.0/0.1.1 배포는 유지한다.
+- Release ID: `4eebb18e-b1b4-4738-ab92-0ba0ec0abcd9`.
+- 실행 파일·대응 소스 커밋: `895aff481d0754f7e68cd3921d3525cb53062f33`. 이 문서의 후속 기록 커밋은 실행 파일 입력 변경이 아니다.
+- 설치 파일: `SiCXrtAnalyzer-0.2.0-windows-x64-setup.exe`, 1281637097 bytes.
+- 설치 SHA-256: `5cbca610a421a6438f496797299ada81f322d8af17fd348a423c7125d986c9c5`.
+- GPLv3 대응 소스: `SiCXrtAnalyzer-0.2.0-source.zip`, 1738832040 bytes.
+- 소스 SHA-256: `66c60c9326ad86a5757b755ecc5a4a950712a3db9e67e00d010de95265ddec08`.
+- 원본 연구 데이터, 개인 프로젝트, 모델, 인증값은 두 배포 파일에 포함하지 않는다. source identity의 버전·커밋과 금지 파일 제외를 확인했고 서버 등록/게시 시 두 파일의 전체 SHA를 재검증했다.
+
+### 배포 실행 파일 검사
+
+`artifacts/ux129-frozen-public-qa/report.json`: **PASS**, version 0.2.0, frozen=true, GraphicsApi.Direct3D11, QML 경고 0.
+
+- uint16 ROI Volume, 대형 JPEG 원본 코덱·준비 캐시, Main/3D QML, QtQuick3D, 합성 분류기의 모달/실제 progress 전달/캐시/ROI 레이어 수명주기, HTTPS 업데이트 조회, bundled OpenJDK ImageJ worker·작업 복사본, 모델 검증 worker 경로를 확인했다.
+- 실제 After annealing_1.jpg 및 N119 TIFF를 배포 실행 파일에서 열고 원본 영역 dtype·SHA를 확인했다. JPG 분석 버튼=true, 158페이지 TIFF=false. 실제 화면 캡처는 artifacts에만 보관한다.
+- 합성 분류기 검사와 실제 ONNX 검사, D3D11 기능 시작 검사와 GPU 반응성/FPS 측정은 구분한다. 이번 배포에서 새 FPS·검출 정확도 향상을 주장하지 않는다.
+
+### 업데이트 전달 검사
+
+`artifacts/distribution129/update-acceptance/report.json`: **PASS**.
+
+- 실제 AppUpdateClient가 공개 HTTPS에서 0.1.1 → 0.2.0을 조회하고 설치 파일 전체 1281637097 bytes를 D 드라이브로 다운로드했다. MZ·크기·전체 SHA 및 게시 상태를 검증했다. 다운로드·재검증은 120.52s였으며 GUI 성능 벤치마크 수치가 아니다.
+- 0.2.0 기준에는 더 높은 버전 없음. 소스 다운로드는 HTTP 206, ZIP magic, 전체 크기·ETag의 range 검사를 통과했다. 소스 전체 해시는 로컬 빌드·서버 등록·게시 단계에서 확인했다.
+- 검사 중 설치 파일은 실행하지 않았다. 기존 사용자 설치와 작업 파일을 덮어쓰지 않는다.
+- 사용 방법: **도움말 → 프로그램 업데이트 → 새 버전 확인 → 업데이트 다운로드 → 종료 후 설치**. 저장하지 않은 작업은 기존 종료 확인 흐름을 따른다.
+- 배포 주소: https://gba-math-charlotte-lightweight.trycloudflare.com (현재 임시 HTTPS 주소).
+- 웹 서비스만 재배포했고 0.2.0 개발노트·공개 릴리스와 기존 공개 사용 가이드 응답을 확인했다. API/DB와 기존 다른 컨테이너는 재시작하지 않았다. 기존 가이드 이미지 전체를 이번 작업에서 다시 촬영한 것은 아니다.
+
+### 게시 전 백업
+
+Docker → Windows 대용량 복사에서 `Cannot allocate memory`가 두 차례 발생해 미완성 백업을 채택하지 않았다. 읽기 전용 SQLite 백업에서 세션을 제외하고 integrity_check=ok를 확인한 뒤, 원장 SHA와 일치하는 기존 로컬 불변 설치/소스 파일을 NTFS에서 직접 복사했다. 재개 중 이미 복사 중인 파일의 중복 생성은 FileExistsError로 중단됐으며 운영 데이터 변경은 없었다. 최종 백업은 `artifacts/sync106-private/backups/ux129-pre-release-local-copy/manifest.json`의 2개 릴리스·4개 배포 파일·SQLite를 모두 SHA/크기로 검증했다. 실패 사본과 로그는 보존한다. Portal은 백업 스냅샷 동안만 중지 후 정상 복구했다.
+
+### 남아 있는 과학적·운영 범위
+
+BPD 영역은 국소 대비 기반 실험 제안이며 실제 전위의 전체 분할 정답이 아니다. ROI 표시 레이어는 세션 내 최근 8개 원본용이고, 영속 ROI 저장은 기존 ROI ZIP을 사용한다. 선택 신고는 별도 로컬 JSON으로 저장되며 자동 서버 전송·정답 승인은 하지 않는다. 실제 좌표 근거가 없는 폴더 지도는 임시 상대 배치, TIFF 3D는 XY/Page 표현이다.
