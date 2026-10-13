@@ -368,7 +368,7 @@ def placement_metadata(ref, p, groups):
         )
     g = groups[p["group_id"]]
     return WaferPlacement(
-        g["wafer_id"] if g["mode"] == "PHYSICAL" else g["id"],
+        g["wafer_id"] if g["mode"] == "PHYSICAL" else None,
         tuple(float(row[2]) for row in p["matrix"][:2]),
         ref,
         g["coordinate_system"],

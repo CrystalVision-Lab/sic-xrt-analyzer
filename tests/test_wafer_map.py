@@ -223,6 +223,8 @@ def test_history_atomic_revision_save_as_and_missing_source(study, tmp_path):
     p, a, s, path = study
     sha = hashlib.sha256(Path(s.source_reference).read_bytes()).hexdigest()
     q = assets.append(p, a, path)
+    assert q.image_sources[0].wafer_placement.wafer_id is None
+    assert q.image_sources[0].wafer_placement.coordinate_system == "RELATIVE_LAYOUT"
     ProjectStore().save(path, q)
     b = copy.deepcopy(a)
     b.update(
