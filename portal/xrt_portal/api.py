@@ -17,6 +17,7 @@ from fastapi.responses import FileResponse, JSONResponse, Response
 from starlette.concurrency import run_in_threadpool
 
 from .store import Store
+from .guides import Guides
 
 COOKIE = "xrt_portal_session"
 
@@ -48,7 +49,7 @@ def origin(request):
     return not local
 
 
-def create_app(state=None, downloads=None, key=None, upstream=None, transport=None):
+def create_app(state=None, downloads=None, key=None, upstream=None, transport=None, guides=None):
     @asynccontextmanager
     async def lifespan(_app):
         yield
@@ -74,6 +75,7 @@ def create_app(state=None, downloads=None, key=None, upstream=None, transport=No
         transport=transport,
     )
     app.state.client = client
+    library = Guides(guides or os.getenv("XRT_GUIDE_DIR", "/data/guides"))
     limiter = Limit()
     capacity = threading.BoundedSemaphore(4)
 
@@ -183,10 +185,64 @@ def create_app(state=None, downloads=None, key=None, upstream=None, transport=No
         )
         return response
 
+    def researcher(row):
+        h = fetch(row["credential"], "health")
+        if h.status_code != 200 or h.json().get("client_id") != row["user"]["client_id"] or h.json().get("user_id") != row["user"]["id"]:
+            raise HTTPException(401, "RESEARCHER_SESSION_UNAVAILABLE")
+        return row["user"]
+
+    def guide_access(row, project_id):
+        researcher(row)
+        response = fetch(row["credential"], "projects/" + project_id + "/summary")
+        if response.status_code in (401, 403, 404):
+            return False
+        response.raise_for_status()
+        return True
+
+    @app.post("/portal-api/guide/login")
+    async def guide_login(request: Request):
+        secure = origin(request)
+        b = await body(request, 8192)
+        if set(b) != {"client_id", "credential"} or any(not isinstance(b[k], str) for k in b) or not 1 <= len(b["client_id"]) <= 128 or not 1 <= len(b["credential"]) <= 200:
+            raise HTTPException(422, "LOGIN_FIELDS")
+        limiter.check(b["client_id"])
+        h = await run_in_threadpool(fetch, b["credential"], "health")
+        if h.status_code != 200 or h.json().get("client_id") != b["client_id"]:
+            raise HTTPException(401, "INVALID_RESEARCHER_LOGIN")
+        user = {"id": h.json()["user_id"], "client_id": b["client_id"], "name": b["client_id"], "role": "RESEARCHER"}
+        token, payload = await run_in_threadpool(store.session, b["credential"], user)
+        response = JSONResponse(payload)
+        response.set_cookie(COOKIE, token, max_age=7200, httponly=True, secure=secure, samesite="strict", path="/portal-api")
+        return response
+
+    @app.get("/portal-api/guide")
+    def guide(request: Request):
+        row = session(request)
+        researcher(row)
+        data = library.manifest()
+        authorized = {pid for pid in {g["project_id"] for g in data["groups"]} if guide_access(row, pid)}
+        groups = [{k:v for k,v in g.items() if k != "project_id"} for g in data["groups"] if g["project_id"] in authorized]
+        if not groups:
+            raise HTTPException(403, "GUIDE_PROJECT_ACCESS_REQUIRED")
+        return {"schema": data["schema"], "groups": groups}
+
+    @app.get("/portal-api/guide/images/{ident}")
+    def guide_image(ident: str, request: Request):
+        row = session(request)
+        data = library.manifest()
+        groups = [g for g in data["groups"] if any(t.get("image_id") == ident for t in g["tabs"])]
+        if not groups or not any(guide_access(row, g["project_id"]) for g in groups):
+            raise HTTPException(403, "GUIDE_IMAGE_ACCESS_REQUIRED")
+        try:
+            raw = library.image(ident, data)
+        except (KeyError, ValueError, OSError):
+            raise HTTPException(404, "GUIDE_IMAGE_UNAVAILABLE") from None
+        return Response(raw, media_type="image/png")
+
     @app.get("/portal-api/session")
     def me(request: Request):
         row = session(request)
-        administrator(row)
+        (administrator if row["user"]["role"] == "ADMIN" else researcher)(row)
         return {k: row[k] for k in ("user", "csrf", "expires_at")}
 
     @app.post("/portal-api/logout")

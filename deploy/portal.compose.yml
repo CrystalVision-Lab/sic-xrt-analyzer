@@ -7,8 +7,9 @@ services:
       XRT_PORTAL_KEY_FILE: /run/secrets/portal_key
       XRT_PORTAL_STATE: /data/state
       XRT_DOWNLOAD_DIR: /data/releases
+      XRT_GUIDE_DIR: /data/guides
     secrets: [portal_key]
-    volumes: [portal_state:/data/state, application_releases:/data/releases:ro]
+    volumes: [portal_state:/data/state, application_releases:/data/releases:ro, "../artifacts/sync106-private/research-guide:/data/guides:ro"]
     depends_on: [api]
     restart: unless-stopped
     read_only: true
