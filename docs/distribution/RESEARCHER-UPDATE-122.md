@@ -39,4 +39,18 @@
 운영 갱신: .\.venv\Scripts\python.exe tools/portal_ops.py start. 가이드 host 폴더는 별도 private 백업에 PNG·manifest 및 SHA를 함께 보관한다. portal_ops backup의 기본 DB/installer/source 백업과 구분한다. 임시 URL은 PC·Docker·터널이 켜진 동안 유지된다.
 
 ## 앱 업데이트 추가 — Issue #123
-시작 시 새 버전 알림, 도움말의 수동 확인, 검증 다운로드와 종료 후 설치를 추가했다. 최초 0.1.0은 새 설치 파일을 한 번 직접 설치해야 한다. 별도 앱/모델 업데이트 정책과 25개 회귀 근거는 [프로그램 업데이트](APPLICATION-UPDATES.md)에 기록했다. 설치 입력을 변경했으므로 기존 7c682 번들을 재사용하지 않고 60bc23d부터 전체 다시 빌드한다.
+시작 시 새 버전 알림, 도움말의 수동 확인, 검증 다운로드와 종료 후 설치를 추가했다. 최초 0.1.0은 새 설치 파일을 한 번 직접 설치해야 한다. 별도 앱/모델 업데이트 정책과 25개 회귀 근거는 [프로그램 업데이트](APPLICATION-UPDATES.md)에 기록했다. 설치 입력을 변경했으므로 기존 7c682 번들을 재사용하지 않고 e7001f75b892fa28a40254636e28ae25910266fa에서 최종 전체 빌드했다.
+
+## 최종 배포 결과 — PASS
+
+- 0.1.1 BETA 게시: release 013c42f9-121d-453e-a83e-dc2f31f54128. 기존 0.1.0은 이력으로 보존한다.
+- 설치 파일 1,281,551,236 bytes, SHA-256 f0fc70b192bdc8c2958a7f31b707fb820bb607ba3b8094efd5fa4db1c5f0f9cb.
+- GPLv3 소스 1,738,819,906 bytes, SHA-256 89b9136c8644bb53495b223cdae16e0eac272919ba3b0d1477c982a24dbee8a4. source revision e7001f75b892fa28a40254636e28ae25910266fa.
+- 최종 frozen QA 8 runtime 검사와 실제 JPG·단일 TIFF·158페이지 TIFF 3개 PASS, D3D11, QML 경고 0, 원본 SHA 보존. 앱 HTTPS 버전 확인은 응답 처리가 끝날 때까지 정상 이벤트 루프로 대기하여 PASS했다. 초기 외부 QML Timer 계측은 응답 처리 전에 smoke가 종료해 관측되지 않았으며 앱 오류로 분류하지 않았다.
+- 공개 HTTPS에서 앱 client로 0.1.0 기준 새 0.1.1을 조회하고 1.28 GB 설치 파일 전체를 115.49초에 내려받아 SHA 검증 PASS. 다운로드 기능의 end-to-end 검사 시간이며 설치 실행·GPU 성능 측정이 아니다. 실제 사용자 설치는 덮어쓰지 않았다.
+- 소스 ZIP Range/PK/총 길이 PASS. 익명 guide, 실제 PNG, 관리자, 연구 자료 API는 모두 401. 게시 전에 portal ledger/download 및 private guide 58개 SHA 백업 완료.
+- 새 업데이트 가이드 탭은 모의 RESEARCHER 브라우저 세션에서 실제 PNG와 화살표를 검증했고 실서버 익명 PNG 401을 확인했다. 추가 실서버 로그인에 admin.json을 연구원 키로 재사용하는 검사는 자동 승인 심사에서 거부되어 반복하지 않았다. 실제 발급된 연구원 계정의 로그인·프로젝트 grant는 해당 연구원/관리자가 확인해야 한다. 기존 인증·권한 철회·role 격리 backend 회귀는 통과했다.
+- 구현 revision e7001f7 CI 전 job PASS: [GitHub Actions](https://github.com/CrystalVision-Lab/sic-xrt-analyzer/actions/runs/38444595578). 이전 60bc23d도 전체 764 PASS/4 SKIP 및 Linux X11 플러그인 4 PASS.
+- [Draft PR #124](https://github.com/CrystalVision-Lab/sic-xrt-analyzer/pull/124), Closes #122/#123. 기존 stacked PR은 그대로 보존한다.
+
+접속: https://gba-math-charlotte-lightweight.trycloudflare.com — 현재 PC와 터널이 켜진 동안 이용한다. 0.1.0 사용자는 최초 한 번 0.1.1을 직접 설치하고, 이후 도움말 → 프로그램 업데이트에서 진행한다.

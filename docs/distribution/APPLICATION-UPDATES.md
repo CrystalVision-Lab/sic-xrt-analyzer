@@ -29,3 +29,5 @@ Qt AppLocalDataLocation/app-updates를 기본으로 사용한다. 현재 사용�
 ## 검증
 
 25개 앱 업데이트 검사 PASS: 같거나 낮은 버전, BETA/STABLE, 잘못된 origin/manifest, 다운로드 변조·누락·과다 수신·실행 형식, redirect, 철회, 취소, 캐시 재사용/손상 복구, 백그라운드 확인·명시적 다운로드, 오프라인, 종료 후 설치 handoff와 마지막 변조 확인, 실제 Main.qml의 프로젝트·검수 초안 취소 보호. 기존 QML/TIFF 검사와 함께 28 PASS. 설치 실행은 테스트에서 프로세스 호출을 기록해 검증했으며 사용자의 기존 설치를 QA용으로 덮어쓰지 않았다.
+
+최종 frozen 앱의 실제 HTTPS 조회 PASS, 공개 서버에서 0.1.1 설치 파일 전체 스트리밍·SHA 검증 PASS. 최종 게시 정보와 SHA는 [배포 결과](RESEARCHER-UPDATE-122.md)를 참고한다.
