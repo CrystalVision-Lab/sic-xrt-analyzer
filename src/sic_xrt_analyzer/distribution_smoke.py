@@ -8,7 +8,7 @@ import time
 from pathlib import Path
 
 
-def main(output, image_paths=()):
+def main(output, image_paths=(), verify_updates=False):
     report = {
         "status": "FAIL",
         "frozen": bool(getattr(sys, "frozen", False)),
@@ -109,6 +109,18 @@ def main(output, image_paths=()):
             if c.state["rhi_available"]:
                 assert window.findChild(QObject, "stack3dPerspective")
                 report["tests"].append("QtQuick3D runtime")
+            if verify_updates:
+                bridge.appUpdates.checkUpdates()
+                spin(lambda: not bridge.appUpdates.busy, 30)
+                assert not bridge.appUpdates.error, bridge.appUpdates.error
+                state = bridge.appUpdates.state
+                report["app_updates"] = {
+                    "current_version": state["currentVersion"],
+                    "origin": state["origin"],
+                    "available_version": state["version"],
+                    "automatic_download": False,
+                }
+                report["tests"].append("HTTPS application release lookup")
             client = ImageJClient()
             client.configure(False, os.environ.get("SIC_XRT_FIJI_HOME", ""))
             try:

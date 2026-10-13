@@ -23,6 +23,7 @@ def main():
     p.add_argument("--version", default="0.1.1")
     p.add_argument("--notes", default="대형 JPG 원본 JPEG 디코더 누락 수정. 단일 페이지 2D TIFF 분석·저장·검수를 연결하고 multi-page TIFF는 스택·3D 탐색으로 구분합니다. 대표 로고와 프로그램 새 버전 알림·검증 다운로드·종료 후 설치를 추가했습니다. 원본·모델·인증값은 설치 파일에 포함하지 않습니다.")
     p.add_argument("--source-directory", type=Path, required=True)
+    p.add_argument("--work-cache", type=Path)
     p.add_argument("--reuse-bundle", type=Path)
     p.add_argument("--reuse-source-revision")
     args = p.parse_args()
@@ -87,6 +88,9 @@ def main():
             )
         shutil.copytree(candidate, bundle)
     else:
+        cache = (args.work_cache or out / "work").resolve()
+        if not cache.is_relative_to(ROOT / "artifacts"):
+            raise ValueError("Task artifacts work-cache required")
         run(
             [
                 sys.executable,
@@ -94,7 +98,7 @@ def main():
                 "PyInstaller",
                 "--noconfirm",
                 "--workpath",
-                str(out / "work"),
+                str(cache),
                 "--distpath",
                 str(out / "dist"),
                 str(ROOT / "installer/SiCXrtAnalyzer.spec"),
