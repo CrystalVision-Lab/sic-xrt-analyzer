@@ -108,8 +108,22 @@ def main(output, image_paths=(), verify_updates=False):
             for _ in range(25):
                 app.processEvents()
                 time.sleep(0.01)
+            defect_path=folder/'connected-defect.tif'
+            connected=np.full((7,64,64),60000,np.uint16)
+            connected[1:6,28:36,28:36]=3000
+            tifffile.imwrite(defect_path,connected,photometric='minisblack')
+            bridge.requestImage(QUrl.fromLocalFile(str(defect_path)).toString())
+            spin(lambda:bridge.original_source is not None and bridge.original_source.path==str(defect_path))
+            bridge.requestPage(3)
+            spin(lambda:bridge.original_source.page_index==3)
+            assert bridge.defect3d.start(31,31)
+            spin(lambda:not bridge.defect3d.busy)
+            assert bridge.defect3d.state['ready'],bridge.defect3d.error
+            window.findChild(QObject,'uiState').setProperty('workspaceIndex',3)
+            for _ in range(25):app.processEvents();time.sleep(.01)
+            report['tests'].append('seed-connected closed defect mesh')
             if c.state["rhi_available"]:
-                assert window.findChild(QObject, "stack3dPerspective")
+                assert window.findChild(QObject, "defect3dPerspective")
                 report["tests"].append("QtQuick3D runtime")
             # Compiled UI lifecycle with a clearly synthetic classifier. This
             # tests packaging/signals/cache, not scientific model performance.

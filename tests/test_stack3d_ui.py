@@ -44,6 +44,7 @@ def workspace(qt_app, tmp_path):
     ui.setProperty("workspaceIndex", 3)
     bridge.projects.open(str(path))
     c = bridge.stack3d
+    c.setActive(True)  # Legacy Volume/session API remains independently available.
     spin(
         qt_app,
         lambda: (

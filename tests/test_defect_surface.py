@@ -1,0 +1,112 @@
+import hashlib
+import time
+from pathlib import Path
+
+import numpy as np
+import pytest
+import tifffile
+
+from sic_xrt_analyzer.imaging.original_source import OriginalImageSource
+from sic_xrt_analyzer.stack3d.defect import dark_mask, trace
+
+
+@pytest.fixture
+def connected(tmp_path):
+    a = np.full((15, 80, 90), 60000, np.uint16)
+    for z in range(3, 12):
+        y, x = np.ogrid[:80, :90]
+        a[z][(x - (38 + z // 4)) ** 2 + (y - 40) ** 2 < 36] = 5000
+        a[z, 15:19, 60:65] = 3000
+    p = tmp_path / "connected.tif"
+    tifffile.imwrite(p, a, photometric="minisblack")
+    return OriginalImageSource(p, 7), a
+
+
+def test_seed_connected_closed_surface_preserves_original(connected):
+    source, a = connected
+    before = hashlib.sha256(Path(source.path).read_bytes()).hexdigest()
+    m = trace(source, (39, 40, 7))
+    assert [s.page for s in m.sections] == list(range(3, 12))
+    assert m.voxels == int(np.count_nonzero(a[:, 25:55, 25:55] == 5000))
+    assert m.bounds[0] > 25 and m.bounds[3] < 55 and m.xy_step == 1
+    edges = np.sort(
+        np.concatenate([m.faces[:, [0, 1]], m.faces[:, [1, 2]], m.faces[:, [2, 0]]]),
+        axis=1,
+    )
+    assert (np.unique(edges, axis=0, return_counts=True)[1] == 2).all()
+    assert np.isfinite(m.vertices).all() and len(m.faces) > 100
+    assert not m.vertices.flags.writeable
+    assert hashlib.sha256(Path(source.path).read_bytes()).hexdigest() == before
+    assert np.array_equal(source.read_full(), a[7])
+
+
+def test_empty_page_stops_no_nearest_jump_or_gap_fill(connected):
+    source, a = connected
+    a[6] = 60000
+    tifffile.imwrite(source.path, a, photometric="minisblack")
+    s = OriginalImageSource(source.path, 7)
+    m = trace(s, (39, 40, 7))
+    assert min(r.page for r in m.sections) == 7
+    assert all(r.x < 55 and r.y > 25 for r in m.sections)
+
+
+def test_gradient_is_not_a_dark_component():
+    a = np.tile(np.linspace(20000, 65000, 256, dtype=np.uint16), (256, 1))
+    a[120:135, 120:135] = 1000
+    mask, _ = dark_mask(a)
+    assert mask[122:133, 122:133].all()
+    assert mask[10:100, 20:230].sum() == 0
+
+
+def test_cancel_and_display_budget_do_not_mutate_masks(connected, monkeypatch):
+    import sic_xrt_analyzer.stack3d.defect as mod
+
+    source, a = connected
+    with pytest.raises(InterruptedError):
+        trace(source, (39, 40, 7), cancelled=lambda: True)
+    monkeypatch.setattr(mod, "MAX_DENSE", 100)
+    m = trace(source, (39, 40, 7))
+    assert m.xy_step > 1
+    assert m.voxels == int(np.count_nonzero(a[:, 25:55, 25:55] == 5000))
+
+
+def test_controller_latest_source_and_cancel(connected, bridge_factory, qt_app):
+    s, _ = connected
+    b = bridge_factory()
+    b.original_source = s
+    c = b.defect3d
+    assert c.start(39, 40)
+    until = time.monotonic() + 20
+    while c.busy:
+        assert time.monotonic() < until
+        qt_app.processEvents()
+        time.sleep(0.005)
+    assert c.state["ready"] and not c.error and c.state["pages"] == 9
+    b.original_source = OriginalImageSource(s.path, 2)
+    c.reconstruct(1.0)
+    while c.busy:
+        assert time.monotonic() < until
+        qt_app.processEvents()
+        time.sleep(0.005)
+    assert c.mesh.seed[2] == 7 and c.state["pages"] == 9
+    c.start(39, 40)
+    c.cancel()
+    b.original_source = None
+    c.bindSource()
+    while c.reader.task:
+        assert time.monotonic() < until
+        qt_app.processEvents()
+        time.sleep(0.005)
+    assert c.mesh is None and not c.busy
+
+
+def test_sudden_large_merge_is_reported_not_silently_followed(tmp_path):
+    a = np.full((5, 96, 96), 60000, np.uint16)
+    a[2, 44:50, 44:50] = 1000
+    a[3, 44:49, 20:80] = 1000
+    a[3, 20:80, 44:49] = 1000
+    p = tmp_path / "merge.tif"
+    tifffile.imwrite(p, a, photometric="minisblack")
+    mesh = trace(OriginalImageSource(p, 2), (46, 46, 2))
+    assert [s.page for s in mesh.sections] == [2]
+    assert (3, "AMBIGUOUS_MERGE") in mesh.stops

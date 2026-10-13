@@ -70,6 +70,6 @@ ApplicationWindow {
     footer: StatusBar {
         objectName: "bottomStatusBar"
         theme: shell.shellTheme; uiState: shell.shellState
-        height: visible ? shell.shellTheme.statusHeight : 0; visible: shell.statusBarVisible
+        height: visible ? shell.shellTheme.statusHeight : 0; visible: shell.statusBarVisible && shell.shellState.workspaceIndex === 0
     }
 }
