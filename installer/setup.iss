@@ -12,6 +12,7 @@ AppId={{81CAB3F6-F3BE-4B05-ACB8-E9F47113CC32}
 AppName=SiC XRT Analyzer
 AppVersion={#AppVersion}
 AppPublisher=CrystalVision Lab
+LicenseFile=..\LICENSE
 AppPublisherURL=https://github.com/CrystalVision-Lab/sic-xrt-analyzer
 DefaultDirName={localappdata}\Programs\CrystalVisionLab\SiCXrtAnalyzer
 DefaultGroupName=SiC XRT Analyzer

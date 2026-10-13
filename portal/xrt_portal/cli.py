@@ -15,6 +15,7 @@ def main():
     p.add_argument("--manifest", type=Path)
     p.add_argument("--backup", type=Path)
     p.add_argument("--file", type=Path)
+    p.add_argument("--source-file", type=Path)
     p.add_argument("--credential", type=Path)
     args = p.parse_args()
     if args.backup:
@@ -55,6 +56,7 @@ def main():
         json.loads(args.manifest.read_text(encoding="utf-8")),
         args.file,
         h.json()["user_id"],
+        args.source_file,
     )
     print(json.dumps({"release_id": ident, "status": "DRAFT", "sha_verified": True}))
 

@@ -2,7 +2,7 @@
 
 ## Windows 설치·다운로드 사이트·관리자 포털
 
-현재 PC 배포 사이트: `http://127.0.0.1:18770`. React/TypeScript/Tailwind 다운로드·버전 이력과 관리자 연구 자료 조회를 제공합니다. 설치 프로그램은 개발 QA에서 동작을 확인했으며 공개 배포는 Qt Quick 3D 라이선스 선택 대기 중입니다. [실행·배포·백업·검증 보고서](docs/deploy/XRT-DEPLOY-TD-01.md)를 참고하세요.
+현재 PC 배포 사이트: `http://127.0.0.1:18770`. React/TypeScript/Tailwind 다운로드·버전 이력과 관리자 연구 자료 조회를 제공합니다. 설치 프로그램은 GPLv3로 동작을 검증하고 동일 버전 앱·빌드 소스를 함께 제공합니다. [실행·배포·백업·검증 보고서](docs/deploy/XRT-DEPLOY-TD-01.md)를 참고하세요.
 
 
 SiC XRT 이미지를 탐색하는 PySide6/QML 데스크톱 앱입니다. 산업용 Dark Gray 화면, 사전 준비된 정밀 TIFF 스택·JPG 뷰어, ImageJ 도구·ROI 편집과 앱 내부 ImageJ 매크로·Java 플러그인 실행 창을 제공합니다. **고정 연구 모델의 BPD·TED·TSD 후보 분류가 분석 버튼에 연결되어 있습니다.** [모델 연결·결과 저장 안내](docs/desktop-inference.md). 3D 재구성은 별도 개발 범위입니다.

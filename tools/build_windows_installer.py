@@ -21,6 +21,7 @@ def main():
     p.add_argument("--compiler", type=Path, required=True)
     p.add_argument("--output", type=Path, required=True)
     p.add_argument("--version", default="0.1.0")
+    p.add_argument("--source-directory", type=Path, required=True)
     args = p.parse_args()
     if sys.platform != "win32":
         raise RuntimeError("Build on Windows x64")
@@ -89,6 +90,14 @@ def main():
     setup = out / ("SiCXrtAnalyzer-" + args.version + "-windows-x64-setup.exe")
     with setup.open("rb") as f:
         digest = hashlib.file_digest(f, "sha256").hexdigest()
+    from build_corresponding_source import build
+
+    source = build(
+        out / ("SiCXrtAnalyzer-" + args.version + "-source.zip"),
+        args.version,
+        revision,
+        args.source_directory,
+    )
     manifest = {
         "schema": "xrt_app_release/v1",
         "version": args.version,
@@ -109,9 +118,11 @@ def main():
         ],
         "model_included": False,
         "signature": "UNSIGNED",
+        "license": "GPL-3.0-only",
+        "source_archive": source,
         "distribution_clearance": {
-            "status": "PENDING",
-            "reference": "Publisher must select GPLv3 with corresponding source or licensed commercial Qt distribution before publication.",
+            "status": "APPROVED",
+            "reference": "Publisher explicitly authorized GPLv3 with source delivery on 2026-10-13; exact revision application and Qt/PySide/OpenJDK sources and source catalogue included.",
         },
         "notes": "첫 Windows 연구용 설치 배포. TIFF/JPG·원본 ROI·페이지 기반 3D·검수 프로젝트·ImageJ/Fiji와 별도 모델 연결을 제공합니다. 실제 Z축·결함 연속성은 미검증이며 원본·모델·인증값은 포함하지 않습니다.",
         "minimum_os": "Windows 10 / 11 (64-bit)",

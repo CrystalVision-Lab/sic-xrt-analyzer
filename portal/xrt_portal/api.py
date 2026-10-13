@@ -209,23 +209,23 @@ def create_app(state=None, downloads=None, key=None, upstream=None, transport=No
             finally:
                 capacity.release()
 
-    @app.get("/portal-api/releases/{ident}/download")
-    def download(ident: str):
+    def release_file(ident: str, source=False):
         r = next((r for r in store.listing(True) if r["id"] == ident), None)
         if not r:
             raise HTTPException(404, "RELEASE_UNAVAILABLE")
-        m = r["manifest"]
-        p = store.downloads / (m["sha256"] + ".exe")
+        m = r["manifest"]["source_archive"] if source else r["manifest"]
+        p = store.downloads / (m["sha256"] + (".zip" if source else ".exe"))
         if p.is_symlink() or not p.is_file() or p.stat().st_size != m["size"]:
             raise HTTPException(409, "FILE_UNAVAILABLE")
         if not capacity.acquire(False):
             raise HTTPException(429, "DOWNLOAD_CAPACITY")
         try:
             with store.connect() as db:
-                db.execute(
-                    "INSERT INTO downloads(release_id,created) VALUES(?,?)",
-                    (ident, time.time()),
-                )
+                if not source:
+                    db.execute(
+                        "INSERT INTO downloads(release_id,created) VALUES(?,?)",
+                        (ident, time.time()),
+                    )
             return Download(
                 p,
                 filename=m["filename"],
@@ -235,6 +235,14 @@ def create_app(state=None, downloads=None, key=None, upstream=None, transport=No
         except Exception:
             capacity.release()
             raise
+
+    @app.get("/portal-api/releases/{ident}/download")
+    def download(ident: str):
+        return release_file(ident)
+
+    @app.get("/portal-api/releases/{ident}/source")
+    def source_download(ident: str):
+        return release_file(ident, source=True)
 
     @app.get("/portal-api/admin/releases")
     def managed(request: Request):

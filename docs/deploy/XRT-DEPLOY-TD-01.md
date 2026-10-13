@@ -2,7 +2,7 @@
 
 ## Status
 
-**PARTIAL — 웹/관리자/현재 PC 배포 완료, 공개 설치 배포 라이선스 결정 대기.**
+**공개 배포 준비 — 게시자가 GPLv3+소스 제공을 승인했다. 최종 설치/소스 빌드·배포 결과를 수집 중.**
 
 Issue [#120](https://github.com/CrystalVision-Lab/sic-xrt-analyzer/issues/120), Draft PR [#121](https://github.com/CrystalVision-Lab/sic-xrt-analyzer/pull/121). 기준 TD-12 `feat/118-tiff-3d-viewer` / `e32376f04f91a954c86d95b22d45535316b2791b`. 작업 브랜치 `feat/120-distribution-portal`. 기존 stacked PR을 병합·rebase·retarget하지 않았다.
 
@@ -18,13 +18,15 @@ Issue [#120](https://github.com/CrystalVision-Lab/sic-xrt-analyzer/issues/120), 
 
 PyInstaller 6.22.3 onedir: `SiCXrtAnalyzer.exe` GUI와 `SiCXrtWorker.exe` 전용 콘솔 helper. 원래 ImageJ/모델 검증 모듈만 실행 허용. ImageJ·공개 Fiji JAR/Plugin·검증한 Eclipse Temurin21 런타임을 포함한다. 기존 Oracle JDK24를 재배포하지 않는다. Inno Setup7.1.0으로 사용자별 Windows10/11 x64 설치와 시작 메뉴·선택적 바탕화면 바로가기·제거를 제공한다. Python/Java 별도 설치가 필요하지 않다. 설치 밖 프로젝트와 원본을 제거하지 않는다.
 
+고지를 보강한 QA v2 설치·설치 후 frozen smoke도 PASS: setup 1,268,408,860bytes, SHA `0c9649ebfc1bea87f2f74a87933e8632c481709c812daa83b3d9ff5d7efacbca`, source `e149309dc2fa15da634a3786894a65f7f25aaecb`. Bundle 크기1.91GiB이며 다운로드와 설치를 위해6GB 여유를 권장한다(원본/캐시 별도). v1/v2는 공개 릴리스가 아닌 QA 기록으로만 보관한다. 최종 builder의 배포 확인 필드가 추가되기 전에 생성한 v2 manifest는 운영 등록에 사용하지 않는다.
+
 실제 QA v1 파일은 약1.27GB(1,268,223,714bytes), SHA `d325612b72e661e95643feeee1b22d9dc04f79c9849af0735acd3a06eb01fa0b`, source `eb1a6a3965a6b9f7245dce58a2b20e5f054ef205`. 코드 서명은 없다. 최종 라이선스·고지·소스를 확정한 뒤 새 버전으로 다시 빌드해야 하며 QA 파일을 공개 배포로 사용하지 않는다.
 
 ### 공개 설치 파일 보류 사유
 
-[Qt Quick 3D6.11.2 공식 라이선스](https://doc.qt.io/qt-6.11/qtquick3d-index.html#licenses-and-attributions)는 GPLv3 또는 상용이며 LGPL 모듈이 아니다. 게시자에게 **GPLv3+Corresponding Source 제공 / 상용 Qt 권리 보유 / 웹만 우선 배포** 선택을 요청했고 응답 대기 중이다. 저장소 라이선스를 임의로 변경하지 않았다. 개발 QA 빌드의 THIRD-PARTY-NOTICES를 바로잡고 PySide6 Addons/Essentials/shiboken metadata도 포함했다.
+[Qt Quick 3D6.11.2 공식 라이선스](https://doc.qt.io/qt-6.11/qtquick3d-index.html#licenses-and-attributions)는 GPLv3 또는 상용이며 LGPL 모듈이 아니다. 게시자에게 **GPLv3+Corresponding Source 제공 / 상용 Qt 권리 보유 / 웹만 우선 배포** 선택을 요청했고 게시자가 **GPLv3로 앱 소스와 함께 공개 배포**를 선택했다. 이에 Root LICENSE/NOTICE와 소스·빌드 제공을 추가했다. 개발 QA 빌드의 THIRD-PARTY-NOTICES를 바로잡고 PySide6 Addons/Essentials/shiboken metadata도 포함했다.
 
-공개 계약 `xrt_app_release/v1`: version/platform/source_revision/filename/size/sha256/components/model_included/signature/notes/minimum_os/distribution_clearance. 모델 포함은 false만 허용. `distribution_clearance={status:PENDING,reference:...}`인 파일은 등록하더라도 게시를409로 거부한다. 웹에서 승인으로 바꾸는 기능은 없다. APPROVED의 근거는 게시자가 실제 배포 권리·소스 제공 방식·서드파티 의무를 확인한 기록이어야 한다. synthetic 테스트의 승인 값은 운영 승인 근거가 아니다. 코드 서명 인증서, 최종 GPL 소스 아카이브 또는 상용 빌드 준비는 미완료다.
+공개 계약 `xrt_app_release/v1`: version/platform/source_revision/filename/size/sha256/components/model_included/signature/notes/minimum_os/license/source_archive/distribution_clearance. 모델 포함은 false만 허용. `distribution_clearance={status:PENDING,reference:...}`인 파일은 등록하더라도 게시를409로 거부한다. 웹에서 승인으로 바꾸는 기능은 없다. APPROVED의 근거는 게시자가 실제 배포 권리·소스 제공 방식·서드파티 의무를 확인한 기록이어야 한다. synthetic 테스트의 승인 값은 운영 승인 근거가 아니다. 코드 서명 인증서는 없다. 최종 GPL 소스 아카이브에는 동일 revision 앱/빌드/테스트·Qt/PySide/OpenJDK 전체 소스·Fiji Source JAR와 출처/SHA 카탈로그를 포함한다.
 
 ## 현재 PC 배포
 
@@ -53,7 +55,7 @@ Set-Location D:\capstone\sic-xrt-analyzer
 
 기존 서버 Bearer 인증·PostgreSQL Alembic0003·연구 데이터·모델 계약은 보존했다. 서버에는 동일 ADMIN Depends를 사용하는 읽기 전용 조회만 추가했다. Cookie를 기존 API 인증으로 수용하지 않는다.
 
-포털은 독립 SQLite WAL `portal_state` 볼륨에 프로그램 릴리스와 불변 revision을 저장한다. 앱 바이너리 CAS는 `application_releases` 볼륨이며 상시 포털에는 read-only. 등록은 `tools/portal_ops.py register --bundle artifacts/<new-build>` 로컬 일회성 작업에서만 가능하고 SHA를 검사한다. 관리자 파일은 그 일회성 작업에만 read-only 마운트한다. 상시 API·nginx에는 관리자 Credential이 마운트되지 않는다.
+포털은 독립 SQLite WAL `portal_state` 볼륨에 프로그램 릴리스와 불변 revision을 저장한다. 앱 바이너리 CAS는 `application_releases` 볼륨이며 상시 포털에는 read-only. 등록은 `tools/portal_ops.py register --bundle artifacts/<new-build>` 로컬 일회성 작업에서만 가능하고 설치 .exe와 소스 .zip의 SHA·동일 revision을 검사한다. source_archive가 없거나 손상되면 공개 게시를 거부한다. `/portal-api/releases/<id>/source`는 게시된 같은 버전 소스를 익명으로 제공한다. 관리자 파일은 그 일회성 작업에만 read-only 마운트한다. 상시 API·nginx에는 관리자 Credential이 마운트되지 않는다.
 
 Opaque 세션2시간, HttpOnly/SameSiteStrict, 공개 HTTPS Secure Cookie, 서버 측 Fernet 암호화, CSRF+same-origin 검사, ADMIN/revocation 재검증. localStorage/sessionStorage에 인증키를 저장하지 않는다. 다운로드/공개 HTML 외의 연구 자료는 로그인 없이401이다. 로그인8회/10분/client ID 제한, 다운로드 동시4개·파일최대3GiB·HTTP Range. 다운로드 요청 수는 설치 사용자 수가 아니다. 연구 proxy는 GET만 허용한다. 모델 승인/철회/키 변경 POST는405이다.
 
@@ -81,11 +83,11 @@ Opaque 세션2시간, HttpOnly/SameSiteStrict, 공개 HTTPS Secure Cookie, 서�
 | Frozen ONNX helper | PASS, 합성 ONNX batch1/7 CPU실행, scientific 정확도 시험 아님 |
 | QA 설치 제거 | PASS, CURRENTUSER, 설치 밖 합성 프로젝트 SHA보존 |
 | PostgreSQL 서버 회귀 | 로컬82 PASS, 최종 CI83 PASS (모델 평가 조회 무변경 검사 추가) |
-| 포털 | 7 PASS, 암호화/역할/CSRF/revocation/range/이력/백업/배포보류 |
+| 포털 | 소스 쌍 검증 포함 최종 검사 중; 기존7 PASS, 암호화/역할/CSRF/revocation/range/이력/백업/배포보류 |
 | 웹 Unit | 4 PASS, 최신요청·미게시·STABLE 선택·키보드 focus |
 | Worker/모델+포털 집중 회귀 | 45 PASS |
-| Windows 전체 회귀 | 최초735 PASS/5 SKIP/1 FAIL: Wand JVM cold start5초 완료 대기. 동일 검사 단독1 PASS(4.66s). 기능 검사 대기를 기존 ImageJ 검사와 같은30초로 지정 후 전체 재검사 |
-| Linux GitHub Actions | 최종 HEAD 결과 수집 중 |
+| Windows 전체 회귀 | 최종736 PASS/5 SKIP,1073.52s. 최초735 PASS/5 SKIP/1 FAIL은 Wand JVM cold start5초 완료 대기. 단독1 PASS(4.66s), 기능 검사 대기30초로 수정 후 전체 통과 |
+| Linux GitHub Actions | Code HEAD3e1f422에서 quality/server-postgres/distribution-portal 모두 PASS, run38381512705 |
 
 로그·원본 Crop·로그인 후 캡처는 `artifacts/` private/ignored, 실제 인증값은 출력하지 않았다. 브라우저 검사는 자체 Chromium 자동 QA이며 물리 마우스의 설치 wizard 검사를 뜻하지 않는다. `web/qa.mjs`는 관리자 자동 검증을 localhost로 제한한다. 외부에서는 `XRT_QA_PUBLIC_ONLY=1`을 지정한다.
 
@@ -93,7 +95,7 @@ Opaque 세션2시간, HttpOnly/SameSiteStrict, 공개 HTTPS Secure Cookie, 서�
 
 ## 남은 범위
 
-게시자의 라이선스 선택과 실제 의무 이행 후 최종 설치 버전을 새로 빌드·검증·게시해야 한다. 다른 깨끗한 PC에서 설치·GPU/Fiji plugin 실사용, Windows Authenticode 서명, 영구 hostname/Access 정책·서비스 자동 시작·외부 관리자 실사용 acceptance는 별도 운영 검증이다. 현재 웹은 실데이터 조회가 가능하지만 모델 신규 과학 성능을 만들거나 승인하지 않는다.
+게시자가 선택한 GPLv3 조건에 따라 최종 설치와 동일 버전 소스 빌드를 게시한다. 다른 깨끗한 PC에서 설치·GPU/Fiji plugin 실사용, Windows Authenticode 서명, 영구 hostname/Access 정책·서비스 자동 시작·외부 관리자 실사용 acceptance는 별도 운영 검증이다. 현재 웹은 실데이터 조회가 가능하지만 모델 신규 과학 성능을 만들거나 승인하지 않는다.
 
 ## 디자인 참조
 

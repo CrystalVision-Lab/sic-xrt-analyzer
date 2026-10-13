@@ -97,7 +97,7 @@ class Store:
         with self.connect() as db:
             db.execute("DELETE FROM sessions WHERE digest=?", (token_hash(token),))
 
-    def register(self, payload, file, actor):
+    def register(self, payload, file, actor, source_file=None):
         p = dict(payload)
         required = {
             "schema",
@@ -111,6 +111,8 @@ class Store:
             "model_included",
             "signature",
             "distribution_clearance",
+            "license",
+            "source_archive",
             "notes",
             "minimum_os",
         }
@@ -119,6 +121,7 @@ class Store:
             or p["schema"] != "xrt_app_release/v1"
             or p["platform"] != "windows-x64"
             or p["model_included"] is not False
+            or p["license"] != "GPL-3.0-only"
             or p["signature"] not in ("UNSIGNED", "AUTHENTICODE_VALID")
         ):
             raise ValueError("APP_MANIFEST_FIELDS")
@@ -150,6 +153,24 @@ class Store:
             or sha(file) != p["sha256"]
         ):
             raise ValueError("APP_FILE_INTEGRITY")
+        source = p["source_archive"]
+        if (
+            not isinstance(source, dict)
+            or set(source) != {"filename", "size", "sha256", "source_revision"}
+            or source["source_revision"] != p["source_revision"]
+            or not re.fullmatch(
+                r"SiCXrtAnalyzer-[A-Za-z0-9._-]+-source\.zip", source["filename"]
+            )
+            or not re.fullmatch(r"[0-9a-f]{64}", source["sha256"])
+            or type(source["size"]) is not int
+            or not 0 < source["size"] <= MAX_FILE
+            or source_file is None
+            or source_file.is_symlink()
+            or not source_file.is_file()
+            or source_file.stat().st_size != source["size"]
+            or sha(source_file) != source["sha256"]
+        ):
+            raise ValueError("CORRESPONDING_SOURCE_INTEGRITY")
         if (
             not isinstance(p["notes"], str)
             or not 10 <= len(p["notes"]) <= 10000
@@ -191,6 +212,22 @@ class Store:
                 if sha(staging) != p["sha256"]:
                     raise ValueError("APP_COPY_INTEGRITY")
                 os.rename(staging, dest)
+            finally:
+                if staging.exists():
+                    staging.unlink()
+        source_dest = self.downloads / (source["sha256"] + ".zip")
+        if source_dest.exists():
+            if source_dest.is_symlink() or sha(source_dest) != source["sha256"]:
+                raise ValueError("SOURCE_CAS_CONFLICT")
+        else:
+            import shutil
+
+            staging = self.downloads / (".source-stage-" + str(uuid4()))
+            try:
+                shutil.copyfile(source_file, staging)
+                if sha(staging) != source["sha256"]:
+                    raise ValueError("SOURCE_COPY_INTEGRITY")
+                os.rename(staging, source_dest)
             finally:
                 if staging.exists():
                     staging.unlink()
@@ -293,6 +330,14 @@ class Store:
                 if m["distribution_clearance"]["status"] != "APPROVED":
                     raise ValueError("DISTRIBUTION_NOT_CLEARED")
                 file = self.downloads / (m["sha256"] + ".exe")
+                source = m["source_archive"]
+                source_file = self.downloads / (source["sha256"] + ".zip")
+                if (
+                    not source_file.is_file()
+                    or source_file.is_symlink()
+                    or sha(source_file) != source["sha256"]
+                ):
+                    raise ValueError("CORRESPONDING_SOURCE_INTEGRITY")
                 if not file.is_file() or file.is_symlink() or sha(file) != m["sha256"]:
                     raise ValueError("APP_FILE_INTEGRITY")
             db.execute(
@@ -345,21 +390,20 @@ class Store:
                 json.loads(r[0]) for r in target.execute("SELECT payload FROM releases")
             ]
         (destination / "releases").mkdir()
-        for manifest in payloads:
-            name = manifest["sha256"] + ".exe"
+        artifacts = [(m["sha256"], ".exe") for m in payloads] + [
+            (m["source_archive"]["sha256"], ".zip") for m in payloads
+        ]
+        for digest, extension in artifacts:
+            name = digest + extension
             source = self.downloads / name
-            if (
-                source.is_symlink()
-                or not source.is_file()
-                or sha(source) != manifest["sha256"]
-            ):
+            if source.is_symlink() or not source.is_file() or sha(source) != digest:
                 raise ValueError("BACKUP_RELEASE_INTEGRITY")
             output = destination / "releases" / name
             shutil.copyfile(source, output)
-            if sha(output) != manifest["sha256"]:
+            if sha(output) != digest:
                 raise ValueError("BACKUP_COPY_INTEGRITY")
             inventory["releases/" + name] = {
-                "sha256": manifest["sha256"],
+                "sha256": digest,
                 "size": output.stat().st_size,
             }
         inventory["portal.sqlite3"] = {

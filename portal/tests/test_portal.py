@@ -52,8 +52,17 @@ def login(c, credential="SYNTHETIC_ADMIN_TOKEN", client="qa-client"):
 def artifact(store, tmp_path, version="0.1.0"):
     file = tmp_path / "synthetic-qa-only.exe"
     file.write_bytes(b"MZ synthetic fixture; not a distributable installer")
+    source_file = tmp_path / "synthetic-source.zip"
+    source_file.write_bytes(b"PK synthetic source fixture only")
     m = {
         "schema": "xrt_app_release/v1",
+        "license": "GPL-3.0-only",
+        "source_archive": {
+            "filename": f"SiCXrtAnalyzer-{version}-source.zip",
+            "size": source_file.stat().st_size,
+            "sha256": hashlib.sha256(source_file.read_bytes()).hexdigest(),
+            "source_revision": "1" * 40,
+        },
         "version": version,
         "platform": "windows-x64",
         "source_revision": "1" * 40,
@@ -70,7 +79,11 @@ def artifact(store, tmp_path, version="0.1.0"):
         "notes": "Synthetic test fixture only, never published to operational portal.",
         "minimum_os": "Windows 10/11",
     }
-    return store.register(m, file, "qa-admin"), file, m
+    return (
+        store.register(m, file, "qa-admin", tmp_path / "synthetic-source.zip"),
+        file,
+        m,
+    )
 
 
 def test_anonymous_and_non_admin_cannot_read_research(website):
@@ -189,6 +202,10 @@ def test_csrf_release_lifecycle_range_and_immutable_history(website):
         f"/portal-api/releases/{ident}/download", headers={"Range": "bytes=0-1"}
     )
     assert response.status_code == 206 and response.content == b"MZ"
+    response = c.get(
+        f"/portal-api/releases/{ident}/source", headers={"Range": "bytes=0-1"}
+    )
+    assert response.status_code == 206 and response.content == b"PK"
     b.update(status="WITHDRAWN", previous_event_id=store.listing()[0]["event_id"])
     assert (
         c.post(
@@ -208,16 +225,24 @@ def test_csrf_release_lifecycle_range_and_immutable_history(website):
 def test_manifest_conflict_corruption_expiry_and_logout(website):
     c, store, _state, path = website
     ident, file, m = artifact(store, path)
-    assert store.register(m, file, "qa-admin") == ident
-    with pytest.raises(ValueError):
-        store.register({**m, "model_included": True}, file, "qa-admin")
+    assert store.register(m, file, "qa-admin", path / "synthetic-source.zip") == ident
     with pytest.raises(ValueError):
         store.register(
-            {**m, "notes": "Different content for same version"}, file, "qa-admin"
+            {**m, "model_included": True},
+            file,
+            "qa-admin",
+            path / "synthetic-source.zip",
+        )
+    with pytest.raises(ValueError):
+        store.register(
+            {**m, "notes": "Different content for same version"},
+            file,
+            "qa-admin",
+            path / "synthetic-source.zip",
         )
     file.write_bytes(b"changed")
     with pytest.raises(ValueError):
-        store.register(m, file, "qa-admin")
+        store.register(m, file, "qa-admin", path / "synthetic-source.zip")
     r = login(c)
     csrf = r.json()["csrf"]
     with store.connect() as db:
@@ -270,7 +295,7 @@ def test_pending_distribution_cannot_be_published(website):
         "status": "PENDING",
         "reference": "Publisher distribution decision required",
     }
-    ident = store.register(m, file, "qa-admin")
+    ident = store.register(m, file, "qa-admin", path / "synthetic-source.zip")
     pending = next(r for r in store.listing() if r["id"] == ident)
     with pytest.raises(ValueError, match="DISTRIBUTION_NOT_CLEARED"):
         store.transition(
@@ -279,6 +304,26 @@ def test_pending_distribution_cannot_be_published(website):
             "BETA",
             "Must not publish without clearance",
             pending["event_id"],
+            "qa-admin",
+        )
+    assert store.listing(public=True) == []
+
+
+def test_missing_or_corrupt_corresponding_source_blocks_publication(website):
+    _c, store, _state, path = website
+    ident, file, manifest = artifact(store, path)
+    with pytest.raises(ValueError, match="CORRESPONDING_SOURCE_INTEGRITY"):
+        store.register(manifest, file, "qa-admin")
+    source_cas = store.downloads / (manifest["source_archive"]["sha256"] + ".zip")
+    source_cas.write_bytes(b"corrupt source")
+    head = store.listing()[0]["event_id"]
+    with pytest.raises(ValueError, match="CORRESPONDING_SOURCE_INTEGRITY"):
+        store.transition(
+            ident,
+            "PUBLISHED",
+            "BETA",
+            "Source must match posted installer",
+            head,
             "qa-admin",
         )
     assert store.listing(public=True) == []

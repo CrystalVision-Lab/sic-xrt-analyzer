@@ -112,6 +112,13 @@ function DownloadCard({ release }: { release: Release }) {
         </p>
       )}
       <Hash sha={m.sha256} />
+      <a
+        className="text-link"
+        href={`/portal-api/releases/${release.id}/source`}
+      >
+        GPLv3 소스 · 빌드 방법 다운로드 ({size(m.source_archive.size)}){" "}
+        <ArrowUpRight size={15} />
+      </a>
       <Link to="/releases" className="text-link">
         변경 사항과 이전 버전 <ArrowUpRight size={15} />
       </Link>
@@ -300,6 +307,15 @@ export function ReleasesPage() {
                   : "코드 서명 기록 있음"}
               </p>
               <Hash sha={r.manifest.sha256} />
+              <a
+                className="text-link"
+                href={`/portal-api/releases/${r.id}/source`}
+              >
+                동일 버전 GPLv3 소스 · 빌드 방법 (
+                {size(r.manifest.source_archive.size)}){" "}
+                <ArrowUpRight size={15} />
+              </a>
+              <Hash sha={r.manifest.source_archive.sha256} />
               <details className="build-details">
                 <summary>빌드 정보</summary>
                 <code>Source revision: {r.manifest.source_revision}</code>
@@ -357,7 +373,7 @@ export function GuidePage() {
           [
             "04",
             "모델과 검수 근거 연결",
-            "분석에 사용할 승인된 모델 또는 연구용 모델 폴더를 선택합니다. 후보와 연구원 판정은 별도 기록입니다. 프로그램 설치만으로 모델의 과학적 정확도가 승인되지는 않습니다.",
+            "2D JPG 분석에 사용할 승인된 모델 또는 연구용 모델 폴더를 선택합니다. TIFF는 스택 탐색·3D 작업용이며 결함 분석 대상으로 취급하지 않습니다. 후보와 연구원 판정은 별도 기록입니다. 프로그램 설치만으로 모델의 과학적 정확도가 승인되지는 않습니다.",
           ],
           [
             "05",

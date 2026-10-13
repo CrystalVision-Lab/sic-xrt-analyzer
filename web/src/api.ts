@@ -11,7 +11,14 @@ export type Manifest = {
   components: string[];
   model_included: boolean;
   signature: string;
-  distribution_clearance: {status:string;reference:string};
+  license: string;
+  source_archive: {
+    filename: string;
+    size: number;
+    sha256: string;
+    source_revision: string;
+  };
+  distribution_clearance: { status: string; reference: string };
   notes: string;
   minimum_os: string;
 };

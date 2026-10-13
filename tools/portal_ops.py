@@ -121,6 +121,8 @@ def main():
                 "/operation/input/" + m["filename"],
                 "--credential",
                 "/operation/admin.json",
+                "--source-file",
+                "/operation/input/" + m["source_archive"]["filename"],
             ]
         )
     elif args.action == "backup":
