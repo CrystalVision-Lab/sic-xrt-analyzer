@@ -2,12 +2,13 @@
 import json
 import os
 import subprocess
-import sys
 from dataclasses import asdict
 from pathlib import Path
 from queue import Empty, Queue
 from tempfile import TemporaryDirectory
 from threading import RLock, Thread
+
+from sic_xrt_analyzer.runtime_process import worker_command
 
 from .imagej_service import PREFIX, WINDOW_PREFIX
 
@@ -40,7 +41,7 @@ class ImageJClient:
                     extra += [str(p.resolve()) for folder in ('jars','plugins') for p in (home/folder).rglob('*.jar')
                               if not p.name.startswith(excluded)]
                     extra += [str(home/'plugins')]
-                self.process = subprocess.Popen([sys.executable, '-u', '-m', 'sic_xrt_analyzer.imaging.imagej_service'],
+                self.process = subprocess.Popen(worker_command('sic_xrt_analyzer.imaging.imagej_service', unbuffered=True),
                                                 stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                                                 text=True, encoding='utf-8', errors='replace', creationflags=flags,
                                                 env={**os.environ, 'SIC_XRT_IMAGEJ_TMP': self.directory.name,

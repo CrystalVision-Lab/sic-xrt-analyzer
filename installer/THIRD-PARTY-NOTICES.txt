@@ -1,0 +1,14 @@
+SiC XRT Analyzer — Research desktop distribution
+Publisher: CrystalVision Lab
+
+Original research images, private projects, credentials, ONNX model weights and training data are not distributed in this installer. Models must be selected separately or obtained through an authenticated, approved registry. No scientific model performance approval is implied.
+
+This onedir distribution preserves separate dynamically linked libraries.
+PySide6 / Qt: LGPL v3 / GPL v3 or commercial terms as supplied by Qt.
+Qt source and license information: https://www.qt.io/licensing/open-source-lgpl-obligations and https://download.qt.io/official_releases/qt/
+Eclipse Temurin OpenJDK 21: GPL v2 with Classpath Exception; bundled legal/ and release files retain the original notices. Corresponding source: https://github.com/adoptium/temurin21-binaries and https://github.com/openjdk/jdk21u
+ImageJ 1.x: public domain; https://imagej.net/ij/
+Fiji and its plugins: component-specific open-source licenses embedded in each upstream JAR. Upstream verified portable distribution: https://fiji.sc/ and https://imagej.net/software/fiji/
+NumPy/SciPy/scikit-image/Pillow/tifffile/imagecodecs/roifile/ONNX Runtime/ONNX/cryptography/httpx/JPype/keyring: license and metadata files are retained under _internal and package dist-info directories. Third-party components remain under their original licenses.
+
+Installation and uninstallation manage program files only. Store research originals and personal projects outside the application installation directory.

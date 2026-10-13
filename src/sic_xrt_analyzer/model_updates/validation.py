@@ -6,6 +6,8 @@ import sys
 import time
 from pathlib import Path
 
+from sic_xrt_analyzer.runtime_process import worker_command
+
 from .contracts import MAX_METADATA, file_sha, frozen_manifest, read_json, safe_path
 
 
@@ -128,7 +130,7 @@ def validate_bundle(bundle, timeout=45, cancel=None):
     env = {k: v for k, v in os.environ.items() if k.upper() in names}
     env.update(OMP_NUM_THREADS="2", OPENBLAS_NUM_THREADS="2")
     process = subprocess.Popen(
-        [sys.executable, "-m", "sic_xrt_analyzer.model_updates.validation", str(path)],
+        worker_command("sic_xrt_analyzer.model_updates.validation", path),
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         env=env,
