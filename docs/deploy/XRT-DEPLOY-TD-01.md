@@ -2,7 +2,7 @@
 
 ## Status
 
-**공개 배포 준비 — 게시자가 GPLv3+소스 제공을 승인했다. 최종 설치/소스 빌드·배포 결과를 수집 중.**
+**PASS — 현재 PC 배포·GPLv3 설치와 동일 버전 소스 BETA 게시 완료.**
 
 Issue [#120](https://github.com/CrystalVision-Lab/sic-xrt-analyzer/issues/120), Draft PR [#121](https://github.com/CrystalVision-Lab/sic-xrt-analyzer/pull/121). 기준 TD-12 `feat/118-tiff-3d-viewer` / `e32376f04f91a954c86d95b22d45535316b2791b`. 작업 브랜치 `feat/120-distribution-portal`. 기존 stacked PR을 병합·rebase·retarget하지 않았다.
 
@@ -18,11 +18,11 @@ Issue [#120](https://github.com/CrystalVision-Lab/sic-xrt-analyzer/issues/120), 
 
 PyInstaller 6.22.3 onedir: `SiCXrtAnalyzer.exe` GUI와 `SiCXrtWorker.exe` 전용 콘솔 helper. 원래 ImageJ/모델 검증 모듈만 실행 허용. ImageJ·공개 Fiji JAR/Plugin·검증한 Eclipse Temurin21 런타임을 포함한다. 기존 Oracle JDK24를 재배포하지 않는다. Inno Setup7.1.0으로 사용자별 Windows10/11 x64 설치와 시작 메뉴·선택적 바탕화면 바로가기·제거를 제공한다. Python/Java 별도 설치가 필요하지 않다. 설치 밖 프로젝트와 원본을 제거하지 않는다.
 
-고지를 보강한 QA v2 설치·설치 후 frozen smoke도 PASS: setup 1,268,408,860bytes, SHA `0c9649ebfc1bea87f2f74a87933e8632c481709c812daa83b3d9ff5d7efacbca`, source `e149309dc2fa15da634a3786894a65f7f25aaecb`. Bundle 크기1.91GiB이며 다운로드와 설치를 위해6GB 여유를 권장한다(원본/캐시 별도). v1/v2는 공개 릴리스가 아닌 QA 기록으로만 보관한다. 최종 builder의 배포 확인 필드가 추가되기 전에 생성한 v2 manifest는 운영 등록에 사용하지 않는다.
+고지를 보강한 QA v2 설치·설치 후 frozen smoke도 PASS: setup 1,268,408,860bytes, SHA `0c9649ebfc1bea87f2f74a87933e8632c481709c812daa83b3d9ff5d7efacbca`, source `e149309dc2fa15da634a3786894a65f7f25aaecb`. Bundle 크기1.91GiB이며 다운로드와 설치를 위해6GB 여유를 권장한다(원본/캐시 별도). v1/v2는 공개 릴리스가 아닌 QA 기록으로만 보관한다. 최종 builder의 배포 확인 필드가 추가되기 전에 생성한 v2 manifest는 운영 등록에 사용하지 않는다. 공개 버전은 아래 최종 GPL 릴리스다.
 
 실제 QA v1 파일은 약1.27GB(1,268,223,714bytes), SHA `d325612b72e661e95643feeee1b22d9dc04f79c9849af0735acd3a06eb01fa0b`, source `eb1a6a3965a6b9f7245dce58a2b20e5f054ef205`. 코드 서명은 없다. 최종 라이선스·고지·소스를 확정한 뒤 새 버전으로 다시 빌드해야 하며 QA 파일을 공개 배포로 사용하지 않는다.
 
-### 공개 설치 파일 보류 사유
+### GPLv3 공개 배포 결정
 
 [Qt Quick 3D6.11.2 공식 라이선스](https://doc.qt.io/qt-6.11/qtquick3d-index.html#licenses-and-attributions)는 GPLv3 또는 상용이며 LGPL 모듈이 아니다. 게시자에게 **GPLv3+Corresponding Source 제공 / 상용 Qt 권리 보유 / 웹만 우선 배포** 선택을 요청했고 게시자가 **GPLv3로 앱 소스와 함께 공개 배포**를 선택했다. 이에 Root LICENSE/NOTICE와 소스·빌드 제공을 추가했다. 개발 QA 빌드의 THIRD-PARTY-NOTICES를 바로잡고 PySide6 Addons/Essentials/shiboken metadata도 포함했다.
 
@@ -69,21 +69,22 @@ Opaque 세션2시간, HttpOnly/SameSiteStrict, 공개 HTTPS Secure Cookie, 서�
 .\.venv\Scripts\python.exe tools/portal_ops.py backup --output artifacts/sync106-private/backups/<new-name>
 ```
 
-새 private 폴더만 허용. portal만 잠시 중지하고 SQLite online backup·등록된 설치 CAS·SHA manifest를 생성한 뒤 재시작한다. 원본 볼륨은 유지한다. 백업 사본에서 sessions를 제거하여 복원 시 기존 브라우저 세션이 살아나지 않게 한다. 포털 key와 관리 Credential은 백업에 포함하지 않으며 별도 OS/private 보호 대상이다. 실패한 partial 폴더를 재사용하지 않는다.
+새 private 폴더만 허용. portal만 잠시 중지하고 SQLite online backup·등록된 설치 CAS·SHA manifest를 생성한 뒤 재시작한다. 원본 볼륨은 유지한다. 다운로드 검사는 이 유지보수 중지와 동시에 실행하지 않는다. 백업 사본에서 sessions를 제거하여 복원 시 기존 브라우저 세션이 살아나지 않게 한다. 포털 key와 관리 Credential은 백업에 포함하지 않으며 별도 OS/private 보호 대상이다. 실패한 partial 폴더를 재사용하지 않는다.
 
-첫 실제 백업 v1은 최종 연결 종료 후 WAL 체크포인트로 SQLite SHA가 달라져 무결성 대조에 실패했다. 원본은 보존했다. 연결을 명시적으로 닫고 백업을 DELETE journal로 완료한 뒤 SHA를 계산하도록 수정했다. 새 `distribution120-portal-v2/snapshot` 백업에서 전체 SHA·크기·SQLite integrity·세션0을 실제 대조해 PASS했다. 공개 설치 등록0개. 합성 설치 파일·불변 이력·세션 제거·원본 세션 유지·SHA를 별도 테스트했다. 복원 채택은 운영자가 새 empty portal_state/application_releases 볼륨에서 manifest·SHA·SQLite integrity 확인 후 수행한다. 운영 볼륨을 덮어쓰는 자동 restore는 제공하지 않는다. 연구 서버와 포털 백업을 모두 보관한다.
+첫 실제 백업 v1은 최종 연결 종료 후 WAL 체크포인트로 SQLite SHA가 달라져 무결성 대조에 실패했다. 원본은 보존했다. 연결을 명시적으로 닫고 백업을 DELETE journal로 완료한 뒤 SHA를 계산하도록 수정했다. 새 `distribution120-portal-v2/snapshot` 백업에서 전체 SHA·크기·SQLite integrity·세션0을 실제 대조해 PASS했다. 최종 공개 설치1개, BETA0.1.0. 초기 백업 시점은 등록0개였다. 합성 설치 파일·불변 이력·세션 제거·원본 세션 유지·SHA를 별도 테스트했다. 복원 채택은 운영자가 새 empty portal_state/application_releases 볼륨에서 manifest·SHA·SQLite integrity 확인 후 수행한다. 운영 볼륨을 덮어쓰는 자동 restore는 제공하지 않는다. 연구 서버와 포털 백업을 모두 보관한다.
 
 ## 검증 기록
 
 | 대상 | 결과 |
 |---|---|
 | 로컬 Chromium public4화면×3폭 + 관리자7화면 | 19 PASS, JS오류0, 가로넘침0 |
-| 공개 HTTPS 익명 public12 + 보호API4 | 16 PASS,401 확인, 인증키 전송 없음 |
+| 공개 HTTPS 익명 public12 + 보호API4 | 게시 후16 PASS,401 확인, 인증키 전송 없음 |
+| 공개 HTTPS 설치/소스 실제 다운로드 | 전체2개 파일 SHA·size·Range206 PASS, 백업 유지보수 후 순차 시작 |
 | 개발 QA 설치·설치 후 실제 frozen smoke | PASS, D3D11, QML경고0, TIFF16bit/JPG/ROI3D/ImageJ작업복사 |
 | Frozen ONNX helper | PASS, 합성 ONNX batch1/7 CPU실행, scientific 정확도 시험 아님 |
 | QA 설치 제거 | PASS, CURRENTUSER, 설치 밖 합성 프로젝트 SHA보존 |
 | PostgreSQL 서버 회귀 | 로컬82 PASS, 최종 CI83 PASS (모델 평가 조회 무변경 검사 추가) |
-| 포털 | 소스 쌍 검증 포함 최종 검사 중; 기존7 PASS, 암호화/역할/CSRF/revocation/range/이력/백업/배포보류 |
+| 포털 | 최종8 PASS, 암호화/역할/CSRF/revocation/range/이력/백업/배포보류 |
 | 웹 Unit | 4 PASS, 최신요청·미게시·STABLE 선택·키보드 focus |
 | Worker/모델+포털 집중 회귀 | 45 PASS |
 | Windows 전체 회귀 | 최종736 PASS/5 SKIP,1073.52s. 최초735 PASS/5 SKIP/1 FAIL은 Wand JVM cold start5초 완료 대기. 단독1 PASS(4.66s), 기능 검사 대기30초로 수정 후 전체 통과 |
@@ -100,3 +101,17 @@ Opaque 세션2시간, HttpOnly/SameSiteStrict, 공개 HTTPS Secure Cookie, 서�
 ## 디자인 참조
 
 [VS Code 다운로드](https://code.visualstudio.com/download)의 OS/버전/이력 연결과 [OBS 다운로드](https://obsproject.com/download)의 설치·요구사항·지원 동선을 참고했다. 텍스트·브랜드·화면을 복제하지 않고 연구 앱의 합성 실화면, 기술 범위와 실제 서버 기록을 사용했다.
+
+
+## 최종 공개 릴리스
+
+- 버전0.1.0 / BETA / GPL-3.0-only. Release ID `4f6f5f07-c8d7-42a5-9b8e-c8f0ec22f9f1`.
+- App source revision `0ce6d45c9a069a24859298cee1013faff03fd8b8`. 앱/QML/launcher 내용이 동일함을 git diff로 검증한 GUI/worker를 재사용하고 Python 원문 고지를 포함했다. 이후 서버 운영 전용 등록·청크 복사 변경은 설치 앱 동작을 바꾸지 않는다.
+- 설치1,268,450,537bytes / SHA `156328aa6ae0302fd6923b89133b49f9308c9fa24ca18ef17aa431f4ca9cf944`.
+- 소스1,737,714,831bytes / SHA `3d0e960897cd7fd80db43ca7100620bac6bdf53b476815de8484e38b55ffd593`. App/build/tests + exact Qt/PySide/OpenJDK/native sources +465 Maven source mirrors, 합계477 source artifacts와 provenance/버전/SHA catalog. 프로그램 다운로드 옆에 소스와 빌드 방법 링크를 제공한다.
+- 실제 설치 후 TIFF/JPG·ROI3D·Qt D3D11·내장 ImageJ smoke PASS/QML경고0. 제거 후 설치 밖 프로젝트 SHA보존 PASS.
+- 최종 원장·설치·소스3개 파일 private backup SHA/SQLite integrity/세션0 PASS: `distribution120-published-gpl/snapshot`. 초기 실패한 v1 백업은 사용하지 않는다.
+- 일회성 release-admin만 application_releases RW. 상시 portal은 RO 유지. 처음 compose run -v override가 RO를 변경하지 않아 등록 실패했고, 별도 profiles:ops 서비스로 분리했다. Windows bind 대형 source에서 sendfile ENOMEM이 발생해1MiB copyfileobj로 수정했다. 실패 원본·로그는 보관하고 새 등록을 검증했다.
+- 설치/소스는 서명하지 않았다. 다운로드 수는 요청 수이며 사용자 수/설치 수로 해석하지 않는다. 임시 URL은 PC·Docker·터널이 살아 있는 동안만 사용할 수 있다.
+
+[Installer download](https://gba-math-charlotte-lightweight.trycloudflare.com/portal-api/releases/4f6f5f07-c8d7-42a5-9b8e-c8f0ec22f9f1/download) · [GPLv3 matching source](https://gba-math-charlotte-lightweight.trycloudflare.com/portal-api/releases/4f6f5f07-c8d7-42a5-9b8e-c8f0ec22f9f1/source).
