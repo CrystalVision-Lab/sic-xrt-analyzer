@@ -8,7 +8,8 @@ from pathlib import Path
 import numpy as np
 import pytest
 from PIL import Image
-from PySide6.QtCore import QPoint, QPointF, Qt
+from PySide6.QtCore import QPoint, QPointF, Qt, QUrl
+from PySide6.QtQml import QQmlComponent
 from PySide6.QtTest import QTest
 from test_analysis_pipeline import spin
 from test_project_workspace import analyze, jpg, wait
@@ -296,6 +297,23 @@ def prepare(w, tmp_path):
     return c, r, v, path
 
 
+
+def mount_legacy_review(w):
+    """Exercise the retained review component without adding it to normal navigation."""
+    ui_dir=(Path(__file__).parents[1]/"src/sic_xrt_analyzer/ui").resolve().as_uri()
+    component=QQmlComponent(w.engine)
+    component.setData(('import QtQuick\nimport QtQuick.Controls\nimport "'+ui_dir+'"\n'+
+        'SurfaceDialog {id:host;property QtObject theme;property QtObject uiState;'+
+        'modal:true;title:"Legacy review QA";width:460;height:Math.min(610,parent.height-40);'+
+        'x:(parent.width-width)/2;y:(parent.height-height)/2;standardButtons:Dialog.Close;'+
+        'ReviewWorkspace {anchors.fill:parent;theme:host.theme;uiState:host.uiState}}').encode(),QUrl())
+    popup=component.createWithInitialProperties({"parent":w.window.contentItem(),"theme":w.window.property("shellTheme"),"uiState":w.state},w.engine.rootContext())
+    assert popup, [e.toString() for e in component.errors()]
+    popup.setParent(w.window)
+    w.legacy_review_component,w.legacy_review_popup=component,popup
+    invoke(popup,"open")
+
+
 def render(w):
     w.window.grabWindow()
     QTest.qWait(50)
@@ -311,7 +329,11 @@ def test_actual_qml_review_clicks_persistence_conflict_and_predictions(
     render(w)
     original = c.project.predictions
     sha = hashlib.sha256(path.read_bytes()).hexdigest()
-    w.click("projectReviewEnter")
+    w.click("reportCandidate")
+    assert w.item("reportDialog").property("visible")
+    invoke(w.item("reportDialog"),"close")
+    assert v.enter()
+    mount_legacy_review(w)
     render(w)
     assert v.mode == "REVIEW" and v.state["ready"]
     w.click("reviewExistencePRESENT")
@@ -622,6 +644,7 @@ def test_actual_review_typing_does_not_trigger_global_r_h_shortcuts(
     w = workbench
     _c, _r, v, _path = prepare(w, tmp_path)
     assert v.enter()
+    mount_legacy_review(w)
     render(w)
     note = w.item("reviewComment")
     note.forceActiveFocus()

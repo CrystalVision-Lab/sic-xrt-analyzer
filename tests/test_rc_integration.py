@@ -22,11 +22,11 @@ def test_continuous_analysis_result_roi_export_and_file_switch(workbench, size):
     rgb = create_source(w.path.parent)
     for _cycle in range(3):
         w.open(rgb.path)
-        assert not w.bridge.research.state['points']
+        assert bool(w.bridge.research.state['points']) == (_cycle > 0)
         assert not w.bridge.roi_manager.records
         w.click('imagePrepareAnalysis')
         w.state.setProperty('analysisScope','FULL_IMAGE')
-        w.click('contextRunAnalysis')
+        w.click('confirmAnalysis')
         spin(w.app,lambda:w.bridge.analysis['hasResult'])
         assert w.panel.property('requestedContext') == 'result'
         original = w.bridge.pipeline.result
@@ -36,17 +36,19 @@ def test_continuous_analysis_result_roi_export_and_file_switch(workbench, size):
             w.click('resultFilter'+kind)
             assert w.bridge.research.state['filteredTotal'] == total
             assert len(w.item('analysisOverlay').property('points')) == 2946
-            assert w.state.property('bpdLayerVisible') and w.state.property('tedLayerVisible') and w.state.property('tsdLayerVisible')
+            for label in ('BPD','TED','TSD'):
+                assert w.state.property(label.lower()+'LayerVisible') == (kind in ('ALL',label))
             w.click('nextCandidate'); w.click('nextCandidate'); w.click('previousCandidate')
             assert w.bridge.pipeline.result is original
         assert w.bridge.research.exportResult(str(w.path.parent))
         second = json.loads((Path(w.bridge.research.export_path)/'result.json').read_text(encoding='utf8'))
         assert first == second
+        w.click('toolbarFit')
         choose(w,'roi'); w.click('roiSpecifyArea'); draw(w)
         region = w.bridge.pipeline.current_roi
         assert region and w.bridge.pipeline.result is original
         choose(w,'analysis'); w.state.setProperty('analysisScope','ROI')
-        w.click('contextRunAnalysis'); spin(w.app,lambda:w.bridge.analysis['hasResult'])
+        w.click('confirmAnalysis'); spin(w.app,lambda:w.bridge.analysis['hasResult'])
         assert w.bridge.pipeline.result.roi == region
         # A genuinely different source must clear old results and automatic ROI.
         w.open(w.path)
@@ -64,9 +66,10 @@ def test_invalid_open_recovers_without_reusing_result_or_coordinates(workbench):
     source = create_source(w.path.parent)
     w.bridge.pipeline.adapter = DistributedCandidates()
     w.open(source.path)
-    choose(w,'analysis'); w.click('contextRunAnalysis')
+    choose(w,'analysis'); w.click('confirmAnalysis')
     spin(w.app,lambda:w.bridge.analysis['hasResult'])
     old_source = w.bridge.original_source
+    completed_id=w.bridge.pipeline.result.analysis_id
     spin(w.app,lambda:not w.bridge.projects.busy)
     invoke(w.window,'selectImagePath',str(w.path.parent/'missing-original.tif'))
     spin(w.app,lambda:not w.state.property('opening'))
@@ -75,6 +78,8 @@ def test_invalid_open_recovers_without_reusing_result_or_coordinates(workbench):
     assert not w.bridge.research.state['points']
     w.open(source.path)
     assert not w.state.property('loadError')
-    choose(w,'analysis'); w.click('contextRunAnalysis')
+    assert w.bridge.pipeline.result.analysis_id==completed_id
+    spin(w.app,lambda:w.state.property('canAnalyze'),30)
+    choose(w,'analysis'); w.click('confirmAnalysis')
     spin(w.app,lambda:w.bridge.analysis['hasResult'])
     assert w.bridge.research.state['total'] == 2946

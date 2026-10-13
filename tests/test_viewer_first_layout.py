@@ -40,11 +40,11 @@ def test_wide_default_analysis_entry_and_panel_roundtrip(workbench, size):
     # The mock classifier accepts RGB8; uint16 stack remains navigation-only.
     w.open(create_source(w.path.parent).path)
     w.click('imagePrepareAnalysis')
-    assert w.panel.property('visible') and w.panel.property('requestedContext') == 'analysis'
+    assert not w.panel.property('visible') and w.item('analysisDialog').property('visible')
     assert not w.bridge.analysis['hasResult'] and not w.state.property('analysisRunning')
     w.window.grabWindow().save(str(w.path.parent / 'analysis-panel.png'))
     w.state.setProperty('analysisScope', 'FULL_IMAGE')
-    w.click('contextRunAnalysis')
+    w.click('confirmAnalysis')
     spin(w.app, lambda: w.bridge.analysis['hasResult'])
     assert w.panel.property('visible') and w.panel.property('requestedContext') == 'result'
     QTest.qWait(50)  # Let the wider result-panel layout reach its displayed geometry.

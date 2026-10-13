@@ -148,7 +148,7 @@ def test_stack_progress_labels_context_and_original_record_gates(load_case):
     assert '전체 페이지 준비 후' in w.item('navigationReadyReason').property('text')
     for name in ('nextPageButton', 'pageSlider', 'displayLowSlider', 'importRoisAction'):
         assert not w.item(name).property('enabled'), name
-    assert not w.item('roiAction').property('enabled')
+    assert w.item('roiAction').property('enabled')  # A viewable page supports an ROI for 3D while the stack prepares.
     for name in ('toolRectangleAction','advancedMacroAction','imagejRunButton'):
         assert w.item(name).property('enabled'),name
     c.finish()

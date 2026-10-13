@@ -636,7 +636,7 @@ class FileBridge(QObject):
             self.measurements.reset()
         if working and self.original_source and (frame.source.metadata.width, frame.source.metadata.height) != (self.original_source.metadata.width, self.original_source.metadata.height):
             self.roi_manager.clear()
-        result = self._publish(frame.source.path, frame.preview, frame.source, record_recent=opening and not working)
+        result = self._publish(frame.source.path, frame.preview, frame.source, record_recent=opening and not working, rebind_source=opening)
         result['workingCopy'] = working
         result['stackContext'] = self._stack_context
         result["browsePreview"] = frame.pixels is None and frame.source.metadata.page_count > 1
@@ -647,7 +647,7 @@ class FileBridge(QObject):
     def _on_stack_error(self, error, opening):
         (self.imageOpened if opening else self.pageChanged).emit({"ok": False, "error": error})
 
-    def _publish(self, path, preview, original, *, record_recent=True):
+    def _publish(self, path, preview, original, *, record_recent=True, rebind_source=True):
         self.detail_reader.clear()
         if self.original_source is None or self.original_source.identity != original.identity:
             self.pixel_reader.clear()
@@ -657,7 +657,7 @@ class FileBridge(QObject):
         self.research_controller.experiments.bind_source(original)
         if not isinstance(original, OriginalPixelSource):
             self.pipeline.set_source(None)
-        elif self.pipeline.source is None or self.pipeline.source.identity != original.identity:
+        elif rebind_source or self.pipeline.source is None or self.pipeline.source.identity != original.identity:
             self.pipeline.set_source(original)
         self.provider.image = preview.image
         self.revision += 1

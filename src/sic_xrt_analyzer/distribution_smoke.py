@@ -9,7 +9,9 @@ from pathlib import Path
 
 
 def main(output, image_paths=(), verify_updates=False):
+    from sic_xrt_analyzer import __version__
     report = {
+        "version":__version__,
         "status": "FAIL",
         "frozen": bool(getattr(sys, "frozen", False)),
         "models_bundled": False,

@@ -192,6 +192,7 @@ def test_controller_background_check_download_and_no_automatic_install(
     requests = []
     c = client([r], data, requests)
     monkeypatch.setattr(module, "AppUpdateClient", lambda *args: c)
+    monkeypatch.setattr(module, "__version__", "0.1.1")  # Simulate the previous installed app.
     b = bridge_factory(
         settings=QSettings(str(tmp_path / "prefs.ini"), QSettings.IniFormat)
     )
