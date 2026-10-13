@@ -117,12 +117,19 @@ def main():
             spin(lambda: not c.busy and c.reader.task is None)
 
         def shot(name):
+            previous = (w.width(), w.height())
+            for width, height in [(1100, 700), (1440, 900), (1920, 1080)]:
+                w.resize(width, height)
+                app.processEvents()
+                QTest.qWait(120)
+                im = w.grabWindow()
+                assert not im.isNull()
+                target = args.output / f"{width}x{height}"
+                target.mkdir(exist_ok=True)
+                assert im.save(str(target / (name + ".png")))
+                rss.append(process.memory_info().rss)
+            w.resize(*previous)
             app.processEvents()
-            QTest.qWait(120)
-            im = w.grabWindow()
-            assert not im.isNull()
-            assert im.save(str(args.output / (name + ".png")))
-            rss.append(process.memory_info().rss)
 
         def tab(index):
             w.findChild(QObject, "stack3dTabs").setProperty("currentIndex", index)

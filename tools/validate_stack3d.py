@@ -216,7 +216,21 @@ def main():
             handler = lambda xx, yy, focus=focus: focus.append((xx, yy))
             c.focusRequested.connect(handler)
             c.openOriginal()
-            spin(lambda focus=focus: bool(focus))
+            try:
+                spin(lambda focus=focus: bool(focus), timeout=360)
+            except AssertionError:
+                debug = {
+                    "pending": str(c.pending_navigation),
+                    "attempts": c.focus_attempts,
+                    "timer": c.focus_timer.isActive(),
+                    "stack": b.stackState,
+                    "original": str(b.original_source),
+                    "state": c.state,
+                }
+                out.joinpath("navigation-diagnostic.json").write_text(
+                    json.dumps(debug, ensure_ascii=False, indent=2), encoding="utf-8"
+                )
+                raise
             c.focusRequested.disconnect(handler)
             assert (
                 b.original_source.path == s.source_reference

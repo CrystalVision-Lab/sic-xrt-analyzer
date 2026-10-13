@@ -348,3 +348,19 @@ def test_no_history_rewrite_or_wrong_source(study):
     )
     with pytest.raises(ValueError, match="delete 3D"):
         ProjectStore().save(path, drop, expected_revision=q.revision)
+
+
+def test_local_3d_sessions_are_not_in_server_projection(study):
+    from sic_xrt_analyzer.sync.protocol import project_projection
+
+    p, s, reader, path = study
+    a = session(p, s, reader)
+    ref = assets.publish(path, a)
+    # Only the contract's known reference is attached; server projection remains unchanged.
+    p = assets.attach(p, s.source_id, ref)
+    root, entities = project_projection(p)
+    import json
+
+    serialized = json.dumps([root, entities])
+    assert "stack_3d_session_reference" not in serialized
+    assert "assets/stack-3d/" not in serialized

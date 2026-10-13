@@ -927,8 +927,14 @@ class Stack3DController(QObject):
         s = self.source
         position = self.volume.original(*self.cursor)[:3]
 
-        def work(cancelled, _progress):
-            return verify_content_hash(s, cancelled=cancelled)
+        def work(cancelled, progress):
+            return verify_content_hash(
+                s,
+                cancelled=cancelled,
+                progress=lambda done, total: progress(
+                    done, total, "원본 2D 복귀 전 SHA 검증"
+                ),
+            )
 
         def publish(verified):
             self.pending_navigation = (verified, position)
@@ -974,7 +980,10 @@ class Stack3DController(QObject):
             self.changed.emit()
             return
         if self.bridge.stack_viewer.initial_loading or current.page_index != page:
-            if not self.bridge.stack_viewer.initial_loading:
+            stack = self.bridge.stack_viewer
+            if not stack.initial_loading and not (
+                stack.busy and stack.requested_page == page
+            ):
                 self.bridge.requestPage(page)
             self.focus_timer.start(100)
             return

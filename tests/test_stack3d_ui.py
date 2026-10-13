@@ -239,3 +239,78 @@ def test_unrelated_project_metadata_does_not_cancel_roi_read(workspace, qt_app):
     assert (
         b.projects.project.project_name == "unrelated metadata update" and not warnings
     )
+
+
+def test_original_navigation_switches_between_two_registered_tiffs(
+    workspace, qt_app, tmp_path
+):
+    import shutil
+
+    from sic_xrt_analyzer.imaging.original_source import OriginalImageSource
+    from sic_xrt_analyzer.results.sources import verify_content_hash
+    from sic_xrt_analyzer.results.workspace import add_source
+
+    b, c, _w, _ui, warnings, _path, s, reader = workspace
+    other = tmp_path / "second.tif"
+    shutil.copyfile(reader.path, other)
+    p, second = add_source(b.projects.project, OriginalImageSource(other))
+    second = verify_content_hash(second)
+    p = p.evolve(
+        image_sources=tuple(
+            second if source.source_id == second.source_id else source
+            for source in p.image_sources
+        )
+    )
+    b.projects._replace(p)
+    focus = []
+    c.focusRequested.connect(lambda x, y: focus.append((x, y)))
+    b.stack_viewer._preload_enabled = False
+    b.stack_viewer._reader.preload_enabled = False
+    for record in (s, second):
+        c.selectSource(record.source_id)
+        settled(qt_app, c)
+        c.configure(3, 4, 32, 28, 0, 7, 1, 1)
+        c.generate()
+        settled(qt_app, c)
+        c.setPage(4)
+        settled(qt_app, c)
+        expected = len(focus) + 1
+        c.openOriginal()
+        try:
+            spin(qt_app, lambda expected=expected: len(focus) == expected, timeout=15)
+        except AssertionError:
+            print(
+                "NAV2",
+                c.pending_navigation,
+                c.focus_attempts,
+                c.focus_timer.isActive(),
+                c.error,
+                b.stackState,
+                b.original_source,
+            )
+            raise
+        assert (
+            b.original_source.path == record.source_reference
+            and b.original_source.page_index == 4
+        )
+    assert not warnings, warnings
+
+
+def test_navigation_wait_does_not_restart_pending_page(workspace, qt_app, monkeypatch):
+    b, c, _w, _ui, _warnings, _path, s, reader = workspace
+    current = reader
+    monkeypatch.setattr(b, "original_source", current)
+    b.stack_viewer.initial_loading = False
+    b.stack_viewer.busy = True
+    b.stack_viewer.requested_page = 4
+    c.pending_navigation = (s, (8, 10, 4))
+    calls = []
+    monkeypatch.setattr(b, "requestPage", calls.append)
+    for _ in range(10):
+        c._focus()
+    assert not calls and c.pending_navigation is not None
+    b.stack_viewer.busy = False
+    c._focus()
+    assert calls == [4]
+    c.focus_timer.stop()
+    c.pending_navigation = None
