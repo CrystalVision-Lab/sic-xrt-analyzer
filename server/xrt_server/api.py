@@ -357,4 +357,7 @@ def create_app(url=None, asset_dir=None):
     from .model_api import register_model_routes
     register_model_routes(app, sessions, identity, admin)
 
+    from .portal_reads import register_portal_reads
+    register_portal_reads(app, sessions, admin)
+
     return app
