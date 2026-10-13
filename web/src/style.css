@@ -1438,3 +1438,127 @@ code,
 .login-theme{position:absolute;right:24px;top:24px;}[data-theme="dark"] .login-page{background:var(--canvas);}.guide-master button:focus-visible{outline-offset:-3px;}
 
 .guide-master{min-width:0;max-width:100%;}.guide-master nav{min-width:0;max-width:100%;}@media(max-width:760px){.guide-workspace{grid-template-columns:minmax(0,1fr);}.guide-master li{flex:0 0 150px;}}
+
+/* Aurora / Particles visual inspiration; original CSS implementation. */
+.download-stage {
+  position: relative;
+  isolation: isolate;
+  overflow: clip;
+  --glow-teal: #89dccf;
+  --glow-blue: #92bee7;
+  --glow-amber: #eac7a3;
+  --glow-opacity: .45;
+  --contour-opacity: .2;
+}
+.download-stage .research-hero { position: relative; z-index: 1; }
+.research-backdrop {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  mask-image: linear-gradient(#000 72%, transparent 100%);
+}
+.backdrop-glow {
+  position: absolute;
+  width: min(850px, 65vw);
+  height: 560px;
+  border-radius: 50%;
+  opacity: var(--glow-opacity);
+  animation: aurora-drift 24s ease-in-out infinite alternate;
+  animation-play-state: paused;
+}
+.backdrop-glow-teal {
+  left: -15%; top: -43%;
+  background: radial-gradient(ellipse, var(--glow-teal), transparent 68%);
+}
+.backdrop-glow-blue {
+  right: -12%; top: -10%;
+  background: radial-gradient(ellipse, var(--glow-blue), transparent 68%);
+  animation-duration: 32s; animation-delay: -13s; animation-direction: alternate-reverse;
+}
+.backdrop-glow-amber {
+  width: min(600px, 50vw); height: 420px;
+  left: 36%; bottom: 0;
+  background: radial-gradient(ellipse, var(--glow-amber), transparent 68%);
+  opacity: calc(var(--glow-opacity) * .5);
+  animation-duration: 28s; animation-delay: -7s;
+}
+.backdrop-grid {
+  position: absolute; inset: 0;
+  background-image: radial-gradient(var(--teal) .6px, transparent .8px);
+  background-size: 32px 32px;
+  opacity: .09;
+  mask-image: linear-gradient(110deg, transparent 25%, #000 85%);
+}
+.backdrop-contours {
+  position: absolute;
+  inset: -7% -5% 0 20%;
+  color: var(--teal);
+  opacity: var(--contour-opacity);
+  animation: contour-drift 40s ease-in-out infinite alternate;
+  animation-play-state: paused;
+}
+.backdrop-contours svg { width: 100%; height: 100%; stroke: currentColor; stroke-width: .8; }
+.backdrop-particle {
+  position: absolute;
+  left: var(--x); top: var(--y);
+  width: var(--size); height: var(--size);
+  border-radius: 50%;
+  background: var(--teal);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--teal) 35%, transparent);
+  opacity: .38;
+  animation: particle-float var(--duration) ease-in-out var(--delay) infinite alternate;
+  animation-play-state: paused;
+}
+.backdrop-veil {
+  position: absolute; inset: 0;
+  background: linear-gradient(100deg, color-mix(in srgb, var(--canvas) 50%, transparent), transparent 70%);
+}
+.research-backdrop[data-motion="running"] :is(.backdrop-glow, .backdrop-contours, .backdrop-particle) {
+  animation-play-state: running;
+}
+.backdrop-motion {
+  position: absolute;
+  right: max(24px, calc((100% - 1240px) / 2));
+  bottom: 16px;
+  z-index: 2;
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 7px 10px;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 10px;
+}
+.backdrop-motion:hover { color: var(--teal); }
+[data-theme="dark"] .download-stage {
+  --glow-teal: #156d71; --glow-blue: #174e90; --glow-amber: #724828;
+  --glow-opacity: .75; --contour-opacity: .13;
+}
+@keyframes aurora-drift {
+  from { transform: translate3d(-4%, -5%, 0) rotate(-12deg) scale(1); }
+  to { transform: translate3d(12%, 13%, 0) rotate(16deg) scale(1.12); }
+}
+@keyframes contour-drift {
+  from { transform: translate3d(-2%, 2%, 0) rotate(-5deg); }
+  to { transform: translate3d(3%, -2%, 0) rotate(6deg); }
+}
+@keyframes particle-float {
+  from { transform: translate3d(0, 8px, 0); opacity: .18; }
+  to { transform: translate3d(8px, -18px, 0); opacity: .62; }
+}
+@media (max-width: 760px) {
+  .download-stage .research-hero { padding-bottom: 58px; }
+  .backdrop-glow { width: 100vw; height: 480px; }
+  .backdrop-glow-teal { left: -40%; top: -15%; }
+  .backdrop-glow-blue { right: -50%; top: 30%; }
+  .backdrop-contours { inset: 10% -50% 15% -30%; }
+  .backdrop-motion { right: 16px; bottom: 12px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .research-backdrop :is(.backdrop-glow, .backdrop-contours, .backdrop-particle) { animation: none !important; }
+}
+
+.download-stage :is(.hero-lead, .download-meta, .download-note, .download-support) { color: var(--muted); }
+.download-stage .download-note p { color: inherit; }
+.download-stage :is(.download-card, .hash) { border-color: var(--line); }
