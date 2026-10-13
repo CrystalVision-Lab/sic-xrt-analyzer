@@ -255,6 +255,8 @@ def test_backup_preserves_release_history_but_removes_sessions(website):
         assert db.execute("SELECT id FROM releases").fetchone()[0] == ident
         assert db.execute("SELECT COUNT(*) FROM events").fetchone()[0] == 1
     assert c.get("/portal-api/session").status_code == 200
+    assert not (output / "portal.sqlite3-wal").exists()
+    assert not (output / "portal.sqlite3-shm").exists()
     assert (output / "releases" / (m["sha256"] + ".exe")).is_file()
     with pytest.raises(FileExistsError):
         store.backup(output)

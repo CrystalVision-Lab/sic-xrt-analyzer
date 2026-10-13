@@ -6,7 +6,7 @@ import os
 import secrets
 import sqlite3
 import time
-from contextlib import contextmanager
+from contextlib import closing, contextmanager
 from pathlib import Path
 from uuid import uuid4
 
@@ -335,10 +335,11 @@ class Store:
         destination.mkdir(parents=True, exist_ok=False)
         inventory = {}
         snapshot = destination / "portal.sqlite3"
-        with self.connect() as db, sqlite3.connect(snapshot) as target:
+        with self.connect() as db, closing(sqlite3.connect(snapshot)) as target:
             db.backup(target)
             target.execute("DELETE FROM sessions")
             target.commit()
+            target.execute("PRAGMA journal_mode=DELETE")
             assert target.execute("PRAGMA integrity_check").fetchone()[0] == "ok"
             payloads = [
                 json.loads(r[0]) for r in target.execute("SELECT payload FROM releases")

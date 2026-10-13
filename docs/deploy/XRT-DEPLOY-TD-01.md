@@ -69,7 +69,7 @@ Opaque 세션2시간, HttpOnly/SameSiteStrict, 공개 HTTPS Secure Cookie, 서�
 
 새 private 폴더만 허용. portal만 잠시 중지하고 SQLite online backup·등록된 설치 CAS·SHA manifest를 생성한 뒤 재시작한다. 원본 볼륨은 유지한다. 백업 사본에서 sessions를 제거하여 복원 시 기존 브라우저 세션이 살아나지 않게 한다. 포털 key와 관리 Credential은 백업에 포함하지 않으며 별도 OS/private 보호 대상이다. 실패한 partial 폴더를 재사용하지 않는다.
 
-실제 백업 `distribution120-portal-v1/snapshot` 생성 완료, 공개 설치 등록0개. 합성 설치 파일·불변 이력·세션 제거·원본 세션 유지·SHA를 별도 테스트했다. 복원 채택은 운영자가 새 empty portal_state/application_releases 볼륨에서 manifest·SHA·SQLite integrity 확인 후 수행한다. 운영 볼륨을 덮어쓰는 자동 restore는 제공하지 않는다. 연구 서버와 포털 백업을 모두 보관한다.
+첫 실제 백업 v1은 최종 연결 종료 후 WAL 체크포인트로 SQLite SHA가 달라져 무결성 대조에 실패했다. 원본은 보존했다. 연결을 명시적으로 닫고 백업을 DELETE journal로 완료한 뒤 SHA를 계산하도록 수정했다. 새 `distribution120-portal-v2/snapshot` 백업에서 전체 SHA·크기·SQLite integrity·세션0을 실제 대조해 PASS했다. 공개 설치 등록0개. 합성 설치 파일·불변 이력·세션 제거·원본 세션 유지·SHA를 별도 테스트했다. 복원 채택은 운영자가 새 empty portal_state/application_releases 볼륨에서 manifest·SHA·SQLite integrity 확인 후 수행한다. 운영 볼륨을 덮어쓰는 자동 restore는 제공하지 않는다. 연구 서버와 포털 백업을 모두 보관한다.
 
 ## 검증 기록
 
@@ -78,8 +78,9 @@ Opaque 세션2시간, HttpOnly/SameSiteStrict, 공개 HTTPS Secure Cookie, 서�
 | 로컬 Chromium public4화면×3폭 + 관리자7화면 | 19 PASS, JS오류0, 가로넘침0 |
 | 공개 HTTPS 익명 public12 + 보호API4 | 16 PASS,401 확인, 인증키 전송 없음 |
 | 개발 QA 설치·설치 후 실제 frozen smoke | PASS, D3D11, QML경고0, TIFF16bit/JPG/ROI3D/ImageJ작업복사 |
+| Frozen ONNX helper | PASS, 합성 ONNX batch1/2 CPU실행, scientific 정확도 시험 아님 |
 | QA 설치 제거 | PASS, CURRENTUSER, 설치 밖 합성 프로젝트 SHA보존 |
-| PostgreSQL 서버 회귀 | 82 PASS (최종 CI 모델 평가 조회 검사 포함 결과 별도 확인) |
+| PostgreSQL 서버 회귀 | 로컬82 PASS, 최종 CI83 PASS (모델 평가 조회 무변경 검사 추가) |
 | 포털 | 7 PASS, 암호화/역할/CSRF/revocation/range/이력/백업/배포보류 |
 | 웹 Unit | 4 PASS, 최신요청·미게시·STABLE 선택·키보드 focus |
 | Worker/모델+포털 집중 회귀 | 45 PASS |
