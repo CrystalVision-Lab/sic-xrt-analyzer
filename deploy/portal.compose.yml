@@ -1,0 +1,33 @@
+services:
+  portal:
+    build:
+      context: ../portal
+    environment:
+      XRT_RESEARCH_API: http://api:8000
+      XRT_PORTAL_KEY_FILE: /run/secrets/portal_key
+      XRT_PORTAL_STATE: /data/state
+      XRT_DOWNLOAD_DIR: /data/releases
+    secrets: [portal_key]
+    volumes: [portal_state:/data/state, application_releases:/data/releases:ro]
+    depends_on: [api]
+    restart: unless-stopped
+    read_only: true
+    tmpfs: [/tmp]
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+  web:
+    build:
+      context: ../web
+    ports: ["127.0.0.1:${XRT_WEB_PORT:-18770}:8080"]
+    depends_on: [portal, api]
+    restart: unless-stopped
+    read_only: true
+    tmpfs: [/tmp]
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+secrets:
+  portal_key:
+    file: ${XRT_PORTAL_KEY_PATH:-../artifacts/sync106-private/portal-key.txt}
+volumes:
+  portal_state:
+  application_releases:

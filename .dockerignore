@@ -14,3 +14,8 @@ docs
 **/*.jpg
 **/*.jpeg
 **/*.png
+
+web/node_modules
+web/dist
+**/.pytest_cache
+**/.ruff_cache
