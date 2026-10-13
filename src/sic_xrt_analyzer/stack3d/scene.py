@@ -110,6 +110,21 @@ def prepare(
                 skipped += 1
                 continue
             point = world_point(volume, mapping, cx, cy, page)
+            if g["type"] == "RECTANGLE":
+                gx, gy, gw, gh = c
+                corners = [
+                    [gx - 0.5, gy - 0.5],
+                    [gx + gw - 0.5, gy - 0.5],
+                    [gx + gw - 0.5, gy + gh - 0.5],
+                    [gx - 0.5, gy + gh - 0.5],
+                ]
+                for a, b in pairwise(corners + [corners[0]]):
+                    segments.extend(
+                        [
+                            world_point(volume, mapping, *a, page),
+                            world_point(volume, mapping, *b, page),
+                        ]
+                    )
             markers.append(
                 {
                     "position": point,

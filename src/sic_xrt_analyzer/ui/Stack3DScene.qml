@@ -56,7 +56,7 @@ Item {
                 materials:DefaultMaterial {lighting:DefaultMaterial.NoLighting;diffuseColor:"#f26e63"}
             }
             Model {source:"#Cylinder";eulerRotation:Qt.vector3d(0,0,90);position:Qt.vector3d(170,-170,-95);scale:Qt.vector3d(.01,.4,.01);materials:DefaultMaterial {lighting:DefaultMaterial.NoLighting;diffuseColor:"#e75d57"}}
-            Model {source:"#Cylinder";position:Qt.vector3d(150,-150,-95);scale:Qt.vector3d(.01,.4,.01);materials:DefaultMaterial {lighting:DefaultMaterial.NoLighting;diffuseColor:"#69bc79"}}
+            Model {source:"#Cylinder";position:Qt.vector3d(150,-190,-95);scale:Qt.vector3d(.01,.4,.01);materials:DefaultMaterial {lighting:DefaultMaterial.NoLighting;diffuseColor:"#69bc79"}}
             Model {source:"#Cylinder";eulerRotation:Qt.vector3d(90,0,0);position:Qt.vector3d(150,-170,-75);scale:Qt.vector3d(.01,.4,.01);materials:DefaultMaterial {lighting:DefaultMaterial.NoLighting;diffuseColor:"#559fd4"}}
         }
     }
@@ -80,7 +80,7 @@ Item {
         onDoubleClicked:root.controller.resetView()
     }
     Text {anchors.left:parent.left;anchors.top:parent.top;anchors.margins:12;color:root.theme.text;font.pixelSize:11;wrapMode:Text.Wrap;width:parent.width-24;text:"왼쪽 드래그 Orbit · 오른쪽/가운데 Pan · 휠 Zoom
-X/Y 원본 픽셀 · +Page Index · 선택 단면 불투명"}
+X/Y 원본 픽셀 · +Page Index · 선택 단면 불투명\n축: 빨강 +X · 초록 +Y(원본 아래) · 파랑 +Page"}
     Text {anchors.left:parent.left;anchors.bottom:parent.bottom;anchors.margins:12;color:root.theme.warning;font.pixelSize:11;wrapMode:Text.Wrap;width:parent.width-24;text:root.hoverText+"\n표시 평면 "+(root.scene.planes||[]).length+"개 (시각화 샘플) · 원본 Volume 페이지는 별도 유지
 수동 연결선은 관측 보조 표현 · 빈 페이지 구간은 점선 · 동일 물리 결함 미확정"}
 }

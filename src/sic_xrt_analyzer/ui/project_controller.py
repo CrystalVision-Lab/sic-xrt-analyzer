@@ -111,6 +111,14 @@ class ProjectController(QObject):
         self.busy=False;self.job='';self.callback=None
         self.changed.emit()
 
+    def _stack3d_pending(self):
+        controller=getattr(self.bridge,"stack3d_controller",None)
+        if controller and controller.manual_pending:
+            self.error="수동 3D Track 초안을 저장하거나 초안 취소한 뒤 프로젝트를 전환하세요."
+            self.changed.emit()
+            return True
+        return False
+
     def _analysis_busy(self):
         stack3d=getattr(self.bridge,"stack3d_controller",None)
         if stack3d and stack3d.job=="save":
@@ -180,6 +188,7 @@ class ProjectController(QObject):
 
     @Slot(str, str)
     def create(self, name, filename):
+        if self._stack3d_pending():return
         if self._analysis_busy():return
         try:
             if not name.strip() or len(name.strip())>200:raise ValueError('프로젝트 이름은 1–200자여야 합니다.')
@@ -247,6 +256,7 @@ class ProjectController(QObject):
 
     @Slot(str)
     def open(self, filename):
+        if self._stack3d_pending():return
         if self._analysis_busy():return
         path=local_path(filename).resolve()
         def read():
@@ -311,6 +321,8 @@ class ProjectController(QObject):
 
     @Slot(str, str)
     def selectSource(self, source_id, run_id=''):
+        controller=getattr(self.bridge,"stack3d_controller",None)
+        if controller and controller.source and source_id!=controller.source.source_id and self._stack3d_pending():return
         if self._analysis_busy():return
         if self.project is None or self.busy:return
         source=next((s for s in self.project.image_sources if s.source_id==source_id),None)
@@ -435,6 +447,7 @@ class ProjectController(QObject):
 
     @Slot()
     def close(self):
+        if self._stack3d_pending():return
         if self._analysis_busy():return
         if self.busy:return
         self.bridge.review_controller.cancel()

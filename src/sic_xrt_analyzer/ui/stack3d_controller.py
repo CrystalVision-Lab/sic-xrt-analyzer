@@ -2,6 +2,7 @@
 
 import copy
 import math
+from dataclasses import replace
 from pathlib import Path
 from threading import Event
 from uuid import uuid4
@@ -31,7 +32,7 @@ class Stack3DController(QObject):
     workspaceRequested = Signal(int)
     focusRequested = Signal(float, float)
     sourceRequested = Signal(str)
-    _progress = Signal(int, int, int, str)
+    _progress = Signal(int, object, object, str)
 
     def __init__(self, bridge):
         super().__init__(bridge)
@@ -86,7 +87,7 @@ class Stack3DController(QObject):
         bridge.imageOpened.connect(self._image_opened)
         bridge.pageChanged.connect(self._page_changed)
 
-    @Slot(int, int, int, str)
+    @Slot(int, object, object, str)
     def _on_progress(self, epoch, done, total, label):
         if epoch == self.epoch and self.busy:
             self.progress = [done, total, label]
@@ -212,7 +213,42 @@ class Stack3DController(QObject):
             return
         old_id = self.project.project_id if self.project else None
         if self.callback:
-            self.cancel(False)
+            old_source = (
+                next(
+                    (
+                        s
+                        for s in self.project.image_sources
+                        if s.source_id == self.selected
+                    ),
+                    None,
+                )
+                if self.project
+                else None
+            )
+            new_source = (
+                next((s for s in p.image_sources if s.source_id == self.selected), None)
+                if p
+                else None
+            )
+            compatible = bool(
+                p
+                and p.project_id == old_id
+                and old_source
+                and new_source
+                and old_source.file_identity == new_source.file_identity
+                and old_source.calibration == new_source.calibration
+                and old_source.acquisition_metadata.get(assets.KEY)
+                == new_source.acquisition_metadata.get(assets.KEY)
+                and (
+                    not old_source.content_hash
+                    or not new_source.content_hash
+                    or old_source.content_hash.value == new_source.content_hash.value
+                )
+            )
+            if self.job != "save" and compatible:
+                self.callback = (p, self.callback[1])
+            else:
+                self.cancel(False)
         self.project = p
         self._refresh_sources()
         if not p or p.project_id != old_id:
@@ -295,8 +331,16 @@ class Stack3DController(QObject):
         if result.get("ok") and self.pending_navigation:
             self.focus_timer.start(0)
 
+    @property
+    def manual_pending(self):
+        return self.tracks != self.saved_tracks
+
     @Slot(str)
     def selectSource(self, sid):
+        if sid != self.selected and self.manual_pending:
+            self.error = "수동 Track 초안을 먼저 저장하거나 초안 취소하세요"
+            self.changed.emit()
+            return
         if self.job == "save":
             return
         self.cancel(False)
@@ -483,7 +527,20 @@ class Stack3DController(QObject):
             return volume, reader, verified, c, frame
 
         def publish(value):
-            self.volume, self.raw_reader, self.source, self.cursor, frame = value
+            self.volume, self.raw_reader, verified, self.cursor, frame = value
+            latest = (
+                next(
+                    (
+                        s
+                        for s in self.project.image_sources
+                        if s.source_id == verified.source_id
+                    ),
+                    verified,
+                )
+                if self.project
+                else verified
+            )
+            self.source = replace(latest, content_hash=verified.content_hash)
             self.volume_revision += 1
             self.window = list(frame["window"])
             self._publish_frame(frame)
@@ -1027,6 +1084,7 @@ class Stack3DController(QObject):
             "physical_status": "PHYSICAL_3D_NOT_READY"
             if not proof
             else "EXISTING_SOURCE_CALIBRATION_AVAILABLE",
+            "manual_pending": self.manual_pending,
             "tracks": [
                 {"id": t["track_id"], "name": t["name"], "revision": t["revision"]}
                 for t in self.tracks

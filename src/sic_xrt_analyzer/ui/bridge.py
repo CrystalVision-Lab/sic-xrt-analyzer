@@ -551,6 +551,7 @@ class FileBridge(QObject):
         path = self.localPath(url)
         if not path or not self.isAccessible(path):
             return {"ok": False, "error": "접근 가능한 로컬 TIFF/JPG 파일을 선택하세요"}
+        self.stack3d_controller.openingFile(path)
         try:
             stack = open_stack(path)
             try:
@@ -576,6 +577,10 @@ class FileBridge(QObject):
         self._request_image(url)
 
     def _request_image(self, url):
+        controller=self.stack3d_controller
+        if controller.manual_pending and controller.source and str(Path(self.localPath(url)).resolve())!=str(Path(controller.source.source_reference).resolve()):
+            self.imageOpened.emit({"ok":False,"error":"수동 3D Track 초안을 저장하거나 초안 취소한 뒤 파일을 전환하세요."})
+            return
         if self.workbench.busy:
             self.workbench.cancel()
         self._pending_working_path = ''

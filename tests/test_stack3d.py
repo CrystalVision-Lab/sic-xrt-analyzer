@@ -271,7 +271,7 @@ def test_track_revisions_gaps_and_bounded_scene(study):
     assets.validate_track(t, p)
     v = extract(reader, plan(reader, [3, 4, 32, 28], 0, 7))
     f = prepare(v, [0, 2, 3], [19000, 65000], [t], plane_limit=3)
-    assert len(f["planes"]) == 3 and len(f["markers"]) == 2 and len(f["segments"]) == 10
+    assert len(f["planes"]) == 3 and len(f["markers"]) == 2 and len(f["segments"]) == 18
     assert f["texture_bytes"] < 16 * 1024**2
     original = t["events"][0].copy()
     assets.event(

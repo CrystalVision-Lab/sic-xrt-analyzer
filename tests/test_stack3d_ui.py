@@ -92,7 +92,7 @@ def test_qml_volume_orthogonal_cursor_track_save_reopen(workspace, qt_app):
     settled(qt_app, c)
     c.record("RECTANGLE", "QA", "UNCERTAIN")
     settled(qt_app, c)
-    assert len(c.scene["markers"]) == 2 and len(c.scene["segments"]) == 10
+    assert len(c.scene["markers"]) == 2 and len(c.scene["segments"]) == 18
     c.save("QA")
     settled(qt_app, c)
     assert c.state["history_revision"] == 1 and not c.dirty
@@ -191,3 +191,51 @@ def test_original_source_page_position_navigation(workspace, qt_app):
     )
     assert signals == [(8.0, 10.0)] and ui.property("workspaceIndex") == 0
     assert not warnings, warnings
+
+
+def test_unsaved_manual_track_cannot_be_discarded_by_switch(workspace, qt_app):
+    b, c, _w, _ui, _warnings, path, _s, _r = workspace
+    c.configure(0, 0, 20, 20, 0, 7, 1, 1)
+    c.generate()
+    settled(qt_app, c)
+    c.newTrack("unsaved observation", "QA")
+    c.record("POINT", "QA", "UNCERTAIN")
+    settled(qt_app, c)
+    snapshot = list(c.tracks)
+    assert c.manual_pending
+    b.projects.close()
+    assert b.projects.project is not None and "초안" in b.projects.error
+    b.projects.open(str(path))
+    assert not b.projects.busy and c.tracks == snapshot
+    c.selectSource("missing-other-source")
+    assert c.selected and "초안" in c.error
+    c.discardTracks()
+    settled(qt_app, c)
+    assert not c.manual_pending
+    b.projects.close()
+    assert b.projects.project is None
+
+
+def test_progress_does_not_overflow_large_tiff_bytes(workspace, qt_app):
+    _b, c, _w, _ui, warnings, _path, _s, _r = workspace
+    c.busy = True
+    c.epoch = 118
+    c._progress.emit(118, 3 * 1024**3, 3 * 1024**3, "SHA bytes")
+    qt_app.processEvents()
+    assert c.progress[:2] == [3 * 1024**3, 3 * 1024**3]
+    assert not warnings, warnings
+    c.busy = False
+
+
+def test_unrelated_project_metadata_does_not_cancel_roi_read(workspace, qt_app):
+    b, c, _w, _ui, warnings, _path, _s, _r = workspace
+    c.configure(3, 4, 32, 28, 0, 7, 1, 1)
+    c.generate()
+    b.projects._replace(
+        b.projects.project.evolve(project_name="unrelated metadata update")
+    )
+    settled(qt_app, c)
+    assert c.volume is not None and c.volume.pixels.shape == (8, 28, 32)
+    assert (
+        b.projects.project.project_name == "unrelated metadata update" and not warnings
+    )
