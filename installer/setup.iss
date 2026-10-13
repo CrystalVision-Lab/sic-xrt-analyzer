@@ -36,6 +36,7 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 Name: "desktopicon"; Description: "Create a desktop shortcut"; Flags: unchecked
 [Files]
 Source: "{#BundleDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "PYTHON-LICENSE.txt"; DestDir: "{app}\_internal"; Flags: ignoreversion
 [Icons]
 Name: "{group}\SiC XRT Analyzer"; Filename: "{app}\SiCXrtAnalyzer.exe"; WorkingDir: "{app}"
 Name: "{autodesktop}\SiC XRT Analyzer"; Filename: "{app}\SiCXrtAnalyzer.exe"; Tasks: desktopicon

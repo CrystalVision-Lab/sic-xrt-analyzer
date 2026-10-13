@@ -22,6 +22,8 @@ def main():
     p.add_argument("--output", type=Path, required=True)
     p.add_argument("--version", default="0.1.0")
     p.add_argument("--source-directory", type=Path, required=True)
+    p.add_argument("--reuse-bundle", type=Path)
+    p.add_argument("--reuse-source-revision")
     args = p.parse_args()
     if sys.platform != "win32":
         raise RuntimeError("Build on Windows x64")
@@ -54,22 +56,57 @@ def main():
     ).strip()
     out.mkdir(parents=True)
     environment = {**os.environ, "XRT_BUILD_JDK": str(args.jdk.resolve())}
-    run(
-        [
-            sys.executable,
-            "-m",
-            "PyInstaller",
-            "--noconfirm",
-            "--workpath",
-            str(out / "work"),
-            "--distpath",
-            str(out / "dist"),
-            str(ROOT / "installer/SiCXrtAnalyzer.spec"),
-        ],
-        cwd=ROOT,
-        env=environment,
-    )
     bundle = out / "dist/SiCXrtAnalyzer"
+    if args.reuse_bundle:
+        import shutil
+
+        candidate = args.reuse_bundle.resolve()
+        if (
+            not candidate.is_relative_to(ROOT / "artifacts")
+            or not args.reuse_source_revision
+        ):
+            raise ValueError("Verified task bundle and its source revision required")
+        diff = subprocess.check_output(
+            [
+                "git",
+                "diff",
+                args.reuse_source_revision,
+                revision,
+                "--name-only",
+                "--",
+                "src",
+                "installer/launcher.py",
+            ],
+            cwd=ROOT,
+            text=True,
+        )
+        if diff.strip():
+            raise ValueError(
+                "Compiled application inputs changed; perform a full PyInstaller build"
+            )
+        shutil.copytree(candidate, bundle)
+    else:
+        run(
+            [
+                sys.executable,
+                "-m",
+                "PyInstaller",
+                "--noconfirm",
+                "--workpath",
+                str(out / "work"),
+                "--distpath",
+                str(out / "dist"),
+                str(ROOT / "installer/SiCXrtAnalyzer.spec"),
+            ],
+            cwd=ROOT,
+            env=environment,
+        )
+
+    import shutil
+
+    shutil.copyfile(
+        ROOT / "installer/PYTHON-LICENSE.txt", bundle / "_internal/PYTHON-LICENSE.txt"
+    )
     forbidden = {".onnx", ".pt", ".pth", ".tif", ".tiff", ".env"}
     for file in bundle.rglob("*"):
         if file.is_file() and (
