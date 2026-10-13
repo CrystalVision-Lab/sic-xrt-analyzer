@@ -22,8 +22,41 @@ class IssueReports(QObject):
         self.busy = False
         self.error = self.saved = ""
 
+    @Slot(str, str)
+    def submitSelected(self, reason, note):
+        from copy import deepcopy
+
+        record = self.bridge.roi_manager.selected_record(self.bridge.stack_viewer.frame)
+        row = next(
+            (
+                r
+                for r in self.bridge.roiState["items"]
+                if record and r["id"] == record.id and r["active"]
+            ),
+            None,
+        )
+        if row is None:
+            self.error = "ROI를 선택하세요."
+            self.changed.emit()
+            return
+        geometry = deepcopy(
+            {
+                k: row.get(k)
+                for k in ("kind", "tool", "paths", "bbox", "page", "name", "text")
+            }
+        )
+        self._submit(reason, note, 0, 0, 0, 0, geometry)
+
     @Slot(str, str, int, int, int, int)
     def submit(self, reason, note, x, y, width, height):
+        geometry = (
+            {"kind": "rectangle", "bbox": [x, y, width, height]}
+            if width > 0 and height > 0
+            else None
+        )
+        self._submit(reason, note, x, y, width, height, geometry)
+
+    def _submit(self, reason, note, x, y, width, height, geometry):
         research = self.bridge.research_controller
         source = self.bridge.original_source
         row = next((r for r in research.rows if r["id"] == research.selected_id), None)
@@ -56,6 +89,7 @@ class IssueReports(QObject):
             "run_id": research.result_identity,
             "source": source.identity.__dict__,
             "roi": [x, y, width, height] if width > 0 and height > 0 else None,
+            "roi_geometry": geometry,
             "model_version": research.display_result.model_version,
             "approval": "UNVERIFIED",
         }

@@ -42,7 +42,9 @@ class DisplayLayers(QObject):
         rows.append(
             {
                 "id": str(uuid4()),
-                "name": "ROI " + str(len(rows) + 1),
+                "number": max((r.get("number", 0) for r in rows), default=0) + 1,
+                "name": "ROI "
+                + str(max((r.get("number", 0) for r in rows), default=0) + 1),
                 "visible": True,
                 "x": x,
                 "y": y,
@@ -74,7 +76,9 @@ class DisplayLayers(QObject):
         rows.append(
             {
                 "id": str(uuid4()),
-                "name": "ROI " + str(len(rows) + 1),
+                "number": max((r.get("number", 0) for r in rows), default=0) + 1,
+                "name": "ROI "
+                + str(max((r.get("number", 0) for r in rows), default=0) + 1),
                 "visible": True,
                 "x": row["bbox"][0],
                 "y": row["bbox"][1],

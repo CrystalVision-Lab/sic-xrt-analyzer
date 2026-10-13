@@ -9,12 +9,13 @@ SurfaceDialog {
   Text { text:"후보 #"+(root.uiState.research.selected.number||"")+" · "+(root.uiState.research.selected.type||""); color:root.theme.text; font.pixelSize:16 }
   AppComboBox { id:reason; model:["결함 아님","종류가 다름","위치가 다름","영역이 다름","기타"]; theme:root.theme; Layout.fillWidth:true }
   TextArea { id:note; Layout.fillWidth:true; Layout.preferredHeight:100; placeholderText:"메모 (선택)"; wrapMode:TextEdit.Wrap; color:root.theme.text }
-  AppCheckBox { id:withRoi; theme:root.theme; text:"선택 ROI 첨부"; enabled:root.uiState.hasRoi; checked:root.uiState.hasRoi }
+  AppCheckBox { id:withRoi; theme:root.theme; text:"선택 ROI 첨부"; enabled:root.uiState.hasRoi||!!root.uiState.roiFlow.selected; checked:enabled }
   Text { visible:!!fileBridge.reports.state.error; text:fileBridge.reports.state.error; color:root.theme.warning; Layout.fillWidth:true; wrapMode:Text.Wrap }
   RowLayout { Layout.fillWidth:true; Item{Layout.fillWidth:true}
    AppButton {theme:root.theme;text:"취소";enabled:!fileBridge.reports.state.busy;onClicked:root.close()}
-   AppButton {objectName:"submitReport";theme:root.theme;text:fileBridge.reports.state.busy?"저장 중…":"신고 저장";primary:true;enabled:!fileBridge.reports.state.busy;onClicked:fileBridge.reports.submit(reason.currentText,note.text,withRoi.checked?root.uiState.roiX:0,withRoi.checked?root.uiState.roiY:0,withRoi.checked?root.uiState.roiWidth:0,withRoi.checked?root.uiState.roiHeight:0)}
+   AppButton {objectName:"submitReport";theme:root.theme;text:fileBridge.reports.state.busy?"저장 중…":"신고 저장";primary:true;enabled:!fileBridge.reports.state.busy;onClicked:{if(withRoi.checked&&!root.uiState.hasRoi){fileBridge.reports.submitSelected(reason.currentText,note.text);return}fileBridge.reports.submit(reason.currentText,note.text,withRoi.checked?root.uiState.roiX:0,withRoi.checked?root.uiState.roiY:0,withRoi.checked?root.uiState.roiWidth:0,withRoi.checked?root.uiState.roiHeight:0)}}
   }
  }
+ Connections {target:root.uiState;function onHasResultChanged(){if(!root.uiState.hasResult)root.close()}}
  Connections {target:fileBridge.reports;function onChanged(){if(root.visible&&fileBridge.reports.state.saved&&!fileBridge.reports.state.busy)root.close()}}
 }

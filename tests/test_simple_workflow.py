@@ -22,6 +22,8 @@ from sic_xrt_analyzer.analysis.pipeline import AnalysisPipeline
 from sic_xrt_analyzer.imaging.original_source import OriginalImageSource
 from sic_xrt_analyzer.ui.bridge import FileBridge, TiffImageProvider
 
+pytest_plugins = ("test_toolbar",)
+
 
 def original(tmp_path, name="source.tif"):
     path = tmp_path / name
@@ -304,3 +306,54 @@ def test_optional_area_error_does_not_discard_classification(tmp_path, monkeypat
     assert len(result.detections) == 1 and result.detections[0].class_name == "BPD"
     assert result.detections[0].metadata["region_error"] == "ValueError"
     assert result.detections[0].geometry.points == ((144, 144),)
+
+
+def test_polygon_report_and_layer_visibility_preserve_original_roi(
+    workbench, tmp_path, monkeypatch
+):
+    import json
+
+    from PySide6.QtCore import Qt
+    from PySide6.QtTest import QTest
+    from test_result_explorer import ManyCandidates
+    from test_result_ux import analyzed
+    from test_ui_analysis_contract import invoke
+
+    monkeypatch.setenv("SIC_XRT_REPORT_DIR", str(tmp_path / "reports"))
+    w = workbench
+    analyzed(w, ManyCandidates())
+    w.bridge.research.selectCandidate("candidate_000000")
+    w.bridge.workbench.gesture("Polygon", [[40, 40], [150, 40], [150, 150], [40, 150]])
+    original = w.bridge.roi_manager.records[0]
+    w.window.grabWindow()
+    QTest.qWait(35)
+    assert not w.state.property("hasRoi")
+    w.click("layerTools")
+    w.click("addRoiLayer")
+    layer = w.bridge.displayLayers.rows[0]
+    assert (
+        layer["paths"] == [list(path) for path in original.paths]
+        or tuple(tuple(tuple(p) for p in path) for path in layer["paths"])
+        == original.paths
+    )
+    assert not w.state.property("roiLayerVisible")
+    w.bridge.displayLayers.toggle(layer["id"], False)
+    assert not w.item("importedRoiOverlay").property("layerVisible")
+    assert not w.item("annotationLayers").property("rows")[0]["visible"]
+    QTest.keyClick(w.window, Qt.Key_Escape)
+    invoke(w.window, "openContext", "result")
+    w.window.grabWindow()
+    QTest.qWait(35)
+    w.click("reportCandidate")
+    w.click("submitReport")
+    spin(w.app, lambda: not w.bridge.reports.state["busy"])
+    assert not w.bridge.reports.state["error"]
+    report = json.loads(
+        Path(w.bridge.reports.state["saved"]).read_text(encoding="utf-8")
+    )
+    assert report["roi_geometry"]["kind"] == "polygon"
+    assert (
+        tuple(tuple(tuple(p) for p in path) for path in report["roi_geometry"]["paths"])
+        == original.paths
+    )
+    assert w.bridge.roi_manager.records[0] is original

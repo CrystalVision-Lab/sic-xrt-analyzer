@@ -13,7 +13,7 @@ ToolbarButton {
    }
    AppCheckBox{theme:root.theme;text:"선택 강조";checked:root.uiState.selectedLayerVisible;visible:root.uiState.hasResult;onToggled:root.uiState.selectedLayerVisible=checked}
    AppCheckBox{theme:root.theme;text:"현재 ROI";checked:root.uiState.roiLayerVisible;onToggled:root.uiState.roiLayerVisible=checked}
-   AppButton{objectName:"addRoiLayer";theme:root.theme;text:"선택 ROI를 레이어로 추가";enabled:root.uiState.hasRoi||!!root.uiState.roiFlow.selected;Layout.fillWidth:true;onClicked:{if(root.uiState.hasRoi)fileBridge.displayLayers.add(root.uiState.roiX,root.uiState.roiY,root.uiState.roiWidth,root.uiState.roiHeight);else fileBridge.displayLayers.addSelected()}}
+   AppButton{objectName:"addRoiLayer";theme:root.theme;text:"선택 ROI를 레이어로 추가";enabled:root.uiState.hasRoi||!!root.uiState.roiFlow.selected;Layout.fillWidth:true;onClicked:{if(root.uiState.hasRoi)fileBridge.displayLayers.add(root.uiState.roiX,root.uiState.roiY,root.uiState.roiWidth,root.uiState.roiHeight);else fileBridge.displayLayers.addSelected();root.uiState.roiLayerVisible=false}}
    AppButton{objectName:"browseStructures";theme:root.theme;text:"구조 레이어…";enabled:root.uiState.analysisEligible;Layout.fillWidth:true;onClicked:{layers.close();structures.open()}}
    ScrollView{Layout.fillWidth:true;Layout.preferredHeight:Math.min(220,fileBridge.displayLayers.rows.length*42);clip:true
     ColumnLayout {width:parent.width
