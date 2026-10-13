@@ -24,8 +24,15 @@ ColumnLayout {
         Button {objectName:"stack3dReset";text:"Fit / View Reset";enabled:root.state.ready;onClicked:root.controller.resetView()}
     }
     RowLayout {
+        Layout.fillWidth:true
+        visible:root.state.busy||!!root.state.error
+        BusyIndicator {running:root.state.busy;visible:running;Layout.preferredWidth:22;Layout.preferredHeight:22}
+        Text {Layout.fillWidth:true;wrapMode:Text.Wrap;font.pixelSize:11;color:root.state.error?root.theme.warning:root.theme.accent;text:root.state.error||(root.state.progress[2]+" · "+root.state.progress[0]+" / "+root.state.progress[1])}
+    }
+    RowLayout {
         Layout.fillWidth:true;Layout.fillHeight:true;spacing:8
         ScrollView {
+            objectName:"stack3dControls"
             Layout.preferredWidth:260;Layout.minimumWidth:250;Layout.fillHeight:true;clip:true
             ColumnLayout {
                 width:250;spacing:8

@@ -118,10 +118,32 @@ def main():
 
         def shot(name):
             previous = (w.width(), w.height())
+            controls = w.findChild(QObject, "stack3dControls")
+            flick = controls.property("contentItem")
+            show_track = name[:2] in {"11", "12", "13", "14"}
             for width, height in [(1100, 700), (1440, 900), (1920, 1080)]:
                 w.resize(width, height)
                 app.processEvents()
                 QTest.qWait(120)
+                reviewer = w.findChild(QObject, "stack3dReviewer")
+                if show_track:
+                    fy = reviewer.mapToItem(
+                        flick.property("contentItem"), QPointF(0, 0)
+                    ).y()
+                    flick.setProperty(
+                        "contentY",
+                        max(
+                            0,
+                            min(
+                                fy - 70,
+                                flick.property("contentHeight") - flick.height(),
+                            ),
+                        ),
+                    )
+                else:
+                    flick.setProperty("contentY", 0)
+                app.processEvents()
+                QTest.qWait(50)
                 im = w.grabWindow()
                 assert not im.isNull()
                 target = args.output / f"{width}x{height}"
