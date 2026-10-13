@@ -15,6 +15,20 @@ services:
     tmpfs: [/tmp]
     security_opt: [no-new-privileges:true]
     cap_drop: [ALL]
+  release-admin:
+    image: xrt-research-portal
+    profiles: [ops]
+    environment:
+      XRT_RESEARCH_API: http://api:8000
+      XRT_PORTAL_KEY_FILE: /run/secrets/portal_key
+      XRT_PORTAL_STATE: /data/state
+      XRT_DOWNLOAD_DIR: /data/releases
+    secrets: [portal_key]
+    volumes: [portal_state:/data/state, application_releases:/data/releases:rw]
+    read_only: true
+    tmpfs: [/tmp]
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
   web:
     build:
       context: ../web

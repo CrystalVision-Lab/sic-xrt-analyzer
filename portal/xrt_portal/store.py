@@ -21,6 +21,13 @@ def sha(path):
         return hashlib.file_digest(f, "sha256").hexdigest()
 
 
+def copy_stream(source, destination):
+    import shutil
+
+    with source.open("rb") as stream, destination.open("xb") as target:
+        shutil.copyfileobj(stream, target, 1024 * 1024)
+
+
 def token_hash(s):
     return hashlib.sha256(s.encode()).hexdigest()
 
@@ -204,11 +211,9 @@ class Store:
             if dest.is_symlink() or sha(dest) != p["sha256"]:
                 raise ValueError("APP_CAS_CONFLICT")
         else:
-            import shutil
-
             staging = self.downloads / (".stage-" + str(uuid4()))
             try:
-                shutil.copyfile(file, staging)
+                copy_stream(file, staging)
                 if sha(staging) != p["sha256"]:
                     raise ValueError("APP_COPY_INTEGRITY")
                 os.rename(staging, dest)
@@ -220,11 +225,9 @@ class Store:
             if source_dest.is_symlink() or sha(source_dest) != source["sha256"]:
                 raise ValueError("SOURCE_CAS_CONFLICT")
         else:
-            import shutil
-
             staging = self.downloads / (".source-stage-" + str(uuid4()))
             try:
-                shutil.copyfile(source_file, staging)
+                copy_stream(source_file, staging)
                 if sha(staging) != source["sha256"]:
                     raise ValueError("SOURCE_COPY_INTEGRITY")
                 os.rename(staging, source_dest)
@@ -374,8 +377,6 @@ class Store:
 
     def backup(self, destination):
         """Call with the portal stopped; create an independent ledger without browser sessions."""
-        import shutil
-
         destination = Path(destination)
         destination.mkdir(parents=True, exist_ok=False)
         inventory = {}
@@ -399,7 +400,7 @@ class Store:
             if source.is_symlink() or not source.is_file() or sha(source) != digest:
                 raise ValueError("BACKUP_RELEASE_INTEGRITY")
             output = destination / "releases" / name
-            shutil.copyfile(source, output)
+            copy_stream(source, output)
             if sha(output) != digest:
                 raise ValueError("BACKUP_COPY_INTEGRITY")
             inventory["releases/" + name] = {
