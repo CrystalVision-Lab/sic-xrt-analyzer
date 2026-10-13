@@ -143,6 +143,8 @@ class FileBridge(QObject):
         self.sync_controller = SyncController(self)
         from .model_update_controller import ModelUpdateController
         self.model_update_controller = ModelUpdateController(self)
+        from .app_update_controller import AppUpdateController
+        self.app_update_controller = AppUpdateController(self)
         stored = self._settings.value("preferences", {})
         self._preferences = self._validated(stored if isinstance(stored, dict) else {})
         recent = self._settings.value("recentFiles", [])
@@ -669,6 +671,7 @@ class FileBridge(QObject):
 
     @Slot()
     def waitForLoads(self):
+        self.app_update_controller.shutdown()
         self.model_update_controller.shutdown()
         self.sync_controller.shutdown()
         self.stack3d_controller.shutdown()
@@ -752,3 +755,7 @@ class FileBridge(QObject):
     @Property(QObject, constant=True)
     def modelUpdates(self):
         return self.model_update_controller
+
+    @Property(QObject, constant=True)
+    def appUpdates(self):
+        return self.app_update_controller

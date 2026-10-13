@@ -88,7 +88,7 @@ AppShell {
         zoomIn: zoomInAction, zoomOut: zoomOutAction, fit: fitAction, actualSize: actualSizeAction,
         roiLayer: roiLayerAction, navigationPanel: navigationPanelAction, inspectorPanel: inspectorPanelAction,
         statusBar: statusBarAction, fullScreen: fullScreenAction, resetLayout: resetLayoutAction,
-        run: runAction, cancelAnalysis: cancelAnalysisAction, settings: settingsAction, modelInfo: modelInfoAction, modelUpdates: modelUpdatesAction, guide: guideAction,
+        run: runAction, cancelAnalysis: cancelAnalysisAction, settings: settingsAction, modelInfo: modelInfoAction, modelUpdates: modelUpdatesAction, appUpdates: appUpdatesAction, guide: guideAction,
         shortcutGuide: shortcutGuideAction, reportIssue: reportIssueAction, about: aboutAction,
         importRois: importRoisAction, viewerSettings: viewerSettingsAction, prepareAnalysis: prepareAnalysisAction, analysisInputInfo: analysisInputInfoAction, tools: toolCommands, advanced: advancedCommands
     })
@@ -279,6 +279,32 @@ AppShell {
     Connections { target: fileBridge.research; function onFocusRequested(x, y) { window.requestContext("result", "CANDIDATE_SELECTED"); uiState.workspaceIndex = 0; uiState.updateCandidateRoi(); Qt.callLater(function() { viewer.focusCandidate(x, y) }) } }
     Connections { target: fileBridge.experiments; function onFocusRequested(x, y, w, h) { window.requestContext("result", "CANDIDATE_SELECTED"); uiState.workspaceIndex = 0; Qt.callLater(function() { viewer.focusGeometry(x, y, w, h) }) } }
     ImageJProcessingDialog { id: processingDialog; theme: theme; uiState: uiState; backend: fileBridge.imagej }
+    Action { id: appUpdatesAction; objectName: "appUpdatesAction"; text: "프로그램 업데이트…"; onTriggered: { updateNotice.close(); appUpdatesDialog.open() } }
+    AppUpdatesDialog { id: appUpdatesDialog }
+    Popup {
+        id: updateNotice; objectName: "appUpdateNotice"; parent: Overlay.overlay
+        x: Math.max(10, window.width - width - 20); y: 20; width: 380
+        closePolicy: Popup.NoAutoClose
+        ColumnLayout {
+            anchors.fill: parent
+            Label { text: "새 프로그램 버전 " + fileBridge.appUpdates.state.version + "이 있습니다."; wrapMode: Text.Wrap; Layout.fillWidth: true }
+            RowLayout {
+                Button { text: "업데이트 보기"; onClicked: appUpdatesAction.trigger() }
+                Button { text: "나중에"; onClicked: updateNotice.close() }
+            }
+        }
+    }
+    Connections {
+        target: fileBridge.appUpdates
+        function onUpdateAvailable() { if (!appUpdatesDialog.opened) updateNotice.open() }
+        function onInstallVerified() {
+            projectWorkflow.guard(function() {
+                window.confirmRoiDiscard(function() {
+                    if (fileBridge.appUpdates.armInstall()) { window.allowQuit = true; window.close() }
+                })
+            })
+        }
+    }
     ModelUpdatesDialog { id: modelUpdatesDialog; onLocalModelRequested: researchModelDialog.open() }
     SafeFolderDialog { id: researchModelDialog; objectName: "researchModelDialog"; title: "고정 모델 폴더 선택"; onAccepted: fileBridge.research.loadModel(selectedFolder.toString()) }
     SafeFileDialog { id: coordinatesDialog; title: "현재 영상의 좌표 CSV"; nameFilters: ["좌표 CSV (*.csv)"]; onAccepted: fileBridge.research.setCoordinates(selectedFile.toString()) }

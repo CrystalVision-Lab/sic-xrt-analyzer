@@ -39,7 +39,14 @@ def main() -> int:
         ctypes.windll.dwmapi.DwmSetWindowAttribute(
             int(engine.rootObjects()[0].winId()), 20, ctypes.byref(dark), ctypes.sizeof(dark)
         )
-    return app.exec()
+    if bridge.app_update_controller.startup:
+        QTimer.singleShot(3000, bridge.app_update_controller.checkUpdates)
+    result = app.exec()
+    bridge.app_update_controller.launch_after_exit()
+    if bridge.app_update_controller.launch_error:
+        from PySide6.QtWidgets import QMessageBox
+        QMessageBox.warning(None, "프로그램 업데이트", bridge.app_update_controller.launch_error)
+    return result
 
 
 if __name__ == "__main__":

@@ -206,6 +206,7 @@ MenuBar {
         AppMenuItem { action: root.actions.shortcutGuide }
         AppMenuItem { action: root.actions.reportIssue }
         MenuSeparator {}
+        AppMenuItem { objectName: "menuAppUpdates"; action: root.actions.appUpdates }
         AppMenuItem { action: root.actions.about }
     }
 }
