@@ -275,6 +275,26 @@ def create_app(
             raise HTTPException(404, "GUIDE_IMAGE_UNAVAILABLE") from None
         return Response(raw, media_type="image/png")
 
+    @app.get("/portal-api/guide/public")
+    def public_guide():
+        data = library.manifest()
+        return {"schema": data["schema"], "groups": library.published_groups(data)}
+
+    @app.get("/portal-api/guide/public/images/{ident}")
+    def public_guide_image(ident: str):
+        data = library.manifest()
+        if not any(
+            tab.get("image_id") == ident
+            for group in library.published_groups(data)
+            for tab in group["tabs"]
+        ):
+            raise HTTPException(404, "GUIDE_IMAGE_UNAVAILABLE")
+        try:
+            raw = library.image(ident, data)
+        except (KeyError, ValueError, OSError):
+            raise HTTPException(404, "GUIDE_IMAGE_UNAVAILABLE") from None
+        return Response(raw, media_type="image/png")
+
     @app.get("/portal-api/session")
     def me(request: Request):
         row = session(request)

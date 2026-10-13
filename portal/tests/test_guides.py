@@ -138,3 +138,66 @@ def test_guide_login_origin_and_logout_csrf(guide_site):
         == 200
     )
     assert c.get("/portal-api/guide/images/viewer").status_code == 401
+
+
+def publish(p):
+    path = p / "manifest.json"
+    data = json.loads(path.read_text())
+    data["public_tabs"] = [
+        {
+            "group_id": "viewer",
+            "tab_id": "open",
+            "image_id": "viewer",
+            "sha256": data["images"]["viewer"]["sha256"],
+        }
+    ]
+    path.write_text(json.dumps(data))
+
+
+def test_public_guide_is_opt_in_and_does_not_grant_admin_access(guide_site):
+    c, a, p, raw = guide_site
+    assert c.get("/portal-api/guide/public").json()["groups"] == []
+    assert c.get("/portal-api/guide/public/images/viewer").status_code == 404
+    publish(p)
+    data = c.get("/portal-api/guide/public").json()
+    assert data["groups"][0]["tabs"][0]["image_id"] == "viewer"
+    assert "project_id" not in data["groups"][0]
+    assert "images" not in data
+    assert c.get("/portal-api/guide/public/images/viewer").content == raw
+    for path in (
+        "session",
+        "guide",
+        "admin/releases",
+        "admin/audit",
+        "research/admin/statistics",
+    ):
+        assert c.get("/portal-api/" + path).status_code == 401
+    assert a["calls"] == []  # Public screens never use administrator credentials.
+
+
+def test_new_tabs_and_changed_images_require_new_publication(guide_site):
+    c, _, p, _ = guide_site
+    publish(p)
+    path = p / "manifest.json"
+    data = json.loads(path.read_text())
+    data["groups"][0]["tabs"].append({"id": "future", "image_id": "viewer"})
+    path.write_text(json.dumps(data))
+    assert len(c.get("/portal-api/guide/public").json()["groups"][0]["tabs"]) == 1
+    data["images"]["viewer"]["sha256"] = "a" * 64
+    path.write_text(json.dumps(data))
+    assert c.get("/portal-api/guide/public").json()["groups"] == []
+    assert c.get("/portal-api/guide/public/images/viewer").status_code == 404
+
+
+def test_public_image_integrity_allowlist_and_path_boundaries(guide_site):
+    c, _, p, _ = guide_site
+    publish(p)
+    for ident in ("unknown", "manifest.json", "..%2Fmanifest.json"):
+        assert c.get("/portal-api/guide/public/images/" + ident).status_code == 404
+    (p / "viewer.png").write_bytes(b"changed")
+    assert c.get("/portal-api/guide/public/images/viewer").status_code == 404
+    path = p / "manifest.json"
+    data = json.loads(path.read_text())
+    data["images"]["viewer"]["filename"] = "../outside.png"
+    path.write_text(json.dumps(data))
+    assert c.get("/portal-api/guide/public/images/viewer").status_code == 404

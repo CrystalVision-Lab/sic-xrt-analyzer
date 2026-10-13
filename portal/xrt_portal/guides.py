@@ -1,4 +1,4 @@
-"""Private read-only screenshots. No dataset pixels or credentials enter the web build."""
+"""Read-only screenshots with explicit publication snapshots. No pixels enter the web build."""
 
 import hashlib
 import json
@@ -49,3 +49,50 @@ class Guides:
         ):
             raise ValueError("GUIDE_IMAGE_INTEGRITY")
         return raw
+
+    def published_groups(self, data):
+        """Only individually approved tabs and image digests may be public.
+
+        New captures remain private until an operator publishes a new snapshot.
+        Never return private project UUIDs, file paths or the image inventory.
+        """
+        approved = {
+            (r.get("group_id"), r.get("tab_id")): r for r in data.get("public_tabs", [])
+        }
+        groups = []
+        for group in data["groups"]:
+            tabs = []
+            for tab in group["tabs"]:
+                record = approved.get((group["id"], tab["id"]))
+                if record is None or record.get("image_id") != tab.get("image_id"):
+                    continue
+                ident = tab.get("image_id")
+                if ident and data["images"][ident]["sha256"] != record.get("sha256"):
+                    continue
+                tabs.append(
+                    {
+                        k: tab[k]
+                        for k in (
+                            "id",
+                            "title",
+                            "summary",
+                            "image_id",
+                            "steps",
+                            "notes",
+                            "callouts",
+                        )
+                        if k in tab
+                    }
+                )
+            if tabs:
+                groups.append(
+                    {
+                        **{
+                            k: group[k]
+                            for k in ("id", "title", "subtitle")
+                            if k in group
+                        },
+                        "tabs": tabs,
+                    }
+                )
+        return groups
