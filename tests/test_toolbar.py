@@ -1,4 +1,5 @@
 """Real popup selection, Viewer gestures and shared commands after TD-02."""
+import time
 from pathlib import Path
 
 import numpy as np
@@ -33,22 +34,33 @@ def workbench(qt_app, tmp_path, bridge_factory):
 
     class Workbench:
         def item(self, name):
-            obj = window.findChild(QObject, name)
-            if obj is not None:
-                return obj
-            pending = [window.contentItem()]
-            # Closed menus detach their visual item from the window overlay.
-            for popup in window.findChildren(QObject):
-                if popup.inherits('QQuickPopup'):
-                    content = popup.property('contentItem')
-                    if content is not None:
-                        pending.append(content)
-            while pending:
-                node = pending.pop()
-                if node.objectName() == name:
-                    return node
-                pending.extend(node.childItems())
-            raise AssertionError(name)
+            # Repeater delegates can be replaced during selection updates.
+            # Wait for the actual item, including its visual parent, rather than
+            # assuming it is already in QObject's tree after one event pass.
+            until = time.monotonic() + 3
+            while True:
+                obj = window.findChild(QObject, name)
+                if obj is not None:
+                    return obj
+                pending = [window.contentItem()]
+                for popup in window.findChildren(QObject):
+                    if popup.inherits('QQuickPopup'):
+                        content = popup.property('contentItem')
+                        if hasattr(content, 'childItems'):
+                            pending.append(content)
+                seen = set()
+                while pending:
+                    node = pending.pop()
+                    if not hasattr(node, 'objectName') or node in seen:
+                        continue
+                    seen.add(node)
+                    if node.objectName() == name:
+                        return node
+                    if hasattr(node, 'childItems'):
+                        pending.extend(node.childItems())
+                if time.monotonic() >= until:
+                    raise AssertionError((name, [n.objectName() for n in seen if 'result' in n.objectName().lower()]))
+                QTest.qWait(10)
 
         def click(self, name):
             obj = self.item(name)

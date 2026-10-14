@@ -242,7 +242,7 @@ def test_install_shutdown_only_and_tamper_recheck(
     assert command[0]==str(p) and '/VERYSILENT' in command and '/XRTUPDATE=1' in command
     assert '/DIR='+str(app_executable.parent) in command
     assert '/NORESTARTAPPLICATIONS' in command
-    assert calls[0][1]['creationflags']==module.subprocess.CREATE_NO_WINDOW
+    assert calls[0][1]['creationflags']==getattr(module.subprocess,'CREATE_NO_WINDOW',0)
     calls.clear()
     p.write_bytes(b"tampered")
     u.launch_after_exit()
