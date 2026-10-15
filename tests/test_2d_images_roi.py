@@ -225,7 +225,11 @@ def test_latest_reader_rejects_stale_results_and_uses_latest_pending(qt_app):
 
 
 def test_qml_jpeg_imported_roi_overlay_pan_zoom_visibility_and_file_switch(qt_app, tmp_path):
-    QQuickStyle.setStyle('Basic')
+    if os.environ.get("SIC_XRT_TEST_UI_STYLE") == "FluentWinUI3":
+        from sic_xrt_analyzer.ui.style import configure_style
+        configure_style(qt_app)
+    else:
+        QQuickStyle.setStyle('Basic')
     engine = QQmlApplicationEngine()
     provider = TiffImageProvider()
     bridge = FileBridge(provider, engine, QSettings(str(tmp_path / 'ui.ini'), QSettings.IniFormat))
@@ -272,7 +276,7 @@ def test_qml_jpeg_imported_roi_overlay_pan_zoom_visibility_and_file_switch(qt_ap
         entry = window.findChild(QObject, 'roiEditorDetails')
         origin = entry.mapToScene(QPointF(entry.property('width') / 2, entry.property('height') / 2))
         QTest.mouseClick(window, Qt.LeftButton, Qt.NoModifier, origin.toPoint())
-        QTest.qWait(40)
+        QTest.qWait(180)
         assert window.findChild(QObject, 'roiEditorDialog').property('visible')
         button = window.findChild(QObject, 'selectImportedBoundsButton')
         origin = button.mapToScene(QPointF(button.property('width') / 2, button.property('height') / 2))

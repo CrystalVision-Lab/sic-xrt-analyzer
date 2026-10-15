@@ -91,16 +91,35 @@ ColumnLayout {
     Text { Layout.fillWidth: true; visible: uiState.importedRois.dirty; text: "저장하지 않은 ROI 변경"; color: uiState.importedRois.dirty ? theme.warning : theme.muted; font.pixelSize: theme.captionSize; wrapMode: Text.Wrap }
     SurfaceDialog {
         id: editDialog; objectName: "roiEditorDialog"; parent: Overlay.overlay; title: "ImageJ ROI 세부 설정"
-        modal: true; width: Math.min(540, parent.width - 40); height: Math.min(parent.height - 60, editorContent.implicitHeight + 100)
+        modal: true; width: Math.min(540, parent.width - 40); height: Math.min(parent.height - 60, implicitHeight)
         x: (parent.width - width)/2; y: (parent.height - height)/2; standardButtons: Dialog.Close
         onClosed: Qt.callLater(function() { if (root.uiState.roiInteraction) root.uiState.roiInteraction.focusView() })
+        footer: Rectangle {
+            implicitHeight: 72
+            color: root.theme.panel
+            RowLayout {
+                anchors.fill: parent; anchors.margins: root.theme.spacingLg
+                spacing: root.theme.spacingSm
+                AppButton {
+                    objectName: "selectImportedBoundsButton"
+                    visible: root.uiState.analysisEligible
+                    theme: root.theme
+                    text: "외접 사각형 적용"
+                    tip: "선택 ROI의 외접 사각형을 분석 범위로 사용합니다."
+                    primary: true
+                    enabled: !root.uiState.loading && !root.uiState.analysisRunning && root.uiState.importedRois.items.some(function(r) { return r.selected && r.active })
+                    onClicked: root.boundsRequested()
+                }
+                Item { Layout.fillWidth: true }
+                AppButton { theme: root.theme; text: "닫기"; onClicked: editDialog.reject() }
+            }
+        }
         contentItem: ScrollView {
             id: editScroll; clip: true; contentWidth: availableWidth; contentHeight: editorContent.implicitHeight
             ColumnLayout {
                 id: editorContent
                 width: editScroll.availableWidth; spacing: theme.spacingMd
                 RoiEditor { id: editor; theme: root.theme; uiState: root.uiState; actions: root.actions; Layout.fillWidth: true; onSaveRequested: root.saveRequested() }
-                AppButton { objectName: "selectImportedBoundsButton"; visible: uiState.analysisEligible; theme: root.theme; text: "분석 영역으로 외접 사각형 선택"; Layout.fillWidth: true; enabled: !uiState.loading && !uiState.analysisRunning && uiState.importedRois.items.some(function(r) { return r.selected && r.active }); onClicked: root.boundsRequested() }
                 Text { visible: uiState.analysisEligible; Layout.fillWidth: true; wrapMode: Text.Wrap; text: "명시적으로 선택한 외접 사각형만 분석 영역에 복사합니다. ROI 도형 마스크 분석은 연결되지 않았습니다."; color: theme.muted; font.pixelSize: theme.smallSize }
             }
         }
