@@ -33,6 +33,9 @@ class Defect3DController(QObject):
         self.ack = Event()
         self.fast = Event()
         self.exclusions = {}
+        self.anchors = {}
+        self.skipped = set()
+        self.visual_extent = 200.0
         self.last_seed = None
         self.replay_index = -1
         self.replaying = False
@@ -70,7 +73,10 @@ class Defect3DController(QObject):
         if source is None or source.path != self.path or stale:
             self.cancel()
             self.mesh = None
+            self.last_seed=None
             self.exclusions = {}
+            self.anchors = {}
+            self.skipped = set()
             self.bridge.provider.stack3d_images = {}
             self.path = source.path if source else ""
             self.meshChanged.emit()
@@ -103,6 +109,8 @@ class Defect3DController(QObject):
         self.cancel()
         if not keep_exclusions:
             self.exclusions = {}
+            self.anchors = {}
+            self.skipped = set()
         self.visual = visual
         self.paused = False
         self.phase = 0
@@ -123,6 +131,8 @@ class Defect3DController(QObject):
         self.last_seed = seed
         sensitivity = self.sensitivity
         exclusions = {k: tuple(v) for k, v in self.exclusions.items()}
+        anchors = dict(self.anchors)
+        skipped = set(self.skipped)
         ack, fast = self.ack, self.fast
         built = []
 
@@ -166,6 +176,8 @@ class Defect3DController(QObject):
                 sensitivity=sensitivity,
                 observe=observe,
                 exclusions=exclusions,
+                anchors=anchors,
+                skipped=skipped,
                 cancelled=token.is_set,
                 progress=lambda d, t, l: self._progress.emit(epoch, d, t, l),
             )
@@ -189,6 +201,14 @@ class Defect3DController(QObject):
         self.crop_rect = packet["rect"]
         self.frame_page, self.frame_reason = packet["page"], packet["reason"]
         self.layers_data = (packet["built"], packet["current"])
+        import numpy as np
+
+        vertices = [a for a in self.layers_data if a is not None and len(a)]
+        if vertices:
+            positions = np.concatenate(vertices)[:, :3]
+            self.visual_extent = max(20.0, float(np.max(np.abs(positions))) * 2)
+        if packet["reason"] in ("AMBIGUOUS_BRANCH", "AMBIGUOUS_MERGE"):
+            self.paused = True
         self.phase = 0
         self.frame_revision += 1
         self.layersChanged.emit()
@@ -313,14 +333,34 @@ class Defect3DController(QObject):
         points.append((int(x), int(y)))
         self.start(seed[0], seed[1], seed[2], visual=True, keep_exclusions=True)
 
+    @Slot(float, float)
+    def include(self, x, y):
+        source = self.bridge.original_source
+        if (
+            not self.last_seed
+            or not source
+            or not (0 <= x < source.metadata.width and 0 <= y < source.metadata.height)
+        ):
+            return
+        self.anchors[self.frame_page] = (int(x), int(y))
+        self.skipped.discard(self.frame_page)
+        self.start(*self.last_seed, visual=True, keep_exclusions=True)
+
+    @Slot()
+    def skipCurrent(self):
+        if self.last_seed and self.frame_page != self.last_seed[2]:
+            self.skipped.add(self.frame_page)
+            self.anchors.pop(self.frame_page, None)
+            self.start(*self.last_seed, visual=True, keep_exclusions=True)
+
     @Slot(float)
     def reconstruct(self, sensitivity):
         if self.busy:
             return
-        seed = self.mesh.seed if self.mesh else None
+        seed = self.mesh.seed if self.mesh else self.last_seed
         if seed and self.bridge.original_source:
             self.sensitivity = max(0.4, min(2.5, float(sensitivity)))
-            self.start(seed[0], seed[1], seed[2], visual=True)
+            self.start(seed[0], seed[1], seed[2], visual=True, keep_exclusions=True)
 
     @Slot()
     def cancel(self):
@@ -387,6 +427,11 @@ class Defect3DController(QObject):
             / max(128, self.bridge.original_source.metadata.page_count)
             if m and self.bridge.original_source
             else 200,
+            "visualExtent": self.visual_extent,
+            "junctionPages": [p + 1 for p in m.junction_pages] if m else [],
+            "manualAnchors": len(self.anchors),
+            "skippedPages": sorted(k + 1 for k in self.skipped),
+            "stops": [{"page": k + 1, "reason": r} for k, r in m.stops] if m else [],
             "visual": self.visual,
             "replaying": self.replaying,
             "paused": self.paused,

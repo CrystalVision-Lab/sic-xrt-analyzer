@@ -196,3 +196,27 @@ def test_exclusion_marker_removes_only_foreground_basin():
     selected = isolate_component(mask, (20, 20), [(20, 80)])
     assert selected[20, 20] and not selected[20, 80]
     assert selected.sum() < mask.sum() and np.all(~selected | mask)
+
+
+def test_curved_variable_width_line_is_one_observation():
+    from sic_xrt_analyzer.stack3d.defect import isolate_component
+    yy,xx=np.ogrid[:160,:200]
+    center=45+35*np.sin(np.arange(200)/32)
+    thickness=3+(np.sin(np.arange(200)/13)+1)*1.5
+    mask=(np.abs(yy-center[None,:])<=thickness[None,:]) & (xx>15)&(xx<180)
+    selected=isolate_component(mask,(int(center[45]),45))
+    assert selected.sum()/mask.sum()>.95
+    assert np.all(~selected|mask)
+
+
+def test_explicit_reconnect_after_skipped_page_adds_no_gap_voxels(connected):
+    source,a=connected
+    a[8]=60000
+    tifffile.imwrite(source.path,a,photometric="minisblack")
+    s=OriginalImageSource(source.path,7)
+    mesh=trace(s,(39,40,7),anchors={9:(40,40)},skipped={8})
+    assert 8 not in {p.page for p in mesh.sections}
+    assert 9 in {p.page for p in mesh.sections}
+    assert (8,"USER_SKIPPED") in mesh.stops
+    for section in mesh.sections:
+        assert (a[section.page,section.y:section.y+section.height,section.x:section.x+section.width][section.mask()]==5000).all()

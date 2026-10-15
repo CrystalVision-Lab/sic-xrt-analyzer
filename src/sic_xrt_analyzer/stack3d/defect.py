@@ -46,6 +46,7 @@ class DefectMesh:
     thresholds: tuple
     stops: tuple = ()
     observations: tuple = ()
+    junction_pages: tuple = ()
 
 
 def dark_mask(pixels, sensitivity=1.0, min_contrast=0.0, *, contrast_field=False):
@@ -104,11 +105,12 @@ def isolate_component(mask, anchor, excluded=()):
     labels, _ = ndi.label(mask, np.ones((3, 3), bool))
     component = labels == labels[ay, ax]
     distance = ndi.distance_transform_edt(component)
-    radius = max(1.0, float(distance[ay, ax]))
-    peaks = (distance == ndi.maximum_filter(distance, size=9)) & (
-        distance >= max(1.5, radius * 0.55)
-    )
-    markers, _ = ndi.label(peaks, np.ones((3, 3), bool))
+    # One marker per thick interior, not per local width maximum. A curved
+    # line's slowly varying width must not create dozens of tiny basins.
+    # Thin necks between genuinely thicker lobes still produce separate cores.
+    core = component & (distance >= max(1.0, float(distance.max()) * 0.45))
+    markers, _ = ndi.label(core, np.ones((3, 3), bool))
+    peaks = core
     # Connect the click to its nearest interior peak without making every click
     # on a component boundary a separate, arbitrarily tiny basin.
     yy, xx = np.nonzero(peaks & component)
@@ -139,6 +141,8 @@ def _trace(
     read_page=None,
     observe=lambda *a: None,
     exclusions=None,
+    anchors=None,
+    skipped=(),
 ):
     """Follow one seeded observation; refuse ambiguous unions and growth."""
     from sic_xrt_analyzer.imaging.original_source import OriginalImageSource
@@ -157,6 +161,14 @@ def _trace(
     done = 0
     observations = []
     exclusions = exclusions or {}
+    anchors = anchors or {}
+    skipped = set(skipped)
+    for k, point in anchors.items():
+        if not 0 <= k < source.metadata.page_count or len(point) != 2:
+            raise ValueError("연결 지정 페이지 오류")
+        source.validate_region(int(point[0]), int(point[1]), 1, 1)
+    if page in skipped:
+        raise ValueError("시작 페이지는 건너뛸 수 없습니다")
     last_raw = [None]
 
     def check():
@@ -166,8 +178,10 @@ def _trace(
 
     def read(k, previous=None):
         check()
-        if previous is None:
-            cx, cy = x, y
+        explicit = k in anchors
+        seed_x, seed_y = anchors.get(k, (x, y))
+        if previous is None or explicit:
+            cx, cy = seed_x, seed_y
             edge = 128
         else:
             cx = previous.x + previous.width // 2
@@ -199,8 +213,8 @@ def _trace(
                 pixels, sensitivity, baseline[0], contrast_field=True
             )
             labels, n = ndi.label(mask, np.ones((3, 3), bool))
-            if previous is None:
-                sy, sx = y - oy, x - ox
+            if previous is None or explicit:
+                sy, sx = int(seed_y) - oy, int(seed_x) - ox
                 label = int(labels[sy, sx])
                 if not label:
                     # Screen clicks can be a few source pixels off at Fit.
@@ -294,7 +308,10 @@ def _trace(
     first, t, _ = read(page)
     if first is None:
         raise ValueError("선택한 검은 성분이 너무 작습니다")
-    if first.width > 256 or first.height > 256 or first.count > 16384:
+    if first.count > 16384 or (
+        max(first.width, first.height) > 256
+        and first.count / max(first.width, first.height) > 24
+    ):
         raise ValueError(
             "선택 영역이 주변 구조와 연결되어 있습니다. 결함 안쪽을 다시 선택하거나 분할 감도를 조절하세요"
         )
@@ -310,14 +327,23 @@ def _trace(
             source.metadata.page_count if direction > 0 else -1,
             direction,
         ):
+            if k in skipped:
+                stops.append((k, "USER_SKIPPED"))
+                # No interpolation, synthetic section, or replacement pixel.
+                observations.append((k, None, "USER_SKIPPED"))
+                continue
             current, t, reason = read(k, previous)
             done += 1
             progress(done, source.metadata.page_count, "앞뒤 결함 연결 확인")
-            if current is not None and (
-                current.count > max(previous.count * 2.5, previous.count + 128)
-                or current.count > max(first.count * 3, first.count + 256)
-                or max(current.width, current.height)
-                > max(max(first.width, first.height) * 3, 64)
+            if (
+                current is not None
+                and k not in anchors
+                and (
+                    current.count > max(previous.count * 2.5, previous.count + 128)
+                    or current.count > max(first.count * 3, first.count + 256)
+                    or max(current.width, current.height)
+                    > max(max(first.width, first.height) * 3, 64)
+                )
             ):
                 reason = "AMBIGUOUS_MERGE"
             observations.append((k, current, reason))
@@ -333,6 +359,19 @@ def _trace(
             previous = current
     check()
     ordered = tuple(sections[k] for k in sorted(sections))
+    from skimage.morphology import skeletonize
+
+    junction_pages = []
+    for section in ordered:
+        skeleton = skeletonize(section.mask())
+        degree = (
+            ndi.convolve(
+                skeleton.astype(np.uint8), np.ones((3, 3), np.uint8), mode="constant"
+            )
+            - skeleton
+        )
+        if np.count_nonzero(skeleton & (degree == 1)) > 2:
+            junction_pages.append(section.page)
     x0 = min(s.x for s in ordered)
     y0 = min(s.y for s in ordered)
     x1 = max(s.x + s.width for s in ordered)
@@ -390,6 +429,7 @@ def _trace(
         tuple(sorted(thresholds.items())),
         tuple(stops),
         tuple(observations),
+        tuple(junction_pages),
     )
 
 
@@ -402,6 +442,8 @@ def trace(
     progress=lambda *a: None,
     observe=lambda *a: None,
     exclusions=None,
+    anchors=None,
+    skipped=(),
 ):
     import tifffile
 
@@ -438,4 +480,6 @@ def trace(
             read_page=read_page,
             observe=observe,
             exclusions=exclusions,
+            anchors=anchors,
+            skipped=skipped,
         )
