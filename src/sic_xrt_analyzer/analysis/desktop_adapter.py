@@ -16,6 +16,13 @@ from .model_adapter import ModelInputContract, ModelOutputContract
 from .research import CLASSES, FrozenClassifier, propose_points
 
 
+class RegionOutline(list):
+    def __init__(self, points, context, clipped):
+        super().__init__(points)
+        self.context = context
+        self.clipped = clipped
+
+
 class DesktopResearchAdapter:
     research_only = True
     available = True
@@ -107,18 +114,18 @@ class DesktopResearchAdapter:
             for p, score in zip(batch, scores, strict=True):
                 index = int(np.argmax(score))
                 region, region_error = [], ""
-                if CLASSES[index] == "BPD" and params.get("include_regions", False):
+                if CLASSES[index] == "BPD" and params.get("include_regions", True):
                     try:
-                        region = self._region(source, p, token)
+                        region = self._region(source, {**p, "region_bounds": (x0, y0, width, height)}, token)
                     except (ValueError, cv2.error) as exc:
                         token.check()
                         region_error = type(exc).__name__
                 detections.append(Detection(
                     f"candidate_{len(detections):06d}", index, CLASSES[index], float(score[index]),
                     Geometry(GeometryKind.POINT, ((p["x"], p["y"]),), coordinate_space=CoordinateSpace.ORIGINAL),
-                    {"bpd_region": region, "region_error": region_error,
-                     "region_context": 128 if region else 0,
-                     "region_clipped": bool(region and any(px in (p["cx"]-64,p["cx"]+63) or py in (p["cy"]-64,p["cy"]+63) for px,py in region)),
+                    {"bpd_region": list(region), "region_error": region_error,
+                     "region_context": getattr(region, "context", 0),
+                     "region_clipped": getattr(region, "clipped", False),
                      "region_provenance": "EXPERIMENTAL_LOCAL_CONTRAST_REGION" if CLASSES[index] == "BPD" else "",
                      "point_id": p["point_id"], "scores": [float(v) for v in score],
                      "low_score": bool(score[index] < score_threshold), "human_verified": False}))
@@ -135,45 +142,73 @@ class DesktopResearchAdapter:
 
     @staticmethod
     def _region(source, point, token):
-        """Bounded structure mask around a BPD-classified point, not ONNX segmentation.
+        """Adaptively read the connected contrast region, without clipping at 128px.
 
-        Keep the original classified point and scores unchanged. Only a nearby
-        local contrast-supported connected region is added as a display/research annotation.
+        This remains a structure proposal attached to the unchanged classifier
+        point; it is not an ONNX segmentation or a verified physical boundary.
         """
-        import cv2
         from scipy import ndimage as ndi
         from skimage.filters import apply_hysteresis_threshold
 
-        token.check()
-        x, y = point["cx"] - 64, point["cy"] - 64
-        original = source.read_region(x, y, 128, 128)
-        gray = np.sum(original.astype(np.float32) * np.array([.2126,.7152,.0722], np.float32), axis=2) / 255
-        residual = gray - ndi.gaussian_filter(gray, 8., mode="reflect")
-        choices = []
-        for sign in (1., -1.):
-            response = np.maximum(sign * residual, 0)
-            peak = float(response.max())
-            if peak < .015:
+        bounds = point.get("region_bounds", (0, 0, source.metadata.width, source.metadata.height))
+        left, top, full_width, full_height = bounds
+        chosen_polarity = None
+        for edge in (128, 256, 512, 1024):
+            token.check()
+            w, h = min(edge, full_width), min(edge, full_height)
+            x = max(left, min(left + full_width - w, point["cx"] - w // 2))
+            y = max(top, min(top + full_height - h, point["cy"] - h // 2))
+            original = source.read_region(x, y, w, h)
+            gray = np.sum(original.astype(np.float32) * np.array([.2126, .7152, .0722], np.float32), axis=2) / 255
+            residual = gray - ndi.gaussian_filter(gray, 8., mode="reflect")
+            cx, cy = point["cx"] - x, point["cy"] - y
+            yy, xx = np.indices((h, w))
+            distances = (xx-(point["x"]-x))**2 + (yy-(point["y"]-y))**2
+            choices = []
+            for sign in (1., -1.):
+                if chosen_polarity is not None and sign != chosen_polarity:
+                    continue
+                response = np.maximum(sign * residual, 0)
+                # A distant dark defect must not set the seed's threshold.
+                peak = float(response[max(0, cy-8):cy+9, max(0, cx-8):cx+9].max())
+                if peak < .015:
+                    continue
+                mask = apply_hysteresis_threshold(response, max(.008, peak*.12), max(.015, peak*.28))
+                labels, _count = ndi.label(mask, structure=np.ones((3, 3), int))
+                areas = np.bincount(labels.ravel())
+                near_labels = np.unique(labels[distances <= 8**2])
+                for label in near_labels[near_labels > 0]:
+                    if not 8 <= areas[label] <= min(65536, w*h*.5):
+                        continue
+                    distance = float(distances[labels == label].min())
+                    py, px = np.nonzero(labels == label)
+                    coordinates = np.column_stack((px, py)).astype(float)
+                    eigenvalues = np.linalg.eigvalsh(np.cov(coordinates.T))
+                    aspect = float(np.sqrt(eigenvalues[-1] / max(eigenvalues[0], 1)))
+                    extent = max(int(np.ptp(px)), int(np.ptp(py)))
+                    # BPD classification commonly anchors on a bright spot on
+                    # a long dark line. Prefer the supported elongated region
+                    # within 8 source pixels, rather than that tiny bright spot.
+                    # Weight contrast as well as length: the weak opposite-polarity
+                    # halo beside a dark line is not the defect itself.
+                    line_rank = extent * float(response[labels == label].mean()) if aspect >= 2.5 and extent >= 24 else 0
+                    choices.append((-line_rank, distance, -int(areas[label]), labels, label, sign))
+            token.check()
+            if not choices:
+                return []
+            _, _, _, labels, label, chosen_polarity = min(choices, key=lambda r: (r[0], r[1], r[2]))
+            mask = (labels == label).astype("uint8")
+            touches = bool(mask[0].any() or mask[-1].any() or mask[:, 0].any() or mask[:, -1].any())
+            if touches and edge < 1024 and (w < full_width or h < full_height):
                 continue
-            mask = apply_hysteresis_threshold(response, max(.015,peak*.12), max(.015,peak*.28))
-            labels, count = ndi.label(mask, structure=np.ones((3,3), int))
-            areas = np.bincount(labels.ravel())
-            yy, xx = np.indices(labels.shape)
-            distances = (xx-(point["x"]-x))**2+(yy-(point["y"]-y))**2
-            nearest = ndi.minimum(distances, labels, index=np.arange(1,count+1))
-            for label, distance in enumerate(nearest,1):
-                if 8 <= areas[label] <= 8192 and distance <= 8**2:
-                    choices.append((float(distance),-int(areas[label]),labels,label))
-        token.check()
-        if not choices:
-            return []
-        _, _, labels, label = min(choices,key=lambda r:(r[0],r[1]))
-        mask = (labels == label).astype("uint8")
-        contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        if not contours:
-            return []
-        contour = max(contours, key=cv2.contourArea)
-        contour = cv2.approxPolyDP(contour, 1.0, True).reshape(-1, 2)
-        if len(contour) > 128:
-            contour = contour[::(len(contour)+127)//128]
-        return [[int(px)+x, int(py)+y] for px, py in contour] if len(contour) >= 3 else []
+            contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            if not contours:
+                return []
+            contour = max(contours, key=cv2.contourArea)
+            contour = cv2.approxPolyDP(contour, .75, True).reshape(-1, 2)
+            if len(contour) > 512:
+                contour = contour[::(len(contour)+511)//512]
+            if len(contour) < 3:
+                return []
+            return RegionOutline([[int(px)+x, int(py)+y] for px, py in contour], edge, touches)
+        return []

@@ -431,38 +431,50 @@ Rectangle {
                 onImageYChanged: requestPaint()
                 onImageScaleChanged: requestPaint()
                 onVisibleChanged: requestPaint()
+                function outline(c, region) {
+                    c.beginPath()
+                    c.moveTo(imageX+region[0][0]*imageScale, imageY+region[0][1]*imageScale)
+                    for (var j=1;j<region.length;j++) c.lineTo(imageX+region[j][0]*imageScale,imageY+region[j][1]*imageScale)
+                    c.closePath(); c.stroke()
+                }
                 onPaint: {
-                    var started = Date.now()
-                    var c = getContext("2d"); c.reset()
+                    var started=Date.now(), c=getContext("2d"); c.reset()
                     if (!visible) return
-                    c.lineWidth = 1.5; c.globalAlpha = candidateOpacity
-                    var bins={}
-                    var overviewMode=imageScale<.15 && points.length>500
-                    for (var i = 0; uiState.analysisLayerVisible && i < points.length; i++) {
-                        var p = points[i]; if (!uiState.candidateLayer(p.type)) continue
-                        var x = imageX + p.x * imageScale, y = imageY + p.y * imageScale
-                        if (x < -6 || y < -6 || x > width + 6 || y > height + 6) continue
-                        if(overviewMode){var key=Math.floor(x/28)+":"+Math.floor(y/28);var bin=bins[key]||{x:0,y:0,n:0};bin.x+=x;bin.y+=y;bin.n++;bins[key]=bin;continue}
-                        c.strokeStyle = p.low_score ? "#ffffff" : uiState.resultPresentation.colorFor(p.type)
-                        if (p.region && p.region.length >= 3) {
-                            c.globalAlpha=.18; c.fillStyle=c.strokeStyle; c.beginPath()
-                            c.moveTo(imageX+p.region[0][0]*imageScale,imageY+p.region[0][1]*imageScale)
-                            for(var r=1;r<p.region.length;r++)c.lineTo(imageX+p.region[r][0]*imageScale,imageY+p.region[r][1]*imageScale)
-                            c.closePath();c.fill();c.globalAlpha=.95;c.lineWidth=2;c.stroke();c.globalAlpha=candidateOpacity
+                    var overviewMode=imageScale<.25
+                    for (var i=0;uiState.analysisLayerVisible && i<points.length;i++) {
+                        var p=points[i]
+                        if (!uiState.candidateLayer(p.type)) continue
+                        var x=imageX+p.x*imageScale, y=imageY+p.y*imageScale
+                        // Long BPD contours can enter the viewport while their
+                        // classified anchor lies outside it; clip via Canvas.
+                        var hasRegion=p.type==="BPD" && p.region && p.region.length>=3
+                        if (!hasRegion && (x<0 || y<0 || x>width || y>height)) continue
+                        c.strokeStyle=uiState.resultPresentation.colorFor(p.type)
+                        c.fillStyle=c.strokeStyle; c.globalAlpha=candidateOpacity*(overviewMode?.65:1)
+                        c.lineWidth=overviewMode?1:1.5
+                        if (hasRegion) {
+                            outline(c,p.region)
+                        } else if (p.type==="BPD") {
+                            // A missing region is a location proposal, never a
+                            // fabricated circular segmentation boundary.
+                            c.beginPath(); c.moveTo(x-3,y); c.lineTo(x+3,y)
+                            c.moveTo(x,y-3); c.lineTo(x,y+3); c.stroke()
+                        } else {
+                            c.beginPath(); c.arc(x,y,overviewMode?1.8:3.5,0,Math.PI*2)
+                            if (overviewMode) c.fill(); else c.stroke()
                         }
-                        c.beginPath(); c.arc(x, y, markerRadius, 0, Math.PI * 2); c.stroke()
                     }
-                    if(overviewMode){c.globalAlpha=.8;c.font="11px sans-serif";c.textAlign="center";for(var key in bins){var b=bins[key],bx=b.x/b.n,by=b.y/b.n;c.fillStyle="#23636b";c.beginPath();c.arc(bx,by,Math.min(14,5+Math.sqrt(b.n)),0,Math.PI*2);c.fill();c.fillStyle="#f2f6fa";c.fillText(String(b.n),bx,by+4)}c.textAlign="left"}
                     if (selected.id && uiState.selectedLayerVisible && !reviewing) {
-                        c.globalAlpha = selectedOpacity
                         var sx=imageX+selected.x*imageScale, sy=imageY+selected.y*imageScale
-                        c.strokeStyle="#fff04a"; c.lineWidth=2
-                        c.beginPath(); c.arc(sx,sy,11,0,Math.PI*2); c.stroke()
-                        c.beginPath(); c.moveTo(sx-20,sy); c.lineTo(sx-13,sy); c.moveTo(sx+13,sy); c.lineTo(sx+20,sy); c.moveTo(sx,sy-20); c.lineTo(sx,sy-13); c.moveTo(sx,sy+13); c.lineTo(sx,sy+20); c.stroke()
-                        c.fillStyle="#14191e"; c.fillRect(sx+15,sy-30,110,22)
-                        c.fillStyle="#fff04a"; c.font="12px sans-serif"; c.fillText("#"+selected.number+"  "+selected.type,sx+20,sy-15)
+                        c.globalAlpha=selectedOpacity; c.strokeStyle="#fff04a"; c.lineWidth=2
+                        if (selected.type==="BPD" && selected.region && selected.region.length>=3) outline(c,selected.region)
+                        c.beginPath(); c.moveTo(sx-12,sy); c.lineTo(sx-5,sy); c.moveTo(sx+5,sy); c.lineTo(sx+12,sy)
+                        c.moveTo(sx,sy-12); c.lineTo(sx,sy-5); c.moveTo(sx,sy+5); c.lineTo(sx,sy+12); c.stroke()
+                        var lx=Math.max(0,Math.min(width-110,sx+15)), ly=Math.max(0,Math.min(height-22,sy-28))
+                        c.fillStyle="#14191e"; c.fillRect(lx,ly,110,22)
+                        c.fillStyle="#fff04a"; c.font="12px sans-serif"; c.fillText("#"+selected.number+"  "+selected.type,lx+5,ly+15)
                     }
-                    paintMs = Date.now() - started; paintCount += 1
+                    paintMs=Date.now()-started; paintCount+=1
                 }
             }
             GeometryOverlay {

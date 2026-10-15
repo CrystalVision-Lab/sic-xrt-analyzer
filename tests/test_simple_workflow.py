@@ -270,7 +270,9 @@ def test_bpd_area_is_separate_from_original_classification_and_scores(tmp_path):
     region = adapter._region(
         source, {"x": 144, "y": 144, "cx": 144, "cy": 144}, CancellationToken()
     )
-    assert len(region) >= 3 and all(80 <= x < 208 and 80 <= y < 208 for x, y in region)
+    assert len(region) >= 3 and all(0 <= x < source.metadata.width and 0 <= y < source.metadata.height for x, y in region)
+    # This fixture contains a 120px bright line, not a line wider than 128px.
+    assert max(x for x, _ in region) - min(x for x, _ in region) >= 120
 
 
 def test_optional_area_error_does_not_discard_classification(tmp_path, monkeypatch):

@@ -8,6 +8,8 @@ from scipy import ndimage as ndi
 from skimage.measure import marching_cubes
 from skimage.segmentation import watershed
 
+from .continuity import continue_line, line_shape
+
 MAX_PACKED = 128 * 1024**2
 MAX_DENSE = 32 * 1024**2
 MAX_FACES = 400_000
@@ -104,6 +106,10 @@ def isolate_component(mask, anchor, excluded=()):
         return mask & False
     labels, _ = ndi.label(mask, np.ones((3, 3), bool))
     component = labels == labels[ay, ax]
+    if not excluded:
+        line, resolved = continue_line(component, anchor)
+        if resolved:
+            return line
     distance = ndi.distance_transform_edt(component)
     # One marker per thick interior, not per local width maximum. A curved
     # line's slowly varying width must not create dozens of tiny basins.
@@ -269,14 +275,6 @@ def _trace(
                 ):
                     return None, threshold, "AMBIGUOUS_BRANCH"
                 label = int(ranked[0])
-                if not exclusions.get(k) and np.count_nonzero(labels == label) > max(
-                    previous.count * 4, previous.count + 256
-                ):
-                    return (
-                        _section(k, ox, oy, labels == label),
-                        threshold,
-                        "AMBIGUOUS_MERGE",
-                    )
                 yy, xx = np.nonzero((labels == label) & contact)
                 center = np.array(
                     [
@@ -285,11 +283,21 @@ def _trace(
                     ]
                 )
                 nearest = np.argmin((yy - center[0]) ** 2 + (xx - center[1]) ** 2)
-                selected = isolate_component(
-                    mask,
-                    (int(yy[nearest]), int(xx[nearest])),
-                    [(ey - oy, ex - ox) for ex, ey in exclusions.get(k, ())],
-                )
+                anchor = (int(yy[nearest]), int(xx[nearest]))
+                selected, resolved = continue_line(labels == label, anchor, overlap)
+                if exclusions.get(k):
+                    resolved = False
+                if not resolved:
+                    if selected is None and not exclusions.get(k):
+                        return _section(k, ox, oy, labels == label), threshold, "AMBIGUOUS_BRANCH"
+                    if not exclusions.get(k) and np.count_nonzero(labels == label) > max(
+                        previous.count * 4, previous.count + 256
+                    ):
+                        return _section(k, ox, oy, labels == label), threshold, "AMBIGUOUS_MERGE"
+                    selected = isolate_component(
+                        mask, anchor,
+                        [(ey - oy, ex - ox) for ex, ey in exclusions.get(k, ())],
+                    )
             if int(selected.sum()) < 2:
                 return None, threshold, "NO_CONTACT"
             touches = (
@@ -335,14 +343,20 @@ def _trace(
             current, t, reason = read(k, previous)
             done += 1
             progress(done, source.metadata.page_count, "앞뒤 결함 연결 확인")
+            # Natural length growth is not a merge when a thin, unbranched
+            # continuation has comparable width. Do not compare every slice to
+            # the often tiny initial tip of the defect.
+            line_continuity = False
+            if current is not None:
+                old_line, old_width = line_shape(previous.mask())
+                new_line, new_width = line_shape(current.mask())
+                line_continuity = old_line and new_line and new_width <= max(old_width * 2.5, old_width + 4)
             if (
                 current is not None
+                and not line_continuity
                 and k not in anchors
                 and (
                     current.count > max(previous.count * 2.5, previous.count + 128)
-                    or current.count > max(first.count * 3, first.count + 256)
-                    or max(current.width, current.height)
-                    > max(max(first.width, first.height) * 3, 64)
                 )
             ):
                 reason = "AMBIGUOUS_MERGE"

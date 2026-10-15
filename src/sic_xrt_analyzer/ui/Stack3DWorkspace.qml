@@ -37,7 +37,7 @@ ColumnLayout {
       onClicked:function(m){var left=(width-photo.paintedWidth)/2,top=(height-photo.paintedHeight)/2,u=(m.x-left)/photo.paintedWidth,v=(m.y-top)/photo.paintedHeight;if(u<0||u>1||v<0||v>1)return;var r=root.showFull?[0,0,root.state.sourceSize[0],root.state.sourceSize[1]]:root.state.cropRect;if(root.includeMode){root.includeMode=false;root.controller.include(r[0]+u*r[2],r[1]+v*r[3])}else{root.excludeMode=false;root.controller.exclude(r[0]+u*r[2],r[1]+v*r[3])}}
      }
     }
-    Text{text:root.includeMode?"이어갈 같은 결함을 클릭하세요":root.excludeMode?"제외할 다른 결함을 클릭하세요":root.state.frameReason==="ACCEPTED"?(root.state.phase===0?"인식 영역":"3D에 쌓는 중"):root.state.frameReason==="NO_CONTACT"?"연결 없음 · 여기까지":root.state.frameReason?"연결 모호 · 자동 합치기 중단":"";color:root.state.frameReason==="ACCEPTED"?root.theme.accent:root.theme.warning}
+    Text{Layout.fillWidth:true;wrapMode:Text.Wrap;text:root.includeMode?"이어갈 같은 결함을 클릭하세요":root.excludeMode?"제외할 다른 결함을 클릭하세요":root.state.frameReason==="ACCEPTED"?(root.state.phase===0?"인식 영역":"3D에 쌓는 중"):root.state.frameReason==="NO_CONTACT"?"연결 없음 · 여기까지":root.state.frameReason==="AMBIGUOUS_BRANCH"?"진행 방향 후보가 비슷합니다 · 같은 결함을 지정해 이어가세요":root.state.frameReason==="AMBIGUOUS_MERGE"?"주변 구조와 접촉했습니다 · 같은 결함 지정 또는 다른 결함 제외":root.state.frameReason==="USER_SKIPPED"?"사용자가 건너뛴 페이지":"";color:root.state.frameReason==="ACCEPTED"?root.theme.accent:root.theme.warning}
    }
   }
   Text{visible:root.state.visual;text:"→";color:root.theme.accent;font.pixelSize:26}
