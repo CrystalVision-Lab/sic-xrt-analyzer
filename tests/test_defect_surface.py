@@ -110,3 +110,89 @@ def test_sudden_large_merge_is_reported_not_silently_followed(tmp_path):
     mesh = trace(OriginalImageSource(p, 2), (46, 46, 2))
     assert [s.page for s in mesh.sections] == [2]
     assert (3, "AMBIGUOUS_MERGE") in mesh.stops
+
+
+def test_touching_blob_is_split_without_fabricated_pixels(tmp_path):
+    from sic_xrt_analyzer.stack3d.defect import isolate_component
+
+    yy, xx = np.ogrid[:80, :100]
+    mask = ((xx - 30) ** 2 + (yy - 40) ** 2 < 100) | (
+        (xx - 65) ** 2 + (yy - 40) ** 2 < 144
+    )
+    mask[39:42, 30:66] = True
+    selected = isolate_component(mask, (40, 30))
+    assert selected[40, 30] and not selected[40, 65]
+    assert np.all(~selected | mask)
+    assert selected.sum() < mask.sum() * 0.6
+
+
+def test_observations_are_real_masks_in_forward_then_backward_order(connected):
+    source, a = connected
+    frames = []
+    mesh = trace(
+        source,
+        (39, 40, 7),
+        observe=lambda p, raw, s, r: frames.append((p, raw.shape, s, r)),
+    )
+    assert [p for p, _, _, _ in frames] == [7, 8, 9, 10, 11, 12, 6, 5, 4, 3, 2]
+    assert [p for p, _, _ in mesh.observations] == [p for p, _, _, _ in frames]
+    for p, _, s, r in frames:
+        if r == "ACCEPTED":
+            assert (
+                a[p, s.y : s.y + s.height, s.x : s.x + s.width][s.mask()] == 5000
+            ).all()
+
+
+def test_visual_backpressure_pause_fast_finish_and_replay(
+    connected, bridge_factory, qt_app
+):
+    source, _ = connected
+    b = bridge_factory()
+    b.original_source = source
+    c = b.defect3d
+
+    def wait(pred):
+        until = time.monotonic() + 20
+        while not pred():
+            assert time.monotonic() < until, c.error
+            qt_app.processEvents()
+            time.sleep(0.005)
+
+    assert c.startVisual(39, 40)
+    c.paused = True
+    wait(lambda: c.frame_revision == 1)
+    for _ in range(20):
+        qt_app.processEvents()
+        time.sleep(0.01)
+    assert c.frame_revision == 1 and c.busy and not c.ack.is_set()
+    assert not b.provider.stack3d_images["trace-full"].isNull()
+    c.fastFinish()
+    wait(lambda: not c.busy)
+    assert c.mesh and len(c.mesh.sections) == 9
+    c.replay()
+    wait(lambda: c.replay_index >= 1)
+    c.cancel()
+    assert not c.replaying and not c.timer.isActive()
+    assert c.ack.is_set()
+
+
+def test_ambiguous_split_is_not_unioned(tmp_path):
+    a = np.full((4, 80, 80), 60000, np.uint16)
+    a[1, 35:45, 30:50] = 1000
+    a[2, 35:45, 30:38] = 1000
+    a[2, 35:45, 42:50] = 1000
+    p = tmp_path / "split.tif"
+    tifffile.imwrite(p, a, photometric="minisblack")
+    mesh = trace(OriginalImageSource(p, 1), (34, 40, 1))
+    assert [s.page for s in mesh.sections] == [1]
+    assert (2, "AMBIGUOUS_BRANCH") in mesh.stops
+
+
+def test_exclusion_marker_removes_only_foreground_basin():
+    from sic_xrt_analyzer.stack3d.defect import isolate_component
+
+    mask = np.zeros((40, 100), bool)
+    mask[15:25, 10:90] = True
+    selected = isolate_component(mask, (20, 20), [(20, 80)])
+    assert selected[20, 20] and not selected[20, 80]
+    assert selected.sum() < mask.sum() and np.all(~selected | mask)

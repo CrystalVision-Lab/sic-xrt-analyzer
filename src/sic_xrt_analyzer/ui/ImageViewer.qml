@@ -247,7 +247,7 @@ Rectangle {
                     }
                     if (uiState.activeTool === "Defect3D") {
                         var point=root.reviewPoint(mouse.x,mouse.y)
-                        if(fileBridge.defect3d.start(point.x,point.y)){uiState.activeTool="Pan";uiState.workspaceIndex=3}
+                        if(fileBridge.defect3d.startVisual(point.x,point.y)){uiState.activeTool="Pan";uiState.workspaceIndex=3}
                         return
                     }
                     if (uiState.activeTool === "Zoom") {

@@ -72,8 +72,15 @@ class DefectSurface(QQuick3DGeometry):
             return
         positions = m.vertices[:, [2, 1, 0]].copy()
         positions[:, 1] *= -1
-        positions -= (positions.min(0) + positions.max(0)) / 2
-        positions *= 350 / max(1, float(np.ptp(positions, axis=0).max()))
+        seed = self._source.last_seed
+        if seed:
+            positions -= np.array([seed[0], -seed[1], seed[2]])
+            positions *= 350 / max(
+                128, self._source.bridge.original_source.metadata.page_count
+            )
+        else:
+            positions -= (positions.min(0) + positions.max(0)) / 2
+            positions *= 350 / max(1, float(np.ptp(positions, axis=0).max()))
         normals = m.normals[:, [2, 1, 0]].copy()
         normals[:, 1] *= -1
         vertices = np.concatenate([positions, normals], axis=1).astype(np.float32)
@@ -99,6 +106,55 @@ class DefectSurface(QQuick3DGeometry):
         self.update()
 
 
+class DefectLayer(QQuick3DGeometry):
+    sourceChanged = Signal()
+    currentChanged = Signal()
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self._source = None
+        self._current = False
+
+    @Property(bool, notify=currentChanged)
+    def current(self):
+        return self._current
+
+    @current.setter
+    def current(self, value):
+        self._current = value
+        self._refresh()
+        self.currentChanged.emit()
+
+    @Property(QObject, notify=sourceChanged)
+    def sourceController(self):
+        return self._source
+
+    @sourceController.setter
+    def sourceController(self, value):
+        if self._source:
+            self._source.layersChanged.disconnect(self._refresh)
+        self._source = value
+        if value:
+            value.layersChanged.connect(self._refresh)
+        self._refresh()
+        self.sourceChanged.emit()
+
+    def _refresh(self):
+        self.clear()
+        a = self._source.layers_data[int(self._current)] if self._source else None
+        if a is not None and a.size:
+            self.setStride(12)
+            self.setPrimitiveType(QQuick3DGeometry.PrimitiveType.Triangles)
+            self.addAttribute(
+                QQuick3DGeometry.Attribute.Semantic.PositionSemantic,
+                0,
+                QQuick3DGeometry.Attribute.ComponentType.F32Type,
+            )
+            self.setVertexData(a.tobytes())
+            self.setBounds(QVector3D(*a.min(0).tolist()), QVector3D(*a.max(0).tolist()))
+        self.update()
+
+
 _registered = False
 
 
@@ -106,5 +162,6 @@ def register_types():
     global _registered
     if not _registered:
         qmlRegisterType(StackTrackLines, "XrtStack3D", 1, 0, "TrackLines")
+        qmlRegisterType(DefectLayer, "XrtStack3D", 1, 0, "DefectLayer")
         qmlRegisterType(DefectSurface, "XrtStack3D", 1, 0, "DefectSurface")
         _registered = True

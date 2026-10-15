@@ -6,6 +6,7 @@ from dataclasses import dataclass
 import numpy as np
 from scipy import ndimage as ndi
 from skimage.measure import marching_cubes
+from skimage.segmentation import watershed
 
 MAX_PACKED = 128 * 1024**2
 MAX_DENSE = 32 * 1024**2
@@ -44,9 +45,10 @@ class DefectMesh:
     source_identity: object
     thresholds: tuple
     stops: tuple = ()
+    observations: tuple = ()
 
 
-def dark_mask(pixels, sensitivity=1.0, min_contrast=0.0):
+def dark_mask(pixels, sensitivity=1.0, min_contrast=0.0, *, contrast_field=False):
     """Robust local dark contrast; no closing/dilation adds foreground voxels."""
     if not 0.4 <= sensitivity <= 2.5:
         raise ValueError("분할 감도 범위 오류")
@@ -73,7 +75,7 @@ def dark_mask(pixels, sensitivity=1.0, min_contrast=0.0):
     # Black top-hat removes smooth illumination without thresholding the whole background.
     level = contrast
     mask = (background - g) > contrast
-    return mask, level
+    return (mask, level, background - g) if contrast_field else (mask, level)
 
 
 def _section(page, x, y, mask):
@@ -90,6 +92,43 @@ def _section(page, x, y, mask):
     )
 
 
+def isolate_component(mask, anchor, excluded=()):
+    """Split narrow contacts using distance basins; never add foreground pixels.
+
+    A basin is an observation proposal, not proof of physical defect identity.
+    Explicit negative points create competing markers in the same dark component.
+    """
+    ay, ax = anchor
+    if not mask[ay, ax]:
+        return mask & False
+    labels, _ = ndi.label(mask, np.ones((3, 3), bool))
+    component = labels == labels[ay, ax]
+    distance = ndi.distance_transform_edt(component)
+    radius = max(1.0, float(distance[ay, ax]))
+    peaks = (distance == ndi.maximum_filter(distance, size=9)) & (
+        distance >= max(1.5, radius * 0.55)
+    )
+    markers, _ = ndi.label(peaks, np.ones((3, 3), bool))
+    # Connect the click to its nearest interior peak without making every click
+    # on a component boundary a separate, arbitrarily tiny basin.
+    yy, xx = np.nonzero(peaks & component)
+    if len(xx):
+        nearest = np.argmin((yy - ay) ** 2 + (xx - ax) ** 2)
+        chosen = int(markers[yy[nearest], xx[nearest]])
+    else:
+        chosen = 1
+        markers[ay, ax] = chosen
+    label = int(markers.max()) + 1
+    for ey, ex in excluded:
+        if 0 <= ey < mask.shape[0] and 0 <= ex < mask.shape[1] and component[ey, ex]:
+            markers[ey, ex] = label
+            label += 1
+    if markers.max() <= 1:
+        return component
+    basins = watershed(-distance, markers, mask=component, connectivity=np.ones((3, 3)))
+    return (basins == chosen) & component
+
+
 def _trace(
     source,
     seed,
@@ -98,12 +137,10 @@ def _trace(
     cancelled=lambda: False,
     progress=lambda *a: None,
     read_page=None,
+    observe=lambda *a: None,
+    exclusions=None,
 ):
-    """Track strict 26-neighbour pixel contact in adjacent pages, both directions.
-
-    No nearest-component jumps or interpolation across empty pages. Branches in
-    the observed connected component are retained; touching defects may merge.
-    """
+    """Follow one seeded observation; refuse ambiguous unions and growth."""
     from sic_xrt_analyzer.imaging.original_source import OriginalImageSource
 
     if source.metadata.page_count < 2 or source.metadata.channels != 1:
@@ -118,6 +155,9 @@ def _trace(
     stops = []
     baseline = [0.0]
     done = 0
+    observations = []
+    exclusions = exclusions or {}
+    last_raw = [None]
 
     def check():
         if cancelled():
@@ -145,6 +185,7 @@ def _trace(
             source.metadata.dtype,
         ):
             raise ValueError("페이지별 원본 크기·dtype가 다릅니다")
+        last_raw[0] = raw
         while True:
             check()
             w = min(edge, reader.metadata.width)
@@ -154,7 +195,9 @@ def _trace(
             if w * h > MAX_EDGE**2:
                 raise ValueError("연결 영역이 읽기 예산보다 큽니다")
             pixels = raw[oy : oy + h, ox : ox + w]
-            mask, threshold = dark_mask(pixels, sensitivity, baseline[0] * 0.5)
+            mask, threshold, contrast = dark_mask(
+                pixels, sensitivity, baseline[0], contrast_field=True
+            )
             labels, n = ndi.label(mask, np.ones((3, 3), bool))
             if previous is None:
                 sy, sx = y - oy, x - ox
@@ -175,7 +218,17 @@ def _trace(
                     yy += max(0, sy - 4)
                     nearest = np.argmin((xx - sx) ** 2 + (yy - sy) ** 2)
                     label = int(labels[yy[nearest], xx[nearest]])
-                selected = labels == label
+                yy, xx = np.nonzero(labels == label)
+                nearest = np.argmin((xx - sx) ** 2 + (yy - sy) ** 2)
+                sy, sx = int(yy[nearest]), int(xx[nearest])
+                if not baseline[0]:
+                    baseline[0] = max(threshold, float(contrast[sy, sx]) * 0.3)
+                    mask &= contrast > baseline[0]
+                selected = isolate_component(
+                    mask,
+                    (sy, sx),
+                    [(ey - oy, ex - ox) for ex, ey in exclusions.get(k, ())],
+                )
             else:
                 overlap = np.zeros((h, w), bool)
                 pm = previous.mask()
@@ -184,7 +237,7 @@ def _trace(
                 bx = min(ox + w, previous.x + previous.width)
                 by = min(oy + h, previous.y + previous.height)
                 if bx <= ax or by <= ay:
-                    return None, threshold
+                    return None, threshold, "NO_CONTACT"
                 overlap[ay - oy : by - oy, ax - ox : bx - ox] = pm[
                     ay - previous.y : by - previous.y, ax - previous.x : bx - previous.x
                 ]
@@ -192,12 +245,39 @@ def _trace(
                 connected = np.unique(labels[contact])
                 connected = connected[connected > 0]
                 if not len(connected):
-                    return None, threshold
-                lookup = np.zeros(n + 1, bool)
-                lookup[connected] = True
-                selected = lookup[labels]
+                    return None, threshold, "NO_CONTACT"
+                # Several contacted components are a split, never a license to
+                # union independent defects into a plate. Choose only a clear winner.
+                counts = np.bincount(labels[overlap].ravel(), minlength=n + 1)
+                ranked = sorted(connected, key=lambda j: counts[j], reverse=True)
+                if len(ranked) > 1 and counts[ranked[1]] >= max(
+                    2, counts[ranked[0]] * 0.45
+                ):
+                    return None, threshold, "AMBIGUOUS_BRANCH"
+                label = int(ranked[0])
+                if not exclusions.get(k) and np.count_nonzero(labels == label) > max(
+                    previous.count * 4, previous.count + 256
+                ):
+                    return (
+                        _section(k, ox, oy, labels == label),
+                        threshold,
+                        "AMBIGUOUS_MERGE",
+                    )
+                yy, xx = np.nonzero((labels == label) & contact)
+                center = np.array(
+                    [
+                        previous.y + previous.height / 2 - oy,
+                        previous.x + previous.width / 2 - ox,
+                    ]
+                )
+                nearest = np.argmin((yy - center[0]) ** 2 + (xx - center[1]) ** 2)
+                selected = isolate_component(
+                    mask,
+                    (int(yy[nearest]), int(xx[nearest])),
+                    [(ey - oy, ex - ox) for ex, ey in exclusions.get(k, ())],
+                )
             if int(selected.sum()) < 2:
-                return None, threshold
+                return None, threshold, "NO_CONTACT"
             touches = (
                 (ox > 0 and selected[:, 0].any())
                 or (oy > 0 and selected[0].any())
@@ -209,30 +289,41 @@ def _trace(
                     raise ValueError("연결 영역이 추적 범위를 초과했습니다")
                 edge = min(MAX_EDGE, edge * 2)
                 continue
-            return _section(k, ox, oy, selected), threshold
+            return _section(k, ox, oy, selected), threshold, "ACCEPTED"
 
-    first, t = read(page)
+    first, t, _ = read(page)
     if first is None:
         raise ValueError("선택한 검은 성분이 너무 작습니다")
+    if first.width > 256 or first.height > 256 or first.count > 16384:
+        raise ValueError(
+            "선택 영역이 주변 구조와 연결되어 있습니다. 결함 안쪽을 다시 선택하거나 분할 감도를 조절하세요"
+        )
     sections[page] = first
+    observations.append((page, first, "ACCEPTED"))
+    observe(page, last_raw[0], first, "ACCEPTED")
     thresholds[page] = t
-    baseline[0] = t
     packed = first.bits.nbytes
-    for direction in [-1, 1]:
+    for direction in [1, -1]:
         previous = first
         for k in range(
             page + direction,
             source.metadata.page_count if direction > 0 else -1,
             direction,
         ):
-            current, t = read(k, previous)
+            current, t, reason = read(k, previous)
             done += 1
             progress(done, source.metadata.page_count, "앞뒤 결함 연결 확인")
-            if current is None:
-                stops.append((k, "NO_CONTACT"))
-                break
-            if current.count > max(previous.count * 4, previous.count + 256):
-                stops.append((k, "AMBIGUOUS_MERGE"))
+            if current is not None and (
+                current.count > max(previous.count * 2.5, previous.count + 128)
+                or current.count > max(first.count * 3, first.count + 256)
+                or max(current.width, current.height)
+                > max(max(first.width, first.height) * 3, 64)
+            ):
+                reason = "AMBIGUOUS_MERGE"
+            observations.append((k, current, reason))
+            observe(k, last_raw[0], current, reason)
+            if reason != "ACCEPTED":
+                stops.append((k, reason))
                 break
             packed += current.bits.nbytes
             if packed > MAX_PACKED:
@@ -298,11 +389,19 @@ def _trace(
         identity,
         tuple(sorted(thresholds.items())),
         tuple(stops),
+        tuple(observations),
     )
 
 
 def trace(
-    source, seed, *, sensitivity=1.0, cancelled=lambda: False, progress=lambda *a: None
+    source,
+    seed,
+    *,
+    sensitivity=1.0,
+    cancelled=lambda: False,
+    progress=lambda *a: None,
+    observe=lambda *a: None,
+    exclusions=None,
 ):
     import tifffile
 
@@ -337,4 +436,6 @@ def trace(
             cancelled=cancelled,
             progress=progress,
             read_page=read_page,
+            observe=observe,
+            exclusions=exclusions,
         )
