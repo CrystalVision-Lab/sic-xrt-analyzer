@@ -5,6 +5,7 @@ import QtQuick.Layouts
 Rectangle{
  id:root;objectName:"waferMapWorkspace";property QtObject theme;property QtObject uiState;signal projectRequested()
  property var controller:fileBridge.folderMap;property var state:controller.state
+ property var previousView:[]
  property real scale:1;property real px:0;property real py:0;property int lastRevision:-1
  color:theme.viewer
  onScaleChanged:detailTimer.restart()
@@ -12,8 +13,9 @@ Rectangle{
  onPyChanged:detailTimer.restart()
  onVisibleChanged:if(visible)detailTimer.restart()
  Timer{id:detailTimer;interval:100;onTriggered:{if(root.visible&&root.state.ready){var d=viewport.fitScale*root.scale;root.controller.requestDetail(-mosaic.x/d,-mosaic.y/d,viewport.width/d,viewport.height/d,d*Screen.devicePixelRatio)}}}
- function fit(){scale=1;px=0;py=0}
- onStateChanged:if(state.revision!==lastRevision){lastRevision=state.revision;if(state.ready){fit();detailTimer.restart()}}
+ function fit(){if(scale!==1||px!==0||py!==0)previousView=[scale,px,py];scale=1;px=0;py=0}
+ function restore(){if(previousView.length===3){scale=previousView[0];px=previousView[1];py=previousView[2];previousView=[]}}
+ onStateChanged:if(state.revision!==lastRevision){lastRevision=state.revision;if(state.ready){fit();previousView=[];detailTimer.restart()}}
  SafeFolderDialog{id:folder;objectName:"waferFolderDialog";title:"같은 촬영의 사진 폴더 선택";onAccepted:root.controller.open(selectedFolder.toString())}
  ColumnLayout{anchors.fill:parent;anchors.margins:14;spacing:12
   RowLayout{Layout.fillWidth:true
@@ -23,6 +25,7 @@ Rectangle{
    Text{text:root.state.ready?"배치 "+root.state.aligned+"장 · 읽기 성공 "+root.state.count+"장 · 실패 "+root.state.failed+"건":"";color:root.state.failed?root.theme.warning:root.theme.muted;font.pixelSize:12}
    AppButton{theme:root.theme;text:"다시 준비";visible:!!root.state.error||!!root.state.detailError;enabled:!root.state.busy;onClicked:root.controller.retry()}
    AppButton{objectName:"chooseWaferFolder";theme:root.theme;text:"폴더 선택";primary:true;onClicked:folder.open()}
+   AppButton{theme:root.theme;text:"이전 확대 위치";visible:root.previousView.length===3;onClicked:root.restore()}
    AppButton{objectName:"mapFit";theme:root.theme;text:"화면 맞춤";onClicked:root.fit()}
   }
   Item{id:viewport;Layout.fillWidth:true;Layout.fillHeight:true;clip:true

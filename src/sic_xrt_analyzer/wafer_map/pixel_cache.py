@@ -1,4 +1,5 @@
 """Persistent lossless source levels. No image decoding on a prepared map pan."""
+
 import hashlib
 import json
 import math
@@ -14,16 +15,25 @@ import tifffile
 
 class PixelCache:
     VERSION = 1
+    MAX_DISK_BYTES = 64 * 1024**3
 
     def __init__(self, source, root=None, cancelled=lambda: False):
         self.source = source
         self.levels = []
         self.created = False
-        root = Path(root or os.environ.get("SIC_XRT_WAFER_CACHE") or
-                    Path(tempfile.gettempdir()) / "sic-xrt-wafer-levels-v1")
+        root = Path(
+            root
+            or os.environ.get("SIC_XRT_WAFER_CACHE")
+            or Path(tempfile.gettempdir()) / "sic-xrt-wafer-levels-v1"
+        )
         root.mkdir(parents=True, exist_ok=True)
-        identity = [self.VERSION, source.path, source.identity.file_size,
-                    source.identity.mtime_ns, source.page_index]
+        identity = [
+            self.VERSION,
+            source.path,
+            source.identity.file_size,
+            source.identity.mtime_ns,
+            source.page_index,
+        ]
         key = hashlib.sha256(json.dumps(identity).encode()).hexdigest()
         self.path = root / key
         source.validate_identity()
@@ -46,11 +56,20 @@ class PixelCache:
         shape = (meta.height, meta.width) + (() if channels == 1 else (channels,))
         size = math.prod(shape) * np.dtype(meta.dtype).itemsize
         # The budget is disk space, not resident RAM. Do not silently reduce resolution.
-        if size * 4 / 3 > 16 * 1024**3 or shutil.disk_usage(root).free < size * 3 + 64 * 1024**2:
-            raise ValueError("원본 해상도 캐시 공간이 부족합니다. 디스크 공간을 확보하세요.")
+        used = sum(p.stat().st_size for p in root.glob("*/*.npy") if p.is_file())
+        if (
+            used + size * 4 / 3 > self.MAX_DISK_BYTES
+            or size * 4 / 3 > 16 * 1024**3
+            or shutil.disk_usage(root).free < size * 3 + 64 * 1024**2
+        ):
+            raise ValueError(
+                "원본 해상도 캐시 공간이 부족합니다. 디스크 공간을 확보하세요."
+            )
         with tempfile.TemporaryDirectory(prefix="building-", dir=root) as scratch:
             directory = Path(scratch)
-            output = np.lib.format.open_memmap(directory / "0.npy", mode="w+", dtype=meta.dtype, shape=shape)
+            output = np.lib.format.open_memmap(
+                directory / "0.npy", mode="w+", dtype=meta.dtype, shape=shape
+            )
             mapped = encoded = None
             try:
                 if cancelled():
@@ -64,7 +83,7 @@ class PixelCache:
                     for y in range(0, meta.height, 128):
                         if cancelled():
                             raise InterruptedError("원본 준비 취소")
-                        output[y:y+128] = mapped[y:y+128]
+                        output[y : y + 128] = mapped[y : y + 128]
                 output.flush()
             finally:
                 output._mmap.close()
@@ -79,22 +98,32 @@ class PixelCache:
                     raise InterruptedError("표시 계층 준비 취소")
                 previous = np.load(directory / f"{number}.npy", mmap_mode="r")
                 h, w = shape[:2]
-                shape = ((h+1)//2, (w+1)//2) + shape[2:]
+                shape = ((h + 1) // 2, (w + 1) // 2) + shape[2:]
                 number += 1
-                reduced = np.lib.format.open_memmap(directory / f"{number}.npy", mode="w+", dtype=meta.dtype, shape=shape)
+                reduced = np.lib.format.open_memmap(
+                    directory / f"{number}.npy",
+                    mode="w+",
+                    dtype=meta.dtype,
+                    shape=shape,
+                )
                 try:
                     for y in range(0, h, 64):
                         if cancelled():
                             raise InterruptedError("표시 계층 준비 취소")
-                        block = previous[y:y+64].astype(np.float32)
+                        block = previous[y : y + 64].astype(np.float32)
                         if block.shape[0] % 2:
                             block = np.concatenate((block, block[-1:]), axis=0)
                         if w % 2:
                             block = np.concatenate((block, block[:, -1:]), axis=1)
-                        a = (block[::2, ::2] + block[1::2, ::2] + block[::2, 1::2] + block[1::2, 1::2]) * .25
+                        a = (
+                            block[::2, ::2]
+                            + block[1::2, ::2]
+                            + block[::2, 1::2]
+                            + block[1::2, 1::2]
+                        ) * 0.25
                         if np.dtype(meta.dtype).kind in "ui":
                             a = np.rint(a)
-                        reduced[y//2:y//2+a.shape[0]] = a
+                        reduced[y // 2 : y // 2 + a.shape[0]] = a
                     reduced.flush()
                 finally:
                     reduced._mmap.close()
@@ -102,7 +131,9 @@ class PixelCache:
             self.source.validate_identity()
             if cancelled():
                 raise InterruptedError("원본 준비 취소")
-            (directory / "ready.json").write_text(json.dumps({"identity": identity, "levels": number+1}))
+            (directory / "ready.json").write_text(
+                json.dumps({"identity": identity, "levels": number + 1})
+            )
             try:
                 directory.rename(self.path)
             except FileExistsError:
@@ -111,11 +142,18 @@ class PixelCache:
         self.created = True
 
     def region(self, left, top, right, bottom, density):
-        level = min(len(self.levels)-1, max(0, math.floor(math.log2(1/max(density, 1e-9)))))
+        level = min(
+            len(self.levels) - 1, max(0, math.floor(math.log2(1 / max(density, 1e-9))))
+        )
         step = 2**level
-        left, top = max(0, left//step), max(0, top//step)
-        right, bottom = math.ceil(right/step), math.ceil(bottom/step)
-        return self.levels[level][top:bottom, left:right].copy(), left*step, top*step, step
+        left, top = max(0, left // step), max(0, top // step)
+        right, bottom = math.ceil(right / step), math.ceil(bottom / step)
+        return (
+            self.levels[level][top:bottom, left:right].copy(),
+            left * step,
+            top * step,
+            step,
+        )
 
     def close(self):
         for pixels in self.levels:
