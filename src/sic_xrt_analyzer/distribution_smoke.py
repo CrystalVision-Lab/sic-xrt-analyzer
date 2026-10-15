@@ -116,7 +116,13 @@ def main(output, image_paths=(), verify_updates=False):
             spin(lambda:bridge.original_source is not None and bridge.original_source.path==str(defect_path))
             bridge.requestPage(3)
             spin(lambda:bridge.original_source.page_index==3)
-            assert bridge.defect3d.start(31,31)
+            assert bridge.defect3d.startVisual(31,31)
+            spin(lambda:bridge.defect3d.frame_revision>0 or not bridge.defect3d.busy)
+            assert bridge.defect3d.frame_revision>0,bridge.defect3d.error
+            assert not bridge.provider.stack3d_images['trace-full'].isNull()
+            assert bridge.defect3d.layers_data[1].size
+            bridge.defect3d.fastFinish()
+            report['tests'].append('real observation mask and bounded layer presentation')
             spin(lambda:not bridge.defect3d.busy)
             assert bridge.defect3d.state['ready'],bridge.defect3d.error
             window.findChild(QObject,'uiState').setProperty('workspaceIndex',3)
@@ -164,6 +170,19 @@ def main(output, image_paths=(), verify_updates=False):
             bridge.pipeline.set_source(bridge.original_source)
             assert bridge.pipeline.result.analysis_id==completed.analysis_id
             report["tests"].append("synthetic modal/progress/cache/ROI-layer lifecycle (not model accuracy)")
+            import shutil
+            wafer=folder/'wafer'
+            wafer.mkdir()
+            shutil.copyfile(jpeg,wafer/'capture.jpg')
+            bridge.folderMap.open(str(wafer))
+            spin(lambda:not bridge.folderMap.busy)
+            assert bridge.folderMap.state['ready'],bridge.folderMap.error
+            bridge.folderMap.requestDetail(0,0,128,128,4)
+            spin(lambda:bridge.folderMap.detail_revision>0 or bool(bridge.folderMap.detail_error))
+            assert not bridge.folderMap.detail_error,bridge.folderMap.detail_error
+            assert bridge.provider.folder_images['detail'].size().width()==512
+            assert bridge.folderMap.native.decodes==1
+            report['tests'].append('wafer native ROI, JPEG disk cache and OpenCV warp runtime')
             spin(lambda:not bridge.projects.busy)
             if verify_updates:
                 bridge.appUpdates.checkUpdates()

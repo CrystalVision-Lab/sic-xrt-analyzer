@@ -349,6 +349,8 @@ class Defect3DController(QObject):
         source = self.bridge.original_source
         if error:
             self.error = error
+            self.visual = False
+            self.timer.stop()
         elif source and mesh and source.path == self.path:
             try:
                 source.validate_identity()
