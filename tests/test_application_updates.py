@@ -378,3 +378,16 @@ def test_origin_migration_keeps_validation_boundary():
     ]:
         with pytest.raises(ValueError):
             preferred_origin(value)
+
+
+def test_update_uses_native_backend_install_folder(tmp_path):
+    from sic_xrt_analyzer.application_updates import update_command
+
+    exe = tmp_path / "SiCXrtApp.exe"
+    exe.write_bytes(b"MZ")
+    command = update_command(tmp_path / "setup.exe", exe)
+    assert "/DIR=" + str(tmp_path) in command and "/XRTUPDATE=1" in command
+    other = tmp_path / "other.exe"
+    other.write_bytes(b"MZ")
+    with pytest.raises(ValueError, match="INSTALL_LOCATION"):
+        update_command(tmp_path / "setup.exe", other)
