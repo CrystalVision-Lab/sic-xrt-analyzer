@@ -60,9 +60,18 @@ $env:SIC_XRT_SYNC_DIR = 'D:\capstone\private-sync'
 
 복원은 `xrt-restore-*` 별도 프로젝트와 빈 DB에만 허용한다. 파일 SHA, archive의 regular file/64hex.png/bounds, 실제 PNG SHA, inventory를 검사한다. 원래 서버와 볼륨은 삭제하지 않는다. 복원된 서버의 project/entities/statistics 및 PNG 해시를 원본 서버와 비교한 뒤 운영자가 채택 여부를 결정한다. 기존 Credential 검증값도 DB와 함께 복원되므로 노출된 Credential은 revoke/reissue한다. `docker compose down -v`를 정상 운영/검증 명령에 포함하지 않는다.
 
-## 외부 HTTPS 준비 — NOT DEPLOYED
+## 외부 HTTPS — 고정 Tailscale Funnel
 
-현재 외부 서버 공개와 Tunnel 실행은 하지 않았다. 향후 관리자 승인 후 Cloudflare Tunnel의 public hostname은 loopback API `http://127.0.0.1:18766`만 가리키고, Access 정책으로 연구원/조직/기기 접근을 제한한다. Tunnel token은 OS secret storage로 보관하며 설정 저장소에 커밋하지 않는다. PostgreSQL Tunnel은 만들지 않는다. public HTTPS 인증서/접근 정책/앱 Credential·프로젝트 권한/외부 재시도/백업을 별도로 acceptance한 후 Desktop origin을 변경한다. 공개 URL 생성은 별도 승인 작업이다.
+배포·사용 가이드·업데이트 주소는 **https://pc1.tail23f008.ts.net** 이다. 사용자가 기존 사이트 대신 XRT로 교체하는 것을 승인했다. Funnel은 loopback 웹 `http://127.0.0.1:18770`을 가리키며 웹이 인증된 연구 API와 포털을 기존 경로로 연결한다. PostgreSQL은 공개하지 않는다. 연구 데이터와 관리자 기능은 기존 인증·프로젝트 권한 검사를 유지한다.
+
+```powershell
+& 'C:\Program Files\Tailscale\tailscale.exe' funnel --bg --yes http://127.0.0.1:18770
+& 'C:\Program Files\Tailscale\tailscale.exe' funnel status --json
+```
+
+`--bg` 설정은 Tailscale 재시작·재부팅 후 자동 복구된다. 이 PC의 Tailscale 서비스는 자동 시작 상태다. Docker Desktop과 XRT 서비스도 실행 중이어야 접속할 수 있다. 노드/도메인 삭제·변경까지 방지하는 영구 도메인 보장은 아니다. [공식 동작](https://tailscale.com/docs/reference/tailscale-cli/funnel#effects-of-rebooting-and-restarting)을 참고한다.
+
+0.3.1부터 프로그램 기본 업데이트 주소와 저장된 이전 Quick Tunnel 주소를 고정 주소로 연결한다. 별도 사용자 지정 HTTPS 주소는 보존한다. 이전 앱이 실행 중이라면 주소를 바꾼 뒤 다시 실행하거나 업데이트 대화상자에서 고정 주소를 저장한다. 과거 Cloudflare 주소는 현재 공식 배포 주소가 아니다.
 
 Linux CI에서 독립 서버 패키지와 PostgreSQL 검사를 통과시키지만 Linux Compose 실사용 검증은 별도다. Linux에서는 0600 secret bind 파일을 컨테이너 xrt(uid 10001)가 읽을 수 있도록 소유자/ACL을 설정해야 한다. Windows ACL 검증 결과를 Linux 권한 검증으로 간주하지 않는다.
 

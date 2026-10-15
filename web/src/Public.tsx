@@ -75,7 +75,7 @@ export function NotesPage() {
     <p className="eyebrow">DEVELOPMENT NOTES</p><h1 id="notes-title">조금 더 편한 연구를 위해.</h1>
     {loading ? <Loading /> : error ? <ErrorBox error={error} /> : latest ? <article className="latest-note">
       <div className="note-edition"><span>이번 업데이트</span><span>v{latest.manifest.version}</span></div>
-      {(latest.manifest.version === "0.1.1" || latest.manifest.version.startsWith("0.2.") || latest.manifest.version.startsWith("0.3.")) ? <div className="note-improvements">{(latest.manifest.version.startsWith("0.3.") ? connectedImprovements : latest.manifest.version.startsWith("0.2.") ? workflowImprovements : improvements).map(({icon: Icon, title, text}) => <section key={title}><Icon size={22} aria-hidden="true" /><div><h2>{title}</h2><p>{text}</p></div></section>)}</div> : <p className="note-summary">{latest.manifest.notes}</p>}
+      {(latest.manifest.version === "0.1.1" || latest.manifest.version.startsWith("0.2.") || latest.manifest.version === "0.3.0") ? <div className="note-improvements">{(latest.manifest.version === "0.3.0" ? connectedImprovements : latest.manifest.version.startsWith("0.2.") ? workflowImprovements : improvements).map(({icon: Icon, title, text}) => <section key={title}><Icon size={22} aria-hidden="true" /><div><h2>{title}</h2><p>{text}</p></div></section>)}</div> : <p className="note-summary">{latest.manifest.notes}</p>}
     </article> : <Empty title="개발노트를 준비 중입니다" />}
   </section></PublicShell>;
 }

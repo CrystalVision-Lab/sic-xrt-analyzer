@@ -20,7 +20,7 @@
 
 기존 공개 GET /portal-api/releases의 xrt_app_release/v1, PUBLISHED, windows-x64, GPL-3.0-only, 승인 상태와 동일 revision의 source_archive를 확인한다. 현재 설치 버전보다 높은 버전만 표시하며 기본은 연구용 BETA 포함이다. 설정에서 STABLE만 선택할 수 있다. 공개 앱 파일 확인에는 연구원 인증키를 보내지 않는다. 모델 업데이트는 기존 AI 모델 관리·서명된 모델 계약을 유지한다.
 
-초기 주소는 현재 승인된 Cloudflare 임시 HTTPS 주소다. 터널 주소가 바뀌면 담당자가 알려준 새 주소를 도움말의 업데이트 설정에 입력한다. HTTPS origin만 허용하며 인증값·경로·query·비표준 port를 거부한다. URL은 고정 API 경로와 UUID로만 만들고 HTTP redirect를 따라가지 않는다. payload의 파일 경로/URL을 실행하지 않는다.
+0.3.1부터 기본 주소는 고정 Funnel HTTPS `https://pc1.tail23f008.ts.net`이다. 기존 설정의 유효한 `*.trycloudflare.com` 주소는 이 주소로 옮겨 저장한다. 사용자가 별도로 지정한 다른 HTTPS 서버는 유지한다. 현재 PC의 기존 설치 앱은 설정을 고정 주소로 바꾼 뒤 다시 실행해 새 버전을 받을 수 있다. HTTPS origin만 허용하며 인증값·경로·query·비표준 port를 거부한다. URL은 고정 API 경로와 UUID로만 만들고 HTTP redirect를 따라가지 않는다. payload의 파일 경로/URL을 실행하지 않는다.
 
 현재 앱 설치 파일에는 Authenticode 코드 서명이 없다. HTTPS와 공개 SHA는 전송 무결성 확인이며, 서버가 침해됐을 때 배포자의 암호학적 신원을 별도로 증명하는 기능은 아니다. 업데이트용 실행 파일 서명·키 고정 정책은 후속 배포 단계다.
 

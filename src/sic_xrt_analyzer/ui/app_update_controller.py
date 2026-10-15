@@ -13,7 +13,7 @@ from sic_xrt_analyzer import __version__
 from sic_xrt_analyzer.application_updates import (
     DEFAULT_ORIGIN,
     AppUpdateClient,
-    normalize_origin,
+    preferred_origin,
     update_command,
 )
 
@@ -49,9 +49,17 @@ class AppUpdateController(QObject):
         self.release = None
         self.path = self.verified = self.armed = None
         self.progress = 0
-        self.origin = bridge._settings.value(
+        stored_origin = bridge._settings.value(
             "applicationUpdates/origin", DEFAULT_ORIGIN
         )
+        try:
+            self.origin = preferred_origin(stored_origin)
+        except (ValueError, TypeError, AttributeError):
+            # Keep invalid explicit preferences visible for correction.
+            self.origin = stored_origin
+        if self.origin != stored_origin:
+            bridge._settings.setValue("applicationUpdates/origin", self.origin)
+            bridge._settings.sync()
         self.startup = bridge._settings.value(
             "applicationUpdates/startup", True, type=bool
         )
@@ -93,7 +101,7 @@ class AppUpdateController(QObject):
         if self.busy:
             return
         try:
-            self.origin = normalize_origin(origin)
+            self.origin = preferred_origin(origin)
         except ValueError:
             self.error = ERRORS["INVALID_ORIGIN"]
             self.changed.emit()
@@ -182,10 +190,13 @@ class AppUpdateController(QObject):
 
     @Slot()
     def update(self):
-        if self.busy or self.release is None:return
-        self.install_after_download=True
-        if self.path:self.verifyInstall()
-        else:self.download()
+        if self.busy or self.release is None:
+            return
+        self.install_after_download = True
+        if self.path:
+            self.verifyInstall()
+        else:
+            self.download()
 
     @Slot()
     def verifyInstall(self):
@@ -233,7 +244,7 @@ class AppUpdateController(QObject):
     @Slot()
     def cancel(self):
         self.cancel_token.set()
-        self.install_after_download=False
+        self.install_after_download = False
         self.verified = self.armed = None
 
     def _progress(self, value):
@@ -265,7 +276,7 @@ class AppUpdateController(QObject):
             self.status = "다운로드·SHA-256 확인 완료. 설치하면 프로그램을 종료합니다."
             self.progress = 100
             if self.install_after_download:
-                self.install_after_download=False
+                self.install_after_download = False
                 self.verifyInstall()
         elif result["kind"] == "verify":
             self.verified = result["value"]
@@ -282,7 +293,11 @@ class AppUpdateController(QObject):
             return
         try:
             AppUpdateClient(self.origin).verify(self.armed, self.release)
-            command=update_command(self.armed,sys.executable)
-            subprocess.Popen(command,cwd=str(self.directory),creationflags=getattr(subprocess,'CREATE_NO_WINDOW',0))
+            command = update_command(self.armed, sys.executable)
+            subprocess.Popen(
+                command,
+                cwd=str(self.directory),
+                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+            )
         except (OSError, ValueError):
             self.launch_error = "설치 프로그램을 실행할 수 없습니다. 다운로드 사이트에서 직접 설치하세요."

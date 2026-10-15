@@ -36,7 +36,7 @@ Dialog {
             CheckBox { id: startup; text: "프로그램 시작 시 새 버전 확인"; checked: root.update.startup; enabled: !root.update.busy }
             CheckBox { id: beta; text: "연구용 BETA 버전 포함"; checked: root.update.beta; enabled: !root.update.busy }
             Button { text: "설정 저장·확인"; enabled: !root.update.busy; onClicked: root.controller.configure(origin.text, startup.checked, beta.checked) }
-            Label { text: "임시 접속 주소가 바뀌면 연구 담당자가 알려준 새 주소를 입력하세요. 모델 버전은 분석 메뉴의 AI 모델 관리에서 별도로 관리합니다."; wrapMode: Text.Wrap; Layout.fillWidth: true }
+            Label { text: "고정 배포 주소를 사용합니다. 모델 버전은 분석 메뉴의 AI 모델 관리에서 별도로 관리합니다."; wrapMode: Text.Wrap; Layout.fillWidth: true }
         }
     }
 }

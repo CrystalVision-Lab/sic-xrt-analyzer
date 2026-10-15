@@ -12,7 +12,7 @@ from uuid import UUID, uuid4
 import httpx
 from packaging.version import Version
 
-DEFAULT_ORIGIN = "https://gba-math-charlotte-lightweight.trycloudflare.com"
+DEFAULT_ORIGIN = "https://pc1.tail23f008.ts.net"
 MAX_INSTALLER = 3 * 1024**3
 MAX_METADATA = 1024**2
 
@@ -32,6 +32,14 @@ def normalize_origin(value):
     ):
         raise ValueError("INVALID_ORIGIN")
     return "https://" + p.hostname.lower()
+
+
+def preferred_origin(value):
+    """Migrate expired Quick Tunnel preferences; preserve other HTTPS servers."""
+    origin = normalize_origin(value)
+    if urlsplit(origin).hostname.endswith(".trycloudflare.com"):
+        return DEFAULT_ORIGIN
+    return origin
 
 
 def cancelled(cancel):
@@ -196,9 +204,17 @@ class AppUpdateClient:
 
 def update_command(installer, executable):
     """Use the running per-user installation, never an inferred/default folder."""
-    target=Path(executable).resolve()
-    if target.name.lower()!='sicxrtanalyzer.exe' or not target.is_file():
+    target = Path(executable).resolve()
+    if target.name.lower() != "sicxrtanalyzer.exe" or not target.is_file():
         raise ValueError("INSTALL_LOCATION_UNAVAILABLE")
-    return [str(installer), '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART',
-            '/CLOSEAPPLICATIONS', '/NORESTARTAPPLICATIONS', '/XRTUPDATE=1',
-            '/DIR='+str(target.parent), '/LOG='+str(Path(installer).parent/'install.log')]
+    return [
+        str(installer),
+        "/VERYSILENT",
+        "/SUPPRESSMSGBOXES",
+        "/NORESTART",
+        "/CLOSEAPPLICATIONS",
+        "/NORESTARTAPPLICATIONS",
+        "/XRTUPDATE=1",
+        "/DIR=" + str(target.parent),
+        "/LOG=" + str(Path(installer).parent / "install.log"),
+    ]

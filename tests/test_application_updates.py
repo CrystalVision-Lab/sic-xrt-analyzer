@@ -12,7 +12,12 @@ from PySide6.QtCore import QObject, QSettings, QUrl
 from PySide6.QtQml import QQmlApplicationEngine
 from PySide6.QtQuickControls2 import QQuickStyle
 
-from sic_xrt_analyzer.application_updates import AppUpdateClient, normalize_origin
+from sic_xrt_analyzer.application_updates import (
+    DEFAULT_ORIGIN,
+    AppUpdateClient,
+    normalize_origin,
+    preferred_origin,
+)
 from sic_xrt_analyzer.ui.bridge import FileBridge, TiffImageProvider
 
 
@@ -192,7 +197,9 @@ def test_controller_background_check_download_and_no_automatic_install(
     requests = []
     c = client([r], data, requests)
     monkeypatch.setattr(module, "AppUpdateClient", lambda *args: c)
-    monkeypatch.setattr(module, "__version__", "0.1.1")  # Simulate the previous installed app.
+    monkeypatch.setattr(
+        module, "__version__", "0.1.1"
+    )  # Simulate the previous installed app.
     b = bridge_factory(
         settings=QSettings(str(tmp_path / "prefs.ini"), QSettings.IniFormat)
     )
@@ -228,9 +235,10 @@ def test_install_shutdown_only_and_tamper_recheck(
     p = u.directory / (u.release["manifest"]["sha256"] + ".exe")
     p.write_bytes(data)
     u.path = u.verified = p
-    app_executable=tmp_path / "installed" / "SiCXrtAnalyzer.exe"
-    app_executable.parent.mkdir();app_executable.write_bytes(b"MZ-existing-install")
-    monkeypatch.setattr(module.sys,"executable",str(app_executable))
+    app_executable = tmp_path / "installed" / "SiCXrtAnalyzer.exe"
+    app_executable.parent.mkdir()
+    app_executable.write_bytes(b"MZ-existing-install")
+    monkeypatch.setattr(module.sys, "executable", str(app_executable))
     calls = []
     monkeypatch.setattr(
         module.subprocess, "Popen", lambda *a, **k: calls.append((a, k))
@@ -238,11 +246,15 @@ def test_install_shutdown_only_and_tamper_recheck(
     assert u.armInstall() and calls == []
     u.shutdown()
     u.launch_after_exit()
-    command=calls[0][0][0]
-    assert command[0]==str(p) and '/VERYSILENT' in command and '/XRTUPDATE=1' in command
-    assert '/DIR='+str(app_executable.parent) in command
-    assert '/NORESTARTAPPLICATIONS' in command
-    assert calls[0][1]['creationflags']==getattr(module.subprocess,'CREATE_NO_WINDOW',0)
+    command = calls[0][0][0]
+    assert (
+        command[0] == str(p) and "/VERYSILENT" in command and "/XRTUPDATE=1" in command
+    )
+    assert "/DIR=" + str(app_executable.parent) in command
+    assert "/NORESTARTAPPLICATIONS" in command
+    assert calls[0][1]["creationflags"] == getattr(
+        module.subprocess, "CREATE_NO_WINDOW", 0
+    )
     calls.clear()
     p.write_bytes(b"tampered")
     u.launch_after_exit()
@@ -317,3 +329,52 @@ def test_qml_dirty_project_and_review_guard_cancel_do_not_arm(tmp_path, qt_app):
     bridge.waitForLoads()
     window.close()
     engine.deleteLater()
+
+
+@pytest.mark.parametrize(
+    "old",
+    [
+        "https://gba-math-charlotte-lightweight.trycloudflare.com",
+        "https://miss-roommates-manchester-suit.trycloudflare.com/",
+        "https://Other-Quick.trycloudflare.com",
+    ],
+)
+def test_quick_tunnel_preferences_migrate_to_fixed_origin(
+    old, tmp_path, bridge_factory
+):
+    settings = QSettings(str(tmp_path / "migrating.ini"), QSettings.IniFormat)
+    settings.setValue("applicationUpdates/origin", old)
+    settings.setValue("applicationUpdates/startup", False)
+    settings.setValue("applicationUpdates/beta", False)
+    b = bridge_factory(settings=settings)
+    assert DEFAULT_ORIGIN == "https://pc1.tail23f008.ts.net"
+    assert b.appUpdates.origin == DEFAULT_ORIGIN
+    assert settings.value("applicationUpdates/origin") == DEFAULT_ORIGIN
+    assert not b.appUpdates.startup and not b.appUpdates.beta
+
+
+@pytest.mark.parametrize(
+    "origin",
+    [
+        "https://research.example",
+        "https://x.trycloudflare.com.evil.example",
+        "https://pc1.tail23f008.ts.net",
+    ],
+)
+def test_custom_fixed_servers_remain_explicit(origin, tmp_path, bridge_factory):
+    settings = QSettings(str(tmp_path / "custom.ini"), QSettings.IniFormat)
+    settings.setValue("applicationUpdates/origin", origin)
+    b = bridge_factory(settings=settings)
+    assert b.appUpdates.origin == origin
+    assert preferred_origin(origin) == origin
+
+
+def test_origin_migration_keeps_validation_boundary():
+    for value in [
+        "http://x.trycloudflare.com",
+        "https://user:pw@x.trycloudflare.com",
+        "https://x.trycloudflare.com/secret",
+        "https://x.trycloudflare.com:8888",
+    ]:
+        with pytest.raises(ValueError):
+            preferred_origin(value)
