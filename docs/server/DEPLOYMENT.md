@@ -97,3 +97,16 @@ start 시 Alembic 0003이 불변 모델 테이블을 추가한다. 기존 연구
 ## 다운로드 사이트 및 연구 관리자 포털 (DEPLOY-TD-01)
 
 기존 연구 API18766과 PostgreSQL0003은 유지한다. 웹18770과 독립 포털은 deploy/portal.compose.yml overlay로 운영한다. tools/portal_ops.py start/status/stop/backup을 사용한다. 새로운 포털 키는 private 폴더에 보호하며 상시 서비스에 admin.json을 노출하지 않는다. 연구 백업과 포털 백업을 각각 생성한다. [구성·임시 URL·라이선스 보류·검증](../deploy/XRT-DEPLOY-TD-01.md)을 따른다.
+
+
+## Windows 로그인 시 XRT 서버 복구 (#133)
+
+현재 PC는 `SiC XRT Local Server` 작업 스케줄러를 사용한다. 소유자 로그인 시 현재 사용자 권한으로 `deploy/start-local-xrt.ps1`을 숨김 실행한다. Docker 엔진이 준비되지 않으면 실제 Docker CLI 옆의 Docker Desktop을 시작하고 최대 5분 기다린다. 기존 `xrt-research` 컨테이너만 `--no-build --pull never`로 시작한다. 다른 프로젝트와 Funnel 대상은 변경하지 않는다. Tailscale은 별도 Automatic 서비스와 `--bg` 설정을 사용한다.
+
+```powershell
+Start-ScheduledTask -TaskName 'SiC XRT Local Server'
+Get-ScheduledTaskInfo -TaskName 'SiC XRT Local Server'
+Get-Content artifacts/server-startup/last-start.log
+```
+
+실제 Windows 재부팅은 실행하지 않고, 등록된 작업의 실행과 정상 종료 및 컨테이너 상태를 확인한다. 장기 중지 시 `Disable-ScheduledTask -TaskName 'SiC XRT Local Server'`로 로그인 복구도 중지한다. 현재 PC가 꺼져 있거나 절전 상태이면 사이트와 업데이트를 제공하지 않는다.
