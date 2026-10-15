@@ -1,11 +1,11 @@
+import runpy
 from pathlib import Path
 
 import pytest
 
-from tools.windows_build_environment import (
-    isolated_environment,
-    validate_binary_sources,
-)
+helpers = runpy.run_path(str(Path(__file__).resolve().parents[1] / "tools/windows_build_environment.py"))
+isolated_environment = helpers["isolated_environment"]
+validate_binary_sources = helpers["validate_binary_sources"]
 
 
 def test_foreign_tool_paths_cannot_influence_dependency_search(tmp_path):
