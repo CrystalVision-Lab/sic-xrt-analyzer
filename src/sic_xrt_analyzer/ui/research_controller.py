@@ -173,7 +173,7 @@ class ResearchController(QObject):
         result = self.display_result
         result_id = result.analysis_id if result and result.status == AnalysisState.COMPLETED else None
         if pipeline.state == AnalysisState.RUNNING:
-            self.live_rows = [{"id":d.id,"number":i+1,"x":d.geometry.points[0][0],"y":d.geometry.points[0][1],"type":d.class_name,"score":d.confidence,"region":d.metadata.get("bpd_region",[])} for i,d in enumerate(pipeline.live_detections)]
+            self.live_rows = [{"id":d.id,"number":i+1,"x":d.geometry.points[0][0],"y":d.geometry.points[0][1],"type":d.class_name,"score":d.confidence,"region":[list(p) for p in d.metadata.get("bpd_region",())]} for i,d in enumerate(pipeline.live_detections)]
         else:
             self.live_rows = []
         if result_id != self.result_identity:
@@ -193,7 +193,7 @@ class ResearchController(QObject):
                                       "number": len(self.rows) + 1,
                                       "scores": list(scores) if len(scores) == 3 else [],
                                       "x": x, "y": y, "type": d.class_name or "unknown",
-                                      "region": d.metadata.get("bpd_region", []), "regionProvenance": d.metadata.get("region_provenance", ""),
+                                      "region": [list(p) for p in d.metadata.get("bpd_region", ())], "regionProvenance": d.metadata.get("region_provenance", ""), "regionClipped": d.metadata.get("region_clipped", False), "regionError": d.metadata.get("region_error", ""),
                                       "score": d.confidence, "low_score": d.metadata.get("low_score", False)})
             self._filter_rows()
         self.changed.emit()

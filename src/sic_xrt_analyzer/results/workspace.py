@@ -86,7 +86,7 @@ class SavedResultPresentation:
         return [{'id': o.source_candidate_id, 'point_id': o.metadata.get('point_id',o.source_candidate_id),
             'number': n+1, 'scores': list(o.raw_scores) if len(o.raw_scores)==3 else [],
             'x': o.x, 'y': o.y, 'type': o.assigned_class or 'unknown',
-            'region': list(o.metadata.get('bpd_region', [])), 'regionProvenance': o.metadata.get('region_provenance', ''),
+            'region': [list(p) for p in o.metadata.get('bpd_region', ())], 'regionProvenance': o.metadata.get('region_provenance', ''), 'regionClipped': o.metadata.get('region_clipped', False), 'regionError': o.metadata.get('region_error', ''),
             'score': o.displayed_score, 'low_score': o.metadata.get('low_score',False)}
             for n, o in enumerate(o for o in self.project.observations if o.run_id == self.run.run_id and o.x is not None)]
 
