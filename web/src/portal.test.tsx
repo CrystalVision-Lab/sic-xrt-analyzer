@@ -7,9 +7,12 @@ import {
   renderHook,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
-import { DownloadPage } from "./Public";
+import { ReleaseHistory } from "./Admin";
+import { releaseHighlights } from "./releaseNotes";
+import { DownloadPage, NotesPage } from "./Public";
 import { GuideWorkspace } from "./Guide";
 import { ThemeToggle } from "./Theme";
 import { Modal } from "./ui";
@@ -23,7 +26,7 @@ afterEach(() => {
 const json = (value: unknown) => ({ ok: true, json: async () => value });
 const release = (id: string, channel: string) => ({
   id,
-  state: { channel, status: "PUBLISHED" },
+  state: { channel, status: "PUBLISHED", reason: "CI accepted" },
   manifest: {
     version: id,
     platform: "windows-x64",
@@ -131,4 +134,41 @@ it("navigates master-detail tabs with keyboard and keeps the current screenshot"
 it("persists only the theme preference",()=>{
  render(<ThemeToggle/>);fireEvent.click(screen.getByRole("button",{name:"다크 모드로 전환"}));
  expect(document.documentElement.dataset.theme).toBe("dark");expect(localStorage.getItem("xrt-theme:v1")).toBe("dark");expect(localStorage.length).toBe(1);
+});
+
+it("keeps two primary destinations and moves notes to the footer", async () => {
+  vi.stubGlobal("fetch", vi.fn(() => Promise.resolve(json([release("0.4.3", "BETA")]))));
+  render(<MemoryRouter><DownloadPage /></MemoryRouter>);
+  await screen.findByRole("link", {name: /Windows 다운로드/});
+  const main = within(screen.getByRole("navigation", {name: "주 메뉴"}));
+  expect(main.getAllByRole("link").map(a => a.textContent)).toEqual(["다운로드", "사용 가이드"]);
+  expect(main.queryByRole("link", {name: "개발 노트"})).toBeNull();
+  expect(within(screen.getByRole("contentinfo")).getByRole("link", {name: "개발 노트"}).getAttribute("href")).toBe("/notes");
+});
+it("shows only three recent plain-text improvement notes without the deployment ledger", async () => {
+  const releases = ["0.4.3", "0.4.2", "0.4.1", "0.4.0"].map(v => ({...release(v, "BETA"), manifest: {...release(v, "BETA").manifest, notes: "- 메뉴를 정리했습니다.\n- <script>실행하지 않음</script>\n- 가독성을 개선했습니다.\n- 네 번째 상세 항목"}}));
+  vi.stubGlobal("fetch", vi.fn(() => Promise.resolve(json(releases))));
+  render(<MemoryRouter><NotesPage /></MemoryRouter>);
+  expect(await screen.findAllByRole("article")).toHaveLength(3);
+  expect(screen.queryByText("v0.4.0")).toBeNull();
+  expect(screen.queryByText("네 번째 상세 항목")).toBeNull();
+  expect(document.querySelector("script")).toBeNull();
+  expect(screen.queryByText(/SHA-256/)).toBeNull();
+  expect(screen.getAllByText("<script>실행하지 않음</script>")).toHaveLength(3);
+});
+it("keeps old sentence notes readable and does not invent missing changes", () => {
+  expect(releaseHighlights("시작 확인을 추가했습니다. 재시도를 개선했습니다.")).toEqual(["시작 확인을 추가했습니다.", "재시도를 개선했습니다."]);
+  expect(releaseHighlights("\n ")).toEqual([]);
+  expect(releaseHighlights("1. 한 가지 변경")).toEqual(["한 가지 변경"]);
+});
+it("exposes complete release evidence and every deployment event to the administrator view", async () => {
+  const row = release("0.4.3", "BETA");
+  const events = [{id:"first",revision:1,created_at:100,state:{status:"DRAFT",channel:"BETA",reason:"Registered with installer and source hashes"},actor:"builder"},{id:"second",revision:2,created_at:200,state:{status:"PUBLISHED",channel:"BETA",reason:"CI and actual installation accepted"},actor:"operator"}];
+  vi.stubGlobal("fetch", vi.fn(() => Promise.resolve(json(events))));
+  render(<ReleaseHistory release={{...row, created_at:100, revision:2, event_id:"second", download_requests:0, manifest:{...row.manifest, schema:"xrt_app_release/v1", filename:"setup.exe", model_included:false, license:"GPL-3.0-only", distribution_clearance:{status:"APPROVED",reference:"Publisher consent"}}}} onClose={() => {}} />);
+  expect(await screen.findByText("CI and actual installation accepted")).toBeTruthy();
+  expect(screen.getByText("Registered with installer and source hashes")).toBeTruthy();
+  expect(screen.getByText("a".repeat(64), {selector:"code"})).toBeTruthy();
+  expect(screen.getByText("b".repeat(40), {selector:"code"})).toBeTruthy();
+  expect(screen.getByText("APPROVED · Publisher consent")).toBeTruthy();
 });

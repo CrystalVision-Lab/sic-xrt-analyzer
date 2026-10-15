@@ -1511,3 +1511,22 @@ html { min-height: 100dvh; }
   .backdrop-contours { inset: -15% -100%; }
 }
 @media (prefers-reduced-motion: reduce) { .research-backdrop :is(.backdrop-glow, .backdrop-contours, .backdrop-particle) { animation: none !important; } }
+
+/* Secondary release information stays outside the main navigation. */
+.footer-links { display: flex; flex-wrap: wrap; gap: 14px 24px; align-items: center; }
+.footer-links a { display: inline-flex; align-items: center; gap: 5px; }
+.footer-links a:hover { color: var(--teal); }
+.note-highlights { margin: 22px 0 0; padding-left: 20px; display: grid; gap: 12px; font-size: 15px; line-height: 1.85; }
+.note-highlights li::marker { color: var(--teal); }
+.latest-note + .latest-note { margin-top: 40px; }
+.release-history h3 { margin-block: 24px 12px; font-size: 16px; }
+.release-evidence { display: grid; grid-template-columns: 120px minmax(0, 1fr); gap: 12px 20px; font-size: 13px; }
+.release-evidence dt { color: var(--muted); }
+.release-evidence dd { margin: 0; overflow-wrap: anywhere; }
+.release-evidence code { font-size: 12px; }
+.release-full-notes { white-space: pre-wrap; line-height: 1.8; }
+.release-events { overflow-x: auto; }
+.release-events table { min-width: 680px; }
+.release-events td { vertical-align: top; white-space: pre-wrap; overflow-wrap: anywhere; }
+.release-events td:last-child { min-width: 260px; max-width: 600px; line-height: 1.7; }
+@media (max-width: 600px) { .release-evidence { grid-template-columns: 1fr; gap: 6px; } .release-evidence dd { margin-bottom: 10px; } }

@@ -17,6 +17,15 @@ MAX_INSTALLER = 3 * 1024**3
 MAX_METADATA = 1024**2
 
 
+def release_highlights(notes):
+    """Present at most three plain-text changes without interpreting markup."""
+    result = []
+    for line in notes.splitlines():
+        clean = re.sub(r"^\s*(?:[-*•]|\d+[.)])\s+", "", line).strip()
+        result.extend(re.split(r"(?<=[.!?])\s+", clean))
+    return [line for line in result if line][:3]
+
+
 def normalize_origin(value):
     p = urlsplit(value.strip())
     if (

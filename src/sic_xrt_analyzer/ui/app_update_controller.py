@@ -14,6 +14,7 @@ from sic_xrt_analyzer.application_updates import (
     DEFAULT_ORIGIN,
     AppUpdateClient,
     preferred_origin,
+    release_highlights,
     update_command,
 )
 
@@ -93,6 +94,7 @@ class AppUpdateController(QObject):
             "progress": self.progress,
             "version": m.get("version", ""),
             "notes": m.get("notes", ""),
+            "highlights": release_highlights(m.get("notes", "")),
             "sizeMiB": round(m.get("size", 0) / 1024**2, 1),
             "downloaded": self.path is not None,
             "canInstall": self.path is not None

@@ -2,8 +2,9 @@ import { ResearchBackdrop } from "./ResearchBackdrop";
 import { GuideExplorer } from "./Guide";
 import { ThemeToggle } from "./Theme";
 import { Link, NavLink } from "react-router-dom";
-import { ArrowUpRight, Download, Monitor, Sparkles, Image, RefreshCw } from "lucide-react";
+import { ArrowUpRight, Download, Monitor } from "lucide-react";
 import { useData, type Release } from "./api";
+import { releaseHighlights } from "./releaseNotes";
 import { Brand, Empty, ErrorBox, Loading } from "./ui";
 
 function latestRelease(data?: Release[]) {
@@ -18,14 +19,16 @@ export function PublicShell({ children, sourceRelease }: { children: React.React
       <nav aria-label="주 메뉴">
         <NavLink to="/" end>다운로드</NavLink>
         <NavLink to="/guide">사용 가이드</NavLink>
-        <NavLink to="/notes">개발노트</NavLink>
       </nav>
       <div className="nav-actions"><ThemeToggle /><Link className="admin-link" to="/admin">관리자 <ArrowUpRight size={14} /></Link></div>
     </div></header>
     <main id="content">{children}</main>
     <footer className="site-footer site-width">
       <span>한국세라믹기술원 연구용 · SiC XRT Analyzer</span>
-      {sourceRelease && <a className="source-download" href={`/portal-api/releases/${sourceRelease.id}/source`}>GPLv3 소스 다운로드 <ArrowUpRight size={13} /></a>}
+      <nav className="footer-links" aria-label="하단 메뉴">
+        <Link to="/notes">개발 노트</Link>
+        {sourceRelease && <a className="source-download" href={`/portal-api/releases/${sourceRelease.id}/source`}>GPLv3 소스 다운로드 <ArrowUpRight size={13} /></a>}
+      </nav>
     </footer>
   </div>;
 }
@@ -53,30 +56,16 @@ export function DownloadPage() {
     </section>
   </PublicShell>;
 }
-const improvements = [
-  { icon: Image, title: "대형 JPG를 안정적으로 열어요", text: "설치 버전에서 일부 JPG가 열리지 않던 문제를 수정했습니다." },
-  { icon: Sparkles, title: "2D TIFF도 분석할 수 있어요", text: "단일 페이지 TIFF에서 분석·저장·검수를 연결했습니다. 여러 페이지 TIFF는 스택·3D 탐색으로 구분합니다." },
-  { icon: RefreshCw, title: "새 버전을 프로그램에서 확인해요", text: "업데이트 알림과 설치 파일 다운로드를 추가했습니다." },
-];
-const workflowImprovements = [
-  { icon: Image, title: "분석 결과를 이어서 봐요", text: "창을 닫거나 다른 화면을 다녀와도 이미지별 결과를 다시 열 수 있습니다." },
-  { icon: Sparkles, title: "찾는 과정을 영상에서 확인해요", text: "처리 영역과 완료된 후보를 실시간으로 표시하고, BPD 영역 제안·ROI 레이어·선택 신고를 연결했습니다." },
-  { icon: RefreshCw, title: "작업 화면을 간단하게 정리했어요", text: "폴더로 여는 Wafer Map, 전·후 비교, TIFF 선택 영역의 3D 보기로 작업을 줄였습니다." },
-];
-const connectedImprovements = [
-  { icon: Sparkles, title: "결함 하나를 입체로 살펴보세요", text: "TIFF에서 검은 결함을 클릭하면 앞뒤 페이지의 연결 부분을 모아 배경 없는 3D 표면으로 보여줍니다." },
-  { icon: Image, title: "사진들을 하나의 웨이퍼로 연결해요", text: "촬영 구역을 묶고 사진의 연결 근거를 확인해 이어 붙입니다. 어닐링 전·후 촬영은 따로 볼 수 있습니다." },
-  { icon: RefreshCw, title: "업데이트 후 바로 다시 시작해요", text: "기존 설치 위치에 새 버전을 적용하고 프로그램을 자동으로 다시 실행합니다." },
-];
 export function NotesPage() {
   const { data, error, loading } = useData<Release[]>("releases");
-  const latest = latestRelease(data);
+  // A short, read-only journal. The complete release ledger belongs to admin.
+  const notes = data?.filter(r => r.manifest.notes.trim()).slice(0, 3);
   return <PublicShell><section className="notes-page site-width" aria-labelledby="notes-title">
-    <p className="eyebrow">DEVELOPMENT NOTES</p><h1 id="notes-title">조금 더 편한 연구를 위해.</h1>
-    {loading ? <Loading /> : error ? <ErrorBox error={error} /> : latest ? <article className="latest-note">
-      <div className="note-edition"><span>이번 업데이트</span><span>v{latest.manifest.version}</span></div>
-      {(latest.manifest.version === "0.1.1" || latest.manifest.version.startsWith("0.2.") || latest.manifest.version === "0.3.0") ? <div className="note-improvements">{(latest.manifest.version === "0.3.0" ? connectedImprovements : latest.manifest.version.startsWith("0.2.") ? workflowImprovements : improvements).map(({icon: Icon, title, text}) => <section key={title}><Icon size={22} aria-hidden="true" /><div><h2>{title}</h2><p>{text}</p></div></section>)}</div> : <p className="note-summary">{latest.manifest.notes}</p>}
-    </article> : <Empty title="개발노트를 준비 중입니다" />}
+    <p className="eyebrow">DEVELOPMENT NOTES</p><h1 id="notes-title">개발 노트</h1>
+    {loading ? <Loading /> : error ? <ErrorBox error={error} /> : notes?.length ? notes.map((release, index) => <article className="latest-note" key={release.id}>
+      <h2 className="note-edition"><span>{index === 0 ? "이번 업데이트" : "이전 개선"}</span><span>v{release.manifest.version}</span></h2>
+      <ul className="note-highlights">{releaseHighlights(release.manifest.notes).map(note => <li key={note}>{note}</li>)}</ul>
+    </article>) : <Empty title="개발 노트를 준비 중입니다" />}
   </section></PublicShell>;
 }
 export function GuidePage() { return <PublicShell><GuideExplorer /></PublicShell>; }

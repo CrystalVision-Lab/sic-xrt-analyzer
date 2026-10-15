@@ -20,7 +20,22 @@ Dialog {
             spacing: 12
             Label { text: root.update.version ? "버전 " + root.update.version : "현재 버전 " + root.update.currentVersion; font.pixelSize: 22; font.bold: true }
             Label { text: "현재 " + root.update.currentVersion + "  →  " + root.update.version; visible: !!root.update.version }
-            Label { textFormat: Text.PlainText; text: root.update.notes; visible: text.length > 0; wrapMode: Text.Wrap; Layout.fillWidth: true }
+            ColumnLayout {
+                visible: root.update.highlights.length > 0
+                Layout.fillWidth: true
+                spacing: 8
+                Label { text: "이번 버전의 주요 변경 사항"; font.bold: true }
+                Repeater {
+                    model: root.update.highlights
+                    Label {
+                        required property string modelData
+                        textFormat: Text.PlainText
+                        text: "• " + modelData
+                        wrapMode: Text.Wrap
+                        Layout.fillWidth: true
+                    }
+                }
+            }
             Label { textFormat: Text.PlainText; text: root.update.status; wrapMode: Text.Wrap; Layout.fillWidth: true }
             Label { textFormat: Text.PlainText; text: root.update.error; color: "#ffb35a"; visible: text.length > 0; wrapMode: Text.Wrap; Layout.fillWidth: true }
             ProgressBar { visible: root.update.busy; indeterminate: root.update.operation !== "download"; value: root.update.progress / 100; Layout.fillWidth: true }

@@ -17,6 +17,7 @@ from sic_xrt_analyzer.application_updates import (
     AppUpdateClient,
     normalize_origin,
     preferred_origin,
+    release_highlights,
 )
 from sic_xrt_analyzer.ui.bridge import FileBridge, TiffImageProvider
 
@@ -476,3 +477,14 @@ def test_failed_update_does_not_install_after_later_manual_download(
     u.download()
     spin(qt_app, lambda: not u.busy)
     assert u.path.read_bytes() == data and install_calls == [] and u.armed is None
+
+
+@pytest.mark.parametrize("notes, expected", [
+    ("시작 확인을 추가했습니다. 재시도를 개선했습니다.", ["시작 확인을 추가했습니다.", "재시도를 개선했습니다."]),
+    ("- 첫 변경\n• 두 번째\n3. 세 번째\n네 번째", ["첫 변경", "두 번째", "세 번째"]),
+    ("\n ", []),
+    ("한 가지 변경", ["한 가지 변경"]),
+    ("<b>일반 텍스트</b>", ["<b>일반 텍스트</b>"]),
+])
+def test_release_highlights_keeps_brief_plain_text_notes(notes, expected):
+    assert release_highlights(notes) == expected

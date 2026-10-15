@@ -48,7 +48,7 @@ import {
 type Page = { items: Json[]; total: number; offset: number; limit: number };
 const menu = [
   { to: "/admin", label: "운영 개요", icon: LayoutDashboard, end: true },
-  { to: "/admin/releases", label: "프로그램 버전", icon: Download },
+  { to: "/admin/releases", label: "버전 · 배포 이력", icon: Download },
   { to: "/admin/models", label: "모델 성능", icon: FlaskConical },
   { to: "/admin/projects", label: "수집 프로젝트", icon: Database },
   { to: "/admin/batches", label: "동기화 이력", icon: Activity },
@@ -408,6 +408,7 @@ function ManageReleases({ session }: { session: Session }) {
   const { data, error, loading } = useData<Release[]>("admin/releases", rev);
   const [selected, setSelected] = useState<Release>();
   const [historyId, setHistoryId] = useState<string>();
+  const historyRelease = data?.find(r => r.id === historyId);
   const [reason, setReason] = useState("");
   const [channel, setChannel] = useState("BETA");
   const [status, setStatus] = useState("PUBLISHED");
@@ -417,7 +418,7 @@ function ManageReleases({ session }: { session: Session }) {
     <>
       <Heading
         eyebrow="APPLICATION RELEASES"
-        title="프로그램 버전 관리"
+        title="버전 · 배포 · 검증 이력"
         action={<Reload onClick={() => setRev((v) => v + 1)} />}
       >
         설치 파일의 공개·철회 상태를 관리합니다. 모델 릴리스는 별도 운영
@@ -487,7 +488,7 @@ function ManageReleases({ session }: { session: Session }) {
                       >
                         상태 변경
                       </button>
-                      <button onClick={() => setHistoryId(r.id)}>이력</button>
+                      <button onClick={() => setHistoryId(r.id)}>배포·검증 이력</button>
                     </div>
                   </td>
                 </tr>
@@ -500,9 +501,9 @@ function ManageReleases({ session }: { session: Session }) {
           로컬 빌드·무결성 검사·등록 완료 후 관리할 수 있습니다.
         </Empty>
       )}
-      {historyId && (
+      {historyRelease && (
         <ReleaseHistory
-          id={historyId}
+          release={historyRelease}
           onClose={() => setHistoryId(undefined)}
         />
       )}{" "}
@@ -597,26 +598,46 @@ function ManageReleases({ session }: { session: Session }) {
     </>
   );
 }
-function ReleaseHistory({ id, onClose }: { id: string; onClose: () => void }) {
-  const { data, error, loading } = useData<Json[]>(
-    `admin/releases/${id}/history`,
+export function ReleaseHistory({ release, onClose }: { release: Release; onClose: () => void }) {
+  const { data, error, loading } = useData<ReleaseEvent[]>(
+    `admin/releases/${release.id}/history`,
   );
+  const m = release.manifest;
   return (
-    <section className="panel">
+    <section className="panel release-history" aria-labelledby="release-history-title">
       <div className="panel-title">
-        <h2>릴리스 변경 이력</h2>
+        <h2 id="release-history-title">v{m.version} 배포·검증 이력</h2>
         <button onClick={onClose}>닫기</button>
       </div>
-      {loading ? (
-        <Loading />
-      ) : error ? (
-        <ErrorBox error={error} />
-      ) : (
-        <JsonDetails value={data} label="revision·실행자·변경 근거 확인" />
-      )}
+      <h3>등록 파일과 검증 정보</h3>
+      <dl className="release-evidence">
+        <dt>설치 파일</dt><dd>{m.filename} · {size(m.size)}</dd>
+        <dt>설치 SHA-256</dt><dd><code>{m.sha256}</code></dd>
+        <dt>대응 소스</dt><dd>{m.source_archive.filename} · {size(m.source_archive.size)}</dd>
+        <dt>소스 SHA-256</dt><dd><code>{m.source_archive.sha256}</code></dd>
+        <dt>소스 리비전</dt><dd><code>{m.source_revision}</code></dd>
+        <dt>배포 승인</dt><dd>{m.distribution_clearance.status} · {m.distribution_clearance.reference}</dd>
+        <dt>코드 서명</dt><dd>{m.signature}</dd>
+        <dt>게시 시 검사</dt><dd>서버가 설치 파일·대응 소스의 SHA-256을 대조합니다. 기능 검증은 아래 변경 근거를 확인하세요.</dd>
+      </dl>
+      <details><summary>전체 변경 내용</summary><p className="release-full-notes">{m.notes}</p></details>
+      <h3>상태 변경과 검증 근거</h3>
+      {loading ? <Loading /> : error ? <ErrorBox error={error} /> : data?.length ? <div className="release-events"><table>
+        <thead><tr><th>순서 · 일시</th><th>상태 · 채널</th><th>실행자</th><th>변경·검증 근거</th></tr></thead>
+        <tbody>{data.map(event => <tr key={event.id}>
+          <td>#{event.revision}<small>{date(event.created_at)}</small></td>
+          <td>{event.state.status}<small>{event.state.channel}</small></td>
+          <td>{event.actor}</td><td>{event.state.reason}</td>
+        </tr>)}</tbody>
+      </table></div> : <Empty title="상태 변경 기록이 없습니다" />}
+      <JsonDetails value={{ manifest: m, events: data }} label="원본 기록 보기" />
     </section>
   );
 }
+type ReleaseEvent = {
+  id: string; revision: number; created_at: number; actor: string;
+  state: { status: string; channel: string; reason: string };
+};
 function Models() {
   const [rev, setRev] = useState(0);
   const { data, error, loading } = useData<Json[]>(
