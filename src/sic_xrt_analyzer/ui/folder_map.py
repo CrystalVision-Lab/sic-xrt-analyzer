@@ -21,6 +21,15 @@ class FolderMap(QObject):
     def __init__(self, bridge):
         super().__init__(bridge)
         self.bridge = bridge
+        self.detail_reader = LatestReader(self)
+        self.detail_reader.ready.connect(self._detail_ready)
+        from sic_xrt_analyzer.wafer_map.native_view import NativeViewport
+
+        self.native = NativeViewport()
+        self.detail_serial = 0
+        self.detail_revision = 0
+        self.detail_error = ""
+        self.detail_rect = [0, 0, 1, 1]
         self.reader = LatestReader(self)
         self.reader.ready.connect(self._ready)
         self.epoch = 0
@@ -47,6 +56,9 @@ class FolderMap(QObject):
     @Slot(str)
     def open(self, folder):
         self.epoch += 1
+        self.detail_serial += 1
+        self.detail_revision = 0
+        self.detail_reader.invalidate()
         epoch = self.epoch
         path = local_path(folder)
         self.path = str(path)
@@ -172,6 +184,9 @@ class FolderMap(QObject):
         if not 0 <= index < len(self.groups):
             return
         self.epoch += 1
+        self.detail_serial += 1
+        self.detail_revision = 0
+        self.detail_reader.invalidate()
         epoch = self.epoch
         self.reader.invalidate()
         self.active_group = index
@@ -203,6 +218,7 @@ class FolderMap(QObject):
                 if epoch != self.epoch:
                     raise InterruptedError("사진 맞춤 취소")
                 file = Path(row["path"])
+                display_range = [0, 255]
                 try:
                     if file.suffix.lower() in (".tif", ".tiff"):
                         source = OriginalImageSource(file)
@@ -214,6 +230,7 @@ class FolderMap(QObject):
                             a = a[::step, ::step]
                         if a.dtype != np.uint8:
                             lo, hi = np.percentile(a, [1, 99])
+                            display_range = [float(lo), float(hi)]
                             a = np.clip(
                                 (a.astype(np.float32) - lo) * 255 / max(hi - lo, 1),
                                 0,
@@ -235,6 +252,7 @@ class FolderMap(QObject):
                     valid.append(
                         {
                             **row,
+                            "display_range": display_range,
                             "preview_width": a.shape[1],
                             "preview_height": a.shape[0],
                         }
@@ -300,6 +318,54 @@ class FolderMap(QObject):
         self.error = " · ".join((self.scan_errors + errors)[:3])
         self.changed.emit()
 
+    @Slot(float, float, float, float, float)
+    def requestDetail(self, x, y, width, height, density):
+        if (
+            self.busy
+            or not self.transforms
+            or width <= 0
+            or height <= 0
+            or density <= 0
+        ):
+            return
+        import math
+
+        if not all(math.isfinite(v) for v in (x, y, width, height, density)):
+            return
+        self.detail_error = ""
+        self.detail_serial += 1
+        serial, epoch = self.detail_serial, self.epoch
+        rect = [x, y, width, height]
+        rows, transforms = list(self.current_rows), dict(self.transforms)
+
+        def render():
+            a, _ = self.native.render(
+                epoch,
+                rows,
+                transforms,
+                rect,
+                density,
+                lambda: serial != self.detail_serial,
+            )
+            image = QImage(
+                a.data, a.shape[1], a.shape[0], a.strides[0], QImage.Format_RGBA8888
+            ).copy()
+            return serial, epoch, rect, image
+
+        self.detail_reader.submit(render)
+
+    def _detail_ready(self, value, error):
+        if error:
+            self.detail_error = error
+            self.changed.emit()
+            return
+        if not value or value[:2] != (self.detail_serial, self.epoch):
+            return
+        _, _, self.detail_rect, image = value
+        self.bridge.provider.folder_images["detail"] = image
+        self.detail_revision += 1
+        self.changed.emit()
+
     @Slot(float, float)
     def openAt(self, x, y):
         for row in reversed(self.current_rows):
@@ -329,6 +395,9 @@ class FolderMap(QObject):
             "error": self.error,
             "path": self.path,
             "revision": self.revision,
+            "detailError": self.detail_error,
+            "detailRevision": self.detail_revision,
+            "detailRect": self.detail_rect,
             "radius": 1,
             "size": self.size,
             "ready": "mosaic" in self.bridge.provider.folder_images,
@@ -340,4 +409,7 @@ class FolderMap(QObject):
 
     def shutdown(self):
         self.epoch += 1
+        self.detail_serial += 1
+        self.detail_reader.shutdown()
+        self.native.close()
         self.reader.shutdown()
