@@ -20,11 +20,23 @@ SurfaceDialog {
   AppButton {theme:root.theme;text:root.state.busy?"전송 중…":"전송 내용 확인 / 실패 재시도";enabled:!root.state.busy&&root.state.pending>0;onClicked:{if(fileBridge.reports.prepareSend())preview.open()}}
  }
  SurfaceDialog {
-  id:preview;parent:Overlay.overlay;title:"서버로 전송할 내용";modal:true;width:480;x:(parent.width-width)/2;y:(parent.height-height)/2;standardButtons:Dialog.NoButton
-  ColumnLayout {width:parent.width;spacing:14
+  id:preview;parent:Overlay.overlay;title:"서버로 전송할 내용";modal:true;width:520;height:Math.min(650,parent.height-48);x:(parent.width-width)/2;y:(parent.height-height)/2;standardButtons:Dialog.NoButton
+  ColumnLayout {anchors.fill:parent;spacing:14
    Text {text:"서버: "+root.state.previewEndpoint;color:root.theme.text;wrapMode:Text.Wrap;Layout.fillWidth:true}
    Text {text:"신고 "+root.state.previewCount+"건 / 후보 "+root.state.previewCandidates+"개 / 첨부 이미지 "+root.state.previewCrops+"장\n사유: "+root.state.previewReasons.join(", ");color:root.theme.text;wrapMode:Text.Wrap;Layout.fillWidth:true}
    Text {text:"메모, 원본 해시·좌표, 모델 버전과 선택한 이미지가 전송됩니다. 신고는 정답으로 자동 승인되지 않습니다.";color:root.theme.muted;wrapMode:Text.Wrap;Layout.fillWidth:true}
+   ScrollView {Layout.fillWidth:true;Layout.fillHeight:true;clip:true
+    ColumnLayout {width:parent.width;spacing:12
+     Repeater {model:root.state.previewRows
+      ColumnLayout {required property var modelData;Layout.fillWidth:true
+       Text {text:modelData.reason+" · "+modelData.candidates.length+"개 · "+modelData.correction;color:root.theme.text;wrapMode:Text.Wrap;Layout.fillWidth:true}
+       Text {text:"메모: "+(modelData.comment||"없음")+"\n좌표: "+modelData.candidates.map(function(p){return p.id+" ("+p.x+", "+p.y+")"}).join(" / ")+"\nROI: "+JSON.stringify(modelData.roi);color:root.theme.muted;wrapMode:Text.Wrap;Layout.fillWidth:true}
+       RowLayout {Repeater {model:modelData.crops;Image {required property var modelData;source:"data:image/png;base64,"+modelData.png;Layout.preferredWidth:120;Layout.preferredHeight:120;fillMode:Image.PreserveAspectFit}}}
+       Rectangle {height:1;Layout.fillWidth:true;color:root.theme.border}
+      }
+     }
+    }
+   }
    RowLayout {Layout.alignment:Qt.AlignRight
     AppButton {theme:root.theme;text:"취소";onClicked:preview.close()}
     AppButton {theme:root.theme;text:"이 내용 전송";primary:true;onClicked:{fileBridge.reports.sendPrepared();preview.close()}}

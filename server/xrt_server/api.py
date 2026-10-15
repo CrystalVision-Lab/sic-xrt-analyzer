@@ -1,4 +1,5 @@
 import os
+import sqlite3
 from collections import Counter
 from typing import Annotated
 from uuid import uuid4
@@ -93,6 +94,7 @@ def create_app(url=None, asset_dir=None):
         return JSONResponse({"detail": "INVALID_SYNC_DATA"}, status_code=422)
 
     @app.exception_handler(SQLAlchemyError)
+    @app.exception_handler(sqlite3.Error)
     @app.exception_handler(OSError)
     def unavailable(request, exc):
         record("STORAGE_FAILURE", getattr(request.state, "actor", None))
@@ -124,13 +126,16 @@ def create_app(url=None, asset_dir=None):
     @app.post("/api/v1/reports")
     def report(request: Request, pair: Annotated[tuple, Depends(identity)]):
         from .reports import store_report
+
         try:
-            receipt=store_report(app.state.asset_dir,pair[0].id,pair[1].id,request.scope["xrt_body"])
+            receipt = store_report(
+                app.state.asset_dir, pair[0].id, pair[1].id, request.scope["xrt_body"]
+            )
         except ValueError as exc:
-            if str(exc)=="REPORT_ID_CONFLICT":
-                raise HTTPException(409,"REPORT_ID_CONFLICT") from None
+            if str(exc) == "REPORT_ID_CONFLICT":
+                raise HTTPException(409, "REPORT_ID_CONFLICT") from None
             raise
-        record("CORRECTION_RECEIVED",pair[0].id)
+        record("CORRECTION_RECEIVED", pair[0].id)
         return receipt
 
     @app.post("/api/v1/sync/batches")
@@ -367,9 +372,11 @@ def create_app(url=None, asset_dir=None):
 
     register_dataset_routes(app, sessions, admin)
     from .model_api import register_model_routes
+
     register_model_routes(app, sessions, identity, admin)
 
     from .portal_reads import register_portal_reads
+
     register_portal_reads(app, sessions, admin)
 
     return app
