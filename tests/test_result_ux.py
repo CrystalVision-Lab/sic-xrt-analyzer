@@ -66,7 +66,7 @@ def test_summary_filter_navigation_and_overlay_share_state(workbench, kind, tota
     w = workbench
     r = analyzed(w)
     original = w.bridge.pipeline.result
-    assert w.item('resultTotal').property('text') == '검출 후보 2,946'
+    assert w.item('resultTotal').property('text') == '2,946'
     assert r.state['counts'] == {'BPD': 245, 'TED': 1398, 'TSD': 1303}
     for name, color in [('BPD', '#ffad42'), ('TED', '#50e0ee'), ('TSD', '#ff78c4')]:
         assert evaluate(w, f'resultPresentation.colorFor("{name}")') == color
@@ -171,7 +171,7 @@ def test_detail_raw_score_export_and_research_controls_preserved(workbench, tmp_
     before = Path(r.state['exportPath'])
     snapshot = {p.name: p.read_bytes() for p in before.iterdir() if p.is_file()}
     w.click('nextCandidate')
-    assert w.item('candidateConfidence').property('text') == '모델 점수 66.1% · 정답 확률 아님'
+    assert w.item('candidateConfidence').property('text') == '모델 점수 66.1%'
     w.click('candidateDetails')
     assert w.item('candidateDetailDialog').property('visible')
     assert w.item('rawScoreBPD').property('text') == 'BPD  66.1%   /   0.6605'
@@ -300,4 +300,39 @@ def test_assigned_class_is_not_recomputed_from_score_vector(workbench):
     w.click('nextCandidate')
     assert r.state['selected']['type'] == 'BPD'
     assert w.item('selectedCandidateHeader').property('text') == '#1 · BPD'
-    assert w.item('candidateConfidence').property('text') == '모델 점수 66.1% · 정답 확률 아님'
+    assert w.item('candidateConfidence').property('text') == '모델 점수 66.1%'
+
+
+def test_bpd_polygon_survives_frozen_metadata_to_qml(workbench):
+    class OutlineCandidates(DistributedCandidates):
+        def analyze_source(self, request, token):
+            output = super().analyze_source(request, token)
+            first = replace(output.detections[0], metadata={"bpd_region": [[70, 70], [90, 70], [90, 100], [70, 100]], "scores": [0.8, 0.1, 0.1]})
+            return replace(output, detections=(first,) + output.detections[1:])
+    w = workbench
+    analyzed(w, OutlineCandidates())
+    w.click('nextCandidate')
+    # Frozen Python tuples used to arrive as opaque objects with no JS length.
+    assert evaluate(w, 'research.selected.region.length') == 4
+    assert evaluate(w, 'research.selected.region[2][1]') == 100
+    assert not w.warnings
+
+
+def test_compact_results_keep_actions_visible_and_settings_separate(workbench):
+    w = workbench
+    r = analyzed(w)
+    w.window.resize(1100, 700)
+    r.selectCandidate(r.rows[0]['id'])
+    QTest.qWait(100)
+    for name in ('candidateList', 'nextCandidate', 'reportCandidate', 'analysisExportButton'):
+        control = w.item(name)
+        top = control.mapToScene(QPointF(0, 0))
+        bottom = control.mapToScene(QPointF(control.width(), control.height()))
+        assert control.property('visible')
+        assert top.y() >= 0 and bottom.y() <= w.window.height(), (name, top, bottom)
+    w.click('resultSettings')
+    dialog = w.item('resultSettingsDialog')
+    assert dialog.property('visible')
+    assert dialog.property('y') >= 0
+    assert dialog.property('y') + dialog.property('height') <= w.window.height()
+    invoke(dialog, 'close')
