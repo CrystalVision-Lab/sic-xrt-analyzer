@@ -27,7 +27,7 @@ ColumnLayout {
         target: fileBridge.research
         function onChanged() { Qt.callLater(function() { if (root.results.selectedIndex >= 0) candidates.positionViewAtIndex(root.visibleRows.findIndex(function(p){return p.id===root.selected.id}), ListView.Contain) }) }
     }
-    Text { objectName: "resultOrigin"; visible: results.savedActive; text: "저장된 분석"; color: theme.muted; font.pixelSize: theme.smallSize }
+    Text { objectName: "resultOrigin"; visible: results.savedActive; text: "저장된 이력"; color: theme.muted; font.pixelSize: theme.smallSize }
     RowLayout {
         Layout.fillWidth: true
         ColumnLayout {
