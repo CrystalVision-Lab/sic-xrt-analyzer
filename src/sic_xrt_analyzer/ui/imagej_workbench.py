@@ -72,10 +72,10 @@ class ImageJWorkbench(QObject):
         return self.windows
 
     def require_stack(self):
+        """Legacy helper name: validate the TIFF workbench, including single pages."""
         frame = self.frame()
-        working_stack = self.bridge._stack_context and frame.source.path == self.bridge._working_path
-        if frame.source.metadata.format != 'TIFF' or (frame.source.metadata.page_count < 2 and not working_stack):
-            raise ValueError('이 기능은 여러 페이지가 있는 XRT TIFF 스택에서 사용하세요')
+        if frame.source.metadata.format != 'TIFF':
+            raise ValueError('이 기능은 TIFF 이미지에서 사용하세요')
         return frame
 
     @Slot(bool, str)
@@ -118,7 +118,7 @@ class ImageJWorkbench(QObject):
 
     def frame(self):
         frame = self.bridge.stack_viewer.frame
-        if frame is None or self.bridge.stack_viewer.initial_loading or self.busy:
+        if frame is None or self.bridge.stack_viewer.opening_request is not None or self.bridge.stack_viewer.busy or self.busy:
             raise ValueError('이미지 준비 및 현재 작업이 끝난 뒤 사용하세요')
         return frame
 
@@ -135,7 +135,7 @@ class ImageJWorkbench(QObject):
         try:
             return manager.selected_record(frame)
         except ValueError:
-            region = self.bridge.pipeline.current_roi
+            region = None if frame.source.metadata.format == 'TIFF' else self.bridge.pipeline.current_roi
             roi = (region.x, region.y, region.width, region.height) if region else None
             if roi:
                 x, y, w, h = roi
@@ -153,6 +153,11 @@ class ImageJWorkbench(QObject):
     def execute(self, kind, content, options, whole_stack=False):
         try:
             frame = self.require_stack()
+            if whole_stack:
+                if frame.source.metadata.page_count < 2 or self.bridge.stack_viewer.initial_loading:
+                    raise ValueError('전체 TIFF 페이지 준비 후 스택 처리를 실행하세요')
+                if kind == 'modern' and frame.source.metadata.width * frame.source.metadata.height * frame.source.metadata.page_count * frame.source.metadata.channels * frame.source.metadata.bit_depth // 8 > 512 * 1024 * 1024:
+                    raise ValueError('Fiji 전체 스택 복사 제한은 512 MiB입니다. 현재 페이지 처리를 선택하세요')
             record = self.selected(frame)
             kwargs = {kind: content, 'options': options, 'record': record, 'whole_stack': whole_stack}
             if kind not in ('command', 'macro', 'plugin', 'modern'):

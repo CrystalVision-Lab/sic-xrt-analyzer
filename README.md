@@ -1,5 +1,10 @@
 # sic-xrt-analyzer
 
+## Windows 설치·다운로드 사이트·관리자 포털
+
+현재 PC 배포 사이트: `http://127.0.0.1:18770`. React/TypeScript/Tailwind 다운로드·버전 이력과 관리자 연구 자료 조회를 제공합니다. 설치 프로그램은 GPLv3로 동작을 검증하고 동일 버전 앱·빌드 소스를 함께 제공합니다. [실행·배포·백업·검증 보고서](docs/deploy/XRT-DEPLOY-TD-01.md)를 참고하세요.
+
+
 SiC XRT 이미지를 탐색하는 PySide6/QML 데스크톱 앱입니다. 산업용 Dark Gray 화면, 사전 준비된 정밀 TIFF 스택·JPG 뷰어, ImageJ 도구·ROI 편집과 앱 내부 ImageJ 매크로·Java 플러그인 실행 창을 제공합니다. **고정 연구 모델의 BPD·TED·TSD 후보 분류가 분석 버튼에 연결되어 있습니다.** [모델 연결·결과 저장 안내](docs/desktop-inference.md). 3D 재구성은 별도 개발 범위입니다.
 
 ## 실행 (Windows PowerShell)
@@ -7,7 +12,7 @@ SiC XRT 이미지를 탐색하는 PySide6/QML 데스크톱 앱입니다. 산업�
 Python 3.11 이상과 ImageJ 실행용 Java 17 이상이 필요합니다. Fiji/ImageJ2는 **Java 21 이상**이 필요합니다. Java가 PATH에 있어야 합니다. 저장소 폴더에서 실행합니다.
 
 ```powershell
-cd C:\Users\PC-1\capstone\sic-xrt-analyzer
+cd D:\capstone\sic-xrt-analyzer
 python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -e ".[dev,viewer,imagej,research]"
 .\.venv\Scripts\python.exe tools/setup_imagej.py
@@ -20,11 +25,21 @@ python -m venv .venv
 .\.venv\Scripts\python.exe -m sic_xrt_analyzer
 ```
 
+## 분석 프로젝트 저장과 이력 관리
+
+**파일 → 새 분석 프로젝트 / 프로젝트 열기 / 최근 프로젝트**에서 작업을 관리합니다. 분석 후 **프로젝트 저장 (`Ctrl+Alt+S`)**으로 여러 2D JPG·단일 페이지 TIFF 원본과 여러 분석 실행을 하나의 `.json` 프로젝트에 보관합니다. 기존 `Ctrl+S`는 이미지 작업 복사본 저장입니다.
+
+왼쪽 **프로젝트 · 이미지와 이력…**에서 원본·열처리 전후 역할·Run을 선택합니다. 저장된 후보·점수·원본 Crop·Overlay는 모델을 재실행하지 않고 표시합니다. 원본이 없으면 결과 메타데이터를 보여주고, **원본 다시 연결…**은 미리 검증된 SHA가 같은 파일만 허용합니다. SHA 확인에는 진행 표시와 취소가 있습니다.
+
+원본 JPG/TIFF와 모델은 프로젝트에 복사하지 않습니다. 실험 근거를 추가하면 검증된 Geometry/Mask 번들을 프로젝트 옆 `assets/`에 보관하므로 `.json`과 해당 자산 폴더를 함께 옮겨야 합니다. 실제 페이지가 1장인 TIFF는 2D 분석·검수에 사용하며, multi-page TIFF는 스택·3D 탐색용으로 등록합니다. 모델의 비트 깊이·채널 입력 계약은 그대로 적용합니다. 다른 위치 저장은 같은 프로젝트의 복사본입니다. 별개의 새 프로젝트가 필요하면 새 분석 프로젝트를 생성하세요.
+
+[저장 계약·실제 원본 검증·스크린샷·남은 제약](docs/result/XRT-RESULT-TD-04-PROJECT-WORKSPACE.md).
+
 ## ImageJ 작업창과 선명한 확대 표시
 
 큰 이미지의 원본·표시 계층을 처음에 준비하여 확대·축소·스택 드래그 때 저해상도 화면으로 돌아가는 동작을 제거했습니다. 사진의 ImageJ 도구와 익숙한 메뉴 순서, 측정·히스토그램·선 프로파일, 필터·LUT, IJM 매크로 및 Java `PlugIn`/`PlugInFilter` 실행을 제공합니다. 처리 결과는 원본을 보존한 작업 복사본으로 내부 뷰어에 표시합니다. `Ctrl+S`로 새 이미지 파일 복사본을 저장하고 파일 메뉴에서 측정 결과 TSV를 저장합니다.
 
-**고급 도구는 여러 페이지가 있는 TIFF 스택에서만 표시합니다.** JPG·단일 TIFF·데모에서는 처리/플러그인 메뉴와 드롭다운의 ImageJ 전용 항목을 숨기고 측정 버튼을 비활성화합니다. 스택에서 만든 작업 복사본에는 도구를 유지하고, 별도 2D 파일을 열면 다시 숨깁니다. 파일명이나 ImageJ frames를 근거로 물리 공간 Z를 추측하지 않습니다.
+**JPG와 단일 페이지 TIFF는 2D 분석을 준비할 수 있고, 여러 페이지 TIFF는 스택·3D 탐색용입니다.** Reader가 실제 형식과 페이지 수를 판별합니다. TIFF의 ImageJ 도구를 유지하며, 여러 페이지 스택에서는 분석하기 버튼과 분석 ROI를 숨기고 사각형·타원·다각형·자유 영역·선·점·완드 아이콘을 제공합니다. 단일 TIFF도 기본 선택·측정·현재 페이지 ImageJ 처리를 지원하며 다중 페이지 스택 작업은 전체 준비 후 별도로 실행합니다. [TD-09 기능 매핑·화면·검증·제약](docs/result/XRT-RESULT-TD-09-TIFF-IMAGEJ-UX.md). JPG의 분석·결과·검수·프로젝트·모델 관리 흐름은 유지합니다. ImageJ frames를 물리 Z로 추측하지 않습니다.
 
 스택을 연 뒤 **측정**에서 기준선의 픽셀 거리·실제 거리·단위를 설정하고 길이·면적·점 개수·각도를 측정합니다. 결과를 Excel에 붙여 넣거나 새 TSV로 저장할 수 있습니다. **플러그인 → Java 플러그인 등록 / 실행**에서 `플러그인 설정창 사용 (AWT/Swing)`을 켜면 해당 Java 창을 앱 내부에 연결합니다. Windows와 Linux X11/XWayland에서 지원합니다.
 
@@ -38,7 +53,7 @@ Fiji/ImageJ2는 다음 명령으로 Java 라이브러리를 설치하고, 작업
 
 선택한 ROI를 Fiji Overlay로 전달하여 선택 영역을 사용하는 명령을 실행합니다. 사각형·타원·다각형·자유영역·선·점을 원본 좌표로 연결하며, Dataset만 처리하는 명령은 ROI를 무시할 수 있습니다. 실제 3D XRT TIFF 4개에서 첫·중간·마지막 페이지, 밝기·대비, 연속 탐색, 확대·이동, Fiji ROI 처리와 재열기·캐시 정리를 확인했습니다. [시간·메모리·제약과 검증 재현](docs/stack-validation.md).
 
-**현재 RC 판정: FAIL / NOT RC READY.** 실제 TIFF 4개와 RGB 모델 분석을 검증했지만 Windows 파일 선택창 반복 열기·취소에서 접근 위반 종료가 재현됐습니다. [TD-09 검증 결과·재현·제약](docs/ux/XRT-UX-TD-09-RC-VALIDATION.md). 신규 검사 3개를 포함한 회귀 검사 수는 **261개**, Windows AWT/Swing/ImageJ 창 검사 **4개**, 총 **265개**입니다. 최종 HEAD의 검사·CI 완료 결과는 TD-09 PR에 기록합니다. [TD-08 시각 위계](docs/ux/XRT-UX-TD-08-VISUAL-DENSITY.md) · [TD-07 로딩 검증](docs/ux/XRT-UX-TD-07-TIFF-LOADING.md). 아래 이전 단계의 테스트 수는 당시 기록입니다.
+**XRT-UX-TD-09 당시 RC 판정: FAIL / NOT RC READY.** 실제 TIFF 4개와 RGB 모델 분석을 검증했지만 Windows 파일 선택창 반복 열기·취소에서 접근 위반 종료가 재현됐습니다. [TD-09 검증 결과·재현·제약](docs/ux/XRT-UX-TD-09-RC-VALIDATION.md). 신규 검사 3개를 포함한 회귀 검사 수는 **261개**, Windows AWT/Swing/ImageJ 창 검사 **4개**, 총 **265개**입니다. 최종 HEAD의 검사·CI 완료 결과는 TD-09 PR에 기록합니다. [TD-08 시각 위계](docs/ux/XRT-UX-TD-08-VISUAL-DENSITY.md) · [TD-07 로딩 검증](docs/ux/XRT-UX-TD-07-TIFF-LOADING.md). 아래 이전 단계의 테스트 수는 당시 기록입니다.
 
 ## 화면과 조작
 
@@ -52,21 +67,21 @@ Context 제목 15px, 본문 13px, 보조 12px, 기술 정보 11px로 통일했�
 
 화면을 **전체 명령 메뉴 · 뷰어 조작 Toolbar · 작업/파일 탐색 · 중앙 이미지 · 우측 작업 Context · 하단 상태**의 6개 영역으로 분리했습니다. 왼쪽의 현재 이미지로 이미지 작업 영역에 복귀하고, 오른쪽 분석 Context에서 공유 실행/취소 Action을 사용합니다. 5개 Context는 아래 TD-03의 작업 선택 메뉴로 접근합니다. [컴포넌트 구조·기능 중복 Inventory·후속 TD](docs/ux/XRT-UX-TD-01-IA.md).
 
-### Toolbar 단순화 (XRT-UX-TD-02)
+### Toolbar 단순화 (XRT-UX-TD-02 당시 기록)
 
-상단은 **열기 | Pan · Zoom · 화면 맞춤 | ROI ▾ · 측정 ▾ | ⋯** 7개 버튼으로 구성합니다. ROI 메뉴에서 분석 영역(`R`) 또는 스택의 사각형·타원·다각형·자유영역·점·완드를 선택합니다. 측정 메뉴에는 선·각도·점·텍스트·화살표와 측정/보정 창이 있습니다. 선택한 도구는 기존 Accent와 이름·아이콘으로 표시하며 메뉴를 닫은 뒤 이미지에서 바로 사용합니다. `H`로 Pan, Zoom 도구에서 클릭으로 확대·Alt+클릭으로 축소합니다.
+상단 왼쪽은 **열기 | Pan · Zoom · 화면 맞춤 | ROI ▾ · 측정 ▾ | ⋯**, 오른쪽은 **패널 ▾ · 분석하기**로 구성합니다. ROI 메뉴에서 분석 영역(`R`) 또는 스택의 사각형·타원·다각형·자유영역·점·완드를 선택합니다. 측정 메뉴에는 선·각도·점·텍스트·화살표와 측정/보정 창이 있습니다. 선택한 도구는 기존 Accent와 이름·아이콘으로 표시하며 메뉴를 닫은 뒤 이미지에서 바로 사용합니다. `H`로 Pan, Zoom 도구에서 클릭으로 확대·Alt+클릭으로 축소합니다.
 
 저장(`Ctrl+S`)·추가 배율·ROI 편집, 스택 페이지/투영/복제/반전, LUT, 그리기·색 추출, ImageJ 명령·매크로·Java 플러그인·Fiji는 **⋯**에서 사용합니다. 분석 실행/취소는 오른쪽 **분석 Context**과 **분석 메뉴**에서 같은 Action으로 실행합니다. [구성·진입점·검증·제약](docs/ux/XRT-UX-TD-02-TOOLBAR.md) · [1100×700 화면](docs/screenshots/toolbar-td02/stack-1100.png).
 
 ### 작업 Context (XRT-UX-TD-03)
 
-오른쪽 상단의 **현재 작업 ▾**에서 이미지 정보·분석·결과·뷰어/스택·ROI 관리를 선택합니다. 새 파일은 이미지 정보부터 보여주며 **⋯ → 뷰어·스택 표시 설정** 또는 선택 메뉴에서 페이지·밝기/대비에 접근합니다. 분석 설정은 스크롤하고 실행·취소·상태는 하단에서 확인합니다. 정상 완료는 후보 0개도 결과로, 실패/취소는 분석으로 연결됩니다. 후보를 명시적으로 선택하면 기존 상세·Focus를 유지합니다.
+상단 **패널 ▾**에서 이미지 정보·분석·결과·뷰어/스택·ROI 관리를 선택합니다. 왼쪽 **이미지 뷰어**는 JPG/JPEG와 TIFF의 공통 작업 영역입니다. 둘 다 기본 우측 패널을 접어 넓게 표시하며, TIFF의 페이지·밝기/대비는 **패널 ▾ → 뷰어·스택**에서 엽니다. TIFF 전체 준비는 이미지 위 중앙에 회전 표시·페이지 진행률·취소 버튼으로 보여주고 준비 완료 시 사라집니다. 확장자 대소문자와 관계없이 디코더가 확인한 실제 형식을 사용합니다. **패널 ▾** 또는 **⋯ → 뷰어·스택 표시 설정**에서 수동으로 변경할 수 있습니다. [파일별 화면 전환](docs/ux/FILE-CONTEXT-ROUTING.md). 분석 설정은 스크롤하고 실행·취소·상태는 하단에서 확인합니다. 정상 완료는 후보 0개도 결과로, 실패/취소는 분석으로 연결됩니다. 후보를 명시적으로 선택하면 기존 상세·Focus를 유지합니다.
 
 Pan·Zoom·ROI 도구 선택·페이지 이동·hover·로딩 진행은 현재 Context를 바꾸지 않습니다. ROI 관리자·가져오기·편집을 요청하면 ROI 관리로 이동하고 분석 영역과 ImageJ 도형을 별도로 표시합니다. 방향키/Enter/Escape로 작업 선택 메뉴를 조작하며 닫은 후 Viewer 포커스를 복구합니다. [전환 규칙·상태·검증·제약](docs/ux/XRT-UX-TD-03-CONTEXT.md) · [Context 선택 화면](docs/screenshots/context-td03/switcher-1100.png).
 
 ### 단일 화면 분석 (XRT-UX-TD-04)
 
-이미지 정보의 **이 이미지 분석**은 분석 준비 화면으로 이동합니다. 모델 준비 여부·분석 범위·원본 입력·실행 가능 이유를 한 화면에서 확인합니다. 기본 범위는 **전체 이미지**이며 모델이 지원하면 **분석 실행 한 번**으로 시작합니다. 지정 영역을 선택하면 **영역 지정 (R)**을 누르고 이미지에서 드래그합니다. 분석 Context를 유지하며 영역 상태가 즉시 갱신됩니다.
+상단 우측 **분석하기**는 분석 준비 화면으로 이동합니다. JPG/JPEG와 TIFF 모두 기본 오른쪽 패널을 접어 Viewer를 넓게 표시합니다. **패널 ▾**에서 이미지 정보·뷰어/스택·ROI·결과를 열고, 패널의 **×** 버튼으로 다시 넓게 볼 수 있습니다. 모델 준비 여부·분석 범위·원본 입력·실행 가능 이유를 한 화면에서 확인합니다. 기본 범위는 **전체 이미지**이며 모델이 지원하면 **분석 실행 한 번**으로 시작합니다. 지정 영역을 선택하면 **영역 지정 (R)**을 누르고 이미지에서 드래그합니다. 분석 Context를 유지하며 영역 상태가 즉시 갱신됩니다.
 
 후보 방식·좌표 CSV는 **고급 설정**, 모델 hash/폴더/device와 입력 경로는 **상세 정보**에서 확인합니다. 실행 중 모델·범위·분석 영역 설정은 잠기고 Pan/Zoom은 계속 사용할 수 있습니다. 취소·실패 후 설정을 유지하고 **다시 분석**합니다. 완료하면 후보 0개도 결과 Context로 연결됩니다. ImageJ ROI 기록은 자동 분석 범위가 아닙니다. [실제 준비 조건·클릭 수·검증·제약](docs/ux/XRT-UX-TD-04-ANALYSIS-FLOW.md) · [1100×700 준비 화면](docs/screenshots/analysis-td04/ready-1100.png).
 
@@ -240,3 +255,72 @@ Windows 전체 293개 검사 × 3회, native plugin4개, native Open100/Save100/
 ## 후보 검수 이력
 
 결과의 **선택 후보 검수하기** 또는 현재 작업 메뉴의 **검수**에서 결함 유무·종류·원본 위치를 확인하거나 수정하고, 누락·중복·보류·되돌리기를 기록합니다. 기존 예측과 원본은 보존하며 클릭이 학습이나 모델 변경을 실행하지 않습니다. [저장·복원·내보내기 계약](docs/review-feedback.md).
+
+
+## 분석 프로젝트 도메인·로컬 저장 기반 (RESULT-TD-01)
+
+`results/` Python 서비스는 기존 AnalysisResult를 후보·모델 예측·결함 객체·검수 이력으로 구분하고, 버전이 있는 프로젝트 JSON을 원자적으로 저장·재불러옵니다. 후보를 실제 결함으로 자동 확정하지 않으며 기존 JSON/CSV Export와 별도 계약입니다. 프로젝트 저장 UI와 서버 동기화는 후속 단계입니다. [설계·API·실행 방법](docs/result/XRT-RESULT-TD-01-DOMAIN.md), [검증 결과와 제약](docs/result/XRT-RESULT-TD-01-RESULT.md).
+
+
+## BPD 선형·분기 구조 실험 (RESULT-TD-02)
+
+원본 ROI에서 국소 대비/Sato/Frangi를 비교하고 중심선·분기 Graph·영역 mask와 기존 BPD 후보 연결을 별도 실험 bundle로 저장합니다. 명시적 CLI만 제공하며 기본 분석은 기존 모델을 사용합니다. 새 구조는 미분류 RULE_BASED 제안이고 실제 정확도는 정답 데이터가 없어 PRELIMINARY입니다. [실행 방법·비교 결과·보존 검사·제약](docs/result/XRT-RESULT-TD-02-BPD-DETECTION.md).
+
+
+## 결함 중심 결과 탐색 (RESULT-TD-03)
+
+결과 화면은 **분류 후보 수**와 BPD/TED/TSD 분포를 요약하고 선택 후보의 원본 Crop을 보여줍니다. 목록 필터와 ‘결과 표시…’의 클래스·구조·선택·ImageJ ROI 레이어는 독립입니다. 목록은 펼쳐 검색·페이지 이동할 수 있으며 기존 후보 검수와 전체 CSV/JSON 내보내기를 유지합니다.
+
+이미지를 연 뒤 결과 패널의 **실험 영역 불러오기…**에서 TD-02 출력 폴더를 선택하면 검증된 선형·분기 Graph·Mask를 원본 좌표에 표시합니다. 선이나 구조 목록을 선택하면 전체 형상으로 이동하고 원본 Crop·근거를 확인합니다. TIFF는 스택 탐색·향후 3D용으로 사용하며 이 GUI의 실험 결과 불러오기를 제공하지 않습니다. 원본 TIFF의 뷰어·ImageJ와 기존 RGB 모델의 uint16 입력 제한은 유지합니다. **자동 구조 제안은 실제 정확도 미검증이며 확정 결함이 아닙니다.** 프로젝트 전체 저장 UI와 구조 검수는 후속 단계입니다.
+
+[구현·실제 XRT 검증·DPI 계측·화면 캡처·제약](docs/result/XRT-RESULT-TD-03-RESULT-UX.md).
+
+
+## 프로젝트 연구원 검수 · 결함 영역 편집 (RESULT-TD-05)
+
+JPG 분석 결과 또는 저장된 Run에서 후보·구조를 선택하고 **프로젝트 검수**를 누릅니다. 첫 검수 전에 로컬 연구원 ID를 설정하고 원본 SHA를 검증합니다. 원본 모델 예측과 개인의 결함 존재·종류·영역 판정은 별도로 보존됩니다. **검수 기록**은 프로젝트 메모리에 추가하고, **프로젝트 디스크 저장**은 JSON에 저장합니다. **디스크 저장 → 다음**은 저장 성공 후에만 이동합니다.
+
+**영역 수정**에서 Point/Polyline/Polygon/Branch Graph의 제어점을 원본 좌표로 수정합니다. 점 이동·추가·삭제, Graph Edge 경로·연결 편집, Ctrl+Z/초안 복원/취소를 지원합니다. 저장하면 원본 도형과 별개인 HUMAN Geometry가 추가됩니다. **결함 추가**는 모델 후보·점수를 만들지 않는 수동 DefectInstance를 기록합니다. 자기 교차 Polygon·연결이 끊어진 Graph는 저장하지 않습니다. 원본 Mask는 유지하고 Polygon 보정을 사용합니다.
+
+검수 목록에서 미검수·완료·수정·결함 아님·보류·충돌을 구분하고 이력의 연구원·부모·revision을 확인합니다. 서로 다른 연구원의 판정은 마지막 기록으로 자동 덮어쓰지 않습니다. 검수는 학습 정답 승인·재학습·서버 전송을 실행하지 않습니다. Legacy 검수는 별도 출처로 유지합니다. TIFF는 스택·ImageJ용이며 이 검수·편집의 대상이 아닙니다.
+
+프로젝트 검수가 처음 추가될 때 Schema **1.1.0**을 사용합니다. **1.0.0** 파일의 읽기·저장 호환을 유지하며 구버전 상태에서 독립 판정을 추측하지 않습니다. 1.1.0은 이전 프로그램에서 지원되지 않습니다. [계약·검증·제약 보고서](docs/result/XRT-RESULT-TD-05-REVIEW-WORKSPACE.md).
+
+
+## 중앙 연구 서버와 명시적 동기화 (TD-06)
+
+프로젝트 작업 영역의 **중앙 서버**에서 저장된 분석·검수 기록을 인증된 localhost 서버로 전송할 수 있습니다. 자동 업로드는 OFF이며 API Credential은 OS Vault에 저장합니다. Crop은 검수한 JPG 원본 국소 영역을 별도 동의 후 lossless PNG로 전송합니다.
+
+- [Windows 서버 시작·중지·백업·별도 복원](docs/server/DEPLOYMENT.md)
+- [아키텍처와 버전 계약](docs/server/ARCHITECTURE.md)
+- [인증·데이터 보호 정책](docs/server/SECURITY.md)
+- [API 계약](docs/server/API.md)
+- [TD-06 검증 결과](docs/result/XRT-RESULT-TD-06-CENTRAL-SYNC.md)
+
+## Before/After JPG 정합·비교 (TD-10)
+
+기존 프로젝트에 JPG 두 장을 등록·저장한 뒤 왼쪽 **이미지 정합**에서 Before/After를 직접 선택합니다. SHA 확인 후 SIFT/ORB, 제한된 Phase/ECC 또는 수동 Landmark를 실행하고 나란히/겹침/분할/차이를 비교할 수 있습니다. 원본 좌표와 분석·검수 기록은 유지하며 정합 자산을 별도로 저장합니다. 실패를 Identity 성공으로 처리하지 않습니다. 로컬 검수 승인과 실제 과학적 정확도는 별개입니다. TIFF는 기존 Stack/ImageJ 용도이며 정합 Source 목록에서 제외됩니다.
+
+[구현·사용·검증·제약](docs/result/XRT-RESULT-TD-10-IMAGE-REGISTRATION.md)을 참고하세요.
+
+
+## Wafer Map — JPG 배치와 저장 결과 탐색 (RESULT-TD-11)
+
+프로젝트를 열고 왼쪽 **Wafer Map**에서 JPG를 선택한 뒤 **위치·회전·크기**로 배치하거나 드래그합니다. 이미지마다 하나의 완료 Run(Full/ROI)을 선택하고 BPD/TED/TSD·검수/HUMAN·실험 레이어를 탐색할 수 있습니다. 선택 대상을 원본 Viewer·결과·Before/After 비교로 열고, 편집자 ID와 함께 배치/Run/레이어를 저장·재열기·이력 복원합니다.
+
+실제 좌표 근거가 없는 현재 데이터는 **단위 없는 임시 상대 배치**이며 실제 Wafer ID는 미확정입니다. 물리 모드는 실제 WaferID·좌표계·단위·origin·축·독립 기준점/측정 근거를 직접 제공해야 합니다. 합성 기준점 검사 성공을 실제 Wafer 정확도 검증으로 해석하지 않습니다. Full과 ROI를 합산하거나 후보를 실제 결함 총수로 표시하지 않습니다. TIFF는 기존 Stack/ImageJ·향후 3D용으로 유지합니다.
+
+[사용법·좌표/저장 계약·실제 데이터 회귀·CPU 계측·69개 화면·남은 제약](docs/result/XRT-RESULT-TD-11-WAFER-MAP.md). 전체 상태는 **PARTIAL**, 임시 배치 구현 검증 완료/실제 물리 좌표 검증 미준비입니다. 실행은 D 프로젝트의 `.venv\Scripts\python.exe -m sic_xrt_analyzer`입니다.
+
+
+## TIFF ROI 3D · 수동 페이지 관측 (RESULT-TD-12)
+
+TIFF를 열거나 프로젝트에 등록하고 **3D 뷰어**에서 원본 사각 ROI·페이지 범위·샘플 간격을 지정한 뒤 **3D 생성**을 누릅니다. 원본 uint16 ROI는 최대 64 MiB로 추출하며 실제 Qt Quick 3D Perspective/Orbit/Pan/Zoom과 XY/X–Page/Y–Page 단면, 원본 픽셀 확인·2D 위치 복귀를 제공합니다. 연구원은 Point/Rectangle 수동 Track과 검수 상태를 로컬 프로젝트의 SHA 불변 Asset으로 저장할 수 있습니다. 재열기는 metadata 복원 후 명시적으로 ROI를 다시 생성합니다.
+
+기본 축은 X/Y px + 원본 Page Index이며 **실제 물리 Z축 미검증(PHYSICAL_3D_NOT_READY)**입니다. 수동 Track은 **실제 동일 결함 확인 미검증(DEFECT_TRACKING_PRELIMINARY)**입니다. TIFF 결함 ML 분석·자동 추적·원본 수정·3D 서버 전송을 실행하지 않습니다. [실행·사용법·계약·실제 TIFF/합성 검증·계측·제약](docs/result/XRT-RESULT-TD-12-TIFF-3D-VIEWER.md).
+
+## 연구원 배포 업데이트 0.1.1
+
+대형 JPG 배포 디코더 누락과 단일 TIFF 분석·저장·검수 연결을 수정했습니다. 다중 페이지 TIFF는 스택·3D 탐색으로 유지합니다. 연구원 사이트는 승인된 실제 화면 57개를 14개 작업·65개 탭으로 로그인 없이 안내합니다. 다운로드·사용 가이드·개발노트를 분리하고 우측 상단에서 다크 모드를 선택합니다. 관리자와 수집 자료 조회는 기존 인증을 유지합니다. [사이트 구성·공개 범위·검증](docs/distribution/FOCUSED-PORTAL-127.md). [검증·실행·제약](docs/distribution/RESEARCHER-UPDATE-122.md), [로고 제작](docs/distribution/BRANDING.md).
+
+프로그램 0.1.1부터 도움말 → 프로그램 업데이트에서 새 앱 버전 확인·다운로드·종료 후 설치를 지원합니다. 최초 0.1.0 사용자는 새 설치 파일을 한 번 직접 설치해야 합니다. [앱 업데이트](docs/distribution/APPLICATION-UPDATES.md)를 참고하세요.

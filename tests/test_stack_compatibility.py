@@ -260,21 +260,26 @@ def test_scale_length_area_count_and_source_readonly(qt_app, tmp_path):
     assert path.read_bytes() == before
 
 
-def test_advanced_backend_rejects_single_page_tiff(qt_app,tmp_path):
+def test_advanced_backend_supports_single_tiff_but_rejects_whole_stack(qt_app,tmp_path):
     path=tmp_path/'single.tif'
-    tifffile.imwrite(path,np.zeros((16,16),np.uint16))
+    raw=np.arange(256,dtype=np.uint16).reshape(16,16)
+    tifffile.imwrite(path,raw)
+    before=path.read_bytes()
     stack=open_stack(path)
     bridge=FileBridge(settings=QSettings(str(tmp_path/'prefs.ini'),QSettings.IniFormat))
     bridge.stack_viewer.frame=stack.frame(0)
     try:
-        bridge.workbench.execute('command','Invert','',False)
-        assert bridge.workbench.error and bridge.workbench.runtime.process is None
-        bridge.measurements.setScale(100,1,'mm',1)
-        assert bridge.measurements.error and bridge.measurements.pixel_width == 1
-        bridge.workbench.gesture('Brush',[[0,0],[1,1]])
-        assert bridge.workbench.error and bridge.workbench.runtime.process is None
         bridge.workbench.gesture('Rectangle',[[1,1],[10,10]])
         assert not bridge.workbench.error and bridge.roi_manager.records
+        bridge.measurements.setScale(100,1,'mm',1)
+        bridge.measurements.measure()
+        assert not bridge.measurements.error and bridge.measurements.rows[-1]['value'] == pytest.approx(.0081)
+        bridge.workbench.execute('command','Invert','',True)
+        assert bridge.workbench.error and bridge.workbench.runtime.process is None
+        bridge.workbench.execute('command','Invert','',False)
+        spin(qt_app,lambda:not bridge.workbench.busy,30)
+        assert not bridge.workbench.error
+        assert path.read_bytes() == before
     finally:
         bridge.waitForLoads();stack.close()
 
@@ -306,7 +311,8 @@ def test_stack_only_menu_and_measurement_dialog_reset(qt_app,tmp_path):
             menus=list(visual_items(window.contentItem()))
             process=next(i for i in menus if i.property('text') == '처리 (Process)')
             plugins=next(i for i in menus if i.property('text') == '플러그인 (Plugins)')
-            assert process.isVisible() == plugins.isVisible() == (count>1)
+            assert process.isVisible() and plugins.isVisible()
+            assert state.property("imagejFeaturesVisible")
         bridge.workbench.gesture('Line',[[10,10],[28,10]])
         invoke(window,'stackMeasurement')
         QTest.qWait(40)
@@ -329,7 +335,8 @@ def test_stack_only_menu_and_measurement_dialog_reset(qt_app,tmp_path):
         bridge.roi_manager.clear()
         invoke(window,'selectImagePath',str(tmp_path/'input-1.tif'))
         spin(qt_app,lambda:not state.property('loading'))
-        assert not state.property('stackFeaturesVisible') and not dialog.property('visible')
+        assert not state.property('stackFeaturesVisible') and state.property('imagejFeaturesVisible')
+        invoke(dialog,'close')
         assert bridge.measurements.unit == 'pixel'
         assert not warnings,'\n'.join(warnings)
     finally:

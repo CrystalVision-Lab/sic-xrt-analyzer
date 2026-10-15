@@ -25,3 +25,10 @@ runs/
 *.local.json
 build/
 dist/
+
+node_modules/
+web/coverage/
+installer/dist/
+*.tsbuildinfo
+
+.qa/

@@ -8,11 +8,12 @@ ApplicationWindow {
     property var shellActions
     property var shellBridge
     property bool navigationCollapsed: false
-    property bool inspectorCollapsed: false
+    property bool inspectorCollapsed: true
     property bool statusBarVisible: true
     property alias viewer: workspace.viewer
     property alias inspector: workspace.contextPanel // Existing command callers keep their handle.
     property alias contextPanel: workspace.contextPanel
+    signal projectRequested()
     signal workspaceRequested(int index)
     signal recentRequested(string path)
     signal fileDropped(string url)
@@ -30,8 +31,9 @@ ApplicationWindow {
     palette.text: shellTheme.text
     palette.button: shellTheme.surface
     palette.buttonText: shellTheme.text
-    palette.highlight: shellTheme.accentPale
-    palette.highlightedText: shellTheme.text
+    palette.accent: shellTheme.accent
+    palette.highlight: shellTheme.accent
+    palette.highlightedText: shellTheme.accentText
     palette.mid: shellTheme.border
     palette.dark: shellTheme.border
     palette.light: shellTheme.hover
@@ -47,10 +49,11 @@ ApplicationWindow {
     header: PrimaryToolbar {
         objectName: "topToolbar"
         theme: shell.shellTheme; uiState: shell.shellState; actions: shell.shellActions; hostWindow: shell
-        height: 40
+        height: shell.shellTheme.commandBarHeight
     }
     MainWorkspace {
         id: workspace; anchors.fill: parent
+        onProjectRequested: shell.projectRequested()
         theme: shell.shellTheme; uiState: shell.shellState; actions: shell.shellActions
         recentFiles: shell.shellBridge.recentFiles
         navigationCollapsed: shell.navigationCollapsed; contextCollapsed: shell.inspectorCollapsed
@@ -68,6 +71,6 @@ ApplicationWindow {
     footer: StatusBar {
         objectName: "bottomStatusBar"
         theme: shell.shellTheme; uiState: shell.shellState
-        height: visible ? shell.shellTheme.statusHeight : 0; visible: shell.statusBarVisible
+        height: visible ? shell.shellTheme.statusHeight : 0; visible: shell.statusBarVisible && shell.shellState.workspaceIndex === 0
     }
 }

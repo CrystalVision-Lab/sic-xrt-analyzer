@@ -16,10 +16,15 @@ def test_result_review_entry_and_context_exit_preserve_original_result(workbench
     original = w.bridge.pipeline.result
     w.click('nextCandidate')
     spin(w.app, lambda: not w.item('candidateFocusAnimation').property('running'))
-    w.click('reviewSelectedCandidate')
-    assert w.panel.property('requestedContext') == 'feedback'
-    assert w.panel.property('lastReason') == 'REVIEW_REQUESTED'
-    assert w.item('contextSwitcher').property('text') == '검수 ▾'
+    w.click('reportCandidate')
+    assert w.item('reportDialog').property('visible')
+    assert w.panel.property('requestedContext') == 'result'
+    assert not w.state.property('feedbackVisible')
+    invoke(w.item('reportDialog'),'close')
+    # Retain direct legacy review lifecycle regression without exposing it in navigation.
+    w.panel.setProperty('tabIndex',5)
+    w.window.setProperty('inspectorCollapsed',False)
+    QTest.qWait(35)
     assert w.state.property('feedbackVisible')
     assert w.bridge.feedback.state['eventsCount'] == 0
     # The newly integrated pickers use the existing lifecycle facade.
@@ -62,7 +67,9 @@ def test_hidden_feedback_overlay_skips_geometry_and_repaints_on_entry(workbench)
         w.window.grabWindow()
         QTest.qWait(20)
     assert reads() == 0
-    invoke(w.window, 'openContext', 'feedback')
+    w.panel.setProperty('tabIndex',5)
+    w.window.setProperty('inspectorCollapsed',False)
+    QTest.qWait(35)
     w.window.grabWindow()
     spin(w.app, lambda: reads() > 0)
     assert w.bridge.pipeline.result is original

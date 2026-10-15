@@ -62,7 +62,8 @@ def test_workstation_flow(tmp_path):
     assert not state.property("hasImage")
     assert inspector.property("activeContext") == "idle"
     assert inspector.property("lastReason") == "STARTUP"
-    assert window.findChild(QObject, "contextSubtitle").property("text") == "이미지를 열어 작업을 시작하세요."
+    assert window.findChild(QObject, "contextSubtitle").property("text") == ""
+    assert not inspector.property("visible")
     assert not window.findChild(QObject, "runAction").property("enabled")
     assert window.findChild(QObject, "settingsMenu").property("count") == 3
     assert window.findChild(QObject, "menuOpenItem").property("text") == window.findChild(QObject, "openAction").property("text")
@@ -97,11 +98,13 @@ def test_workstation_flow(tmp_path):
     assert state.property("fitMode")
     assert state.property("zoomLabel") == "FIT"
 
+    invoke(window, "openContext", "image")
+    settle(app)
     old_width = viewer.property("viewportWidth")
     invoke(window.findChild(QObject, "inspectorPanelAction"), "trigger")
     settle(app)
     assert window.property("inspectorCollapsed")
-    assert viewer.property("viewportWidth") > old_width
+    assert viewer.property("viewportWidth") == old_width  # Demo has no source-bound task panel.
     invoke(window, "resetLayout")
     settle(app)
 

@@ -12,12 +12,12 @@ SurfaceDialog {
     width: 460
     background: Rectangle { color: theme.panel; border.color: theme.border; radius: theme.radiusDialog }
     header: Rectangle {
-        implicitHeight: 46; color: theme.toolbar
+        implicitHeight: 60; color: theme.toolbar
         Text { anchors.fill: parent; anchors.margins: 16; text: root.title; color: theme.text; font.family: theme.fontFamily; font.pixelSize: theme.titleSize; verticalAlignment: Text.AlignVCenter; font.weight: Font.DemiBold }
     }
     contentItem: Text { text: root.bodyText; color: theme.text; font.family: theme.fontFamily; font.pixelSize: theme.bodySize; wrapMode: Text.Wrap; lineHeight: 1.4 }
     footer: Rectangle {
-        implicitHeight: 52; color: theme.toolbar
+        implicitHeight: 64; color: theme.toolbar
         Rectangle { width: parent.width; height: 1; color: theme.border }
         RowLayout {
             anchors.right: parent.right; anchors.rightMargin: 16; anchors.verticalCenter: parent.verticalCenter; spacing: theme.spacingSm

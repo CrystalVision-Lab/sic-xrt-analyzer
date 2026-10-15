@@ -12,6 +12,7 @@ RowLayout {
     property bool contextCollapsed: false
     property alias viewer: viewer
     property alias contextPanel: contextPanel
+    signal projectRequested()
     signal navigationToggleRequested()
     signal workspaceRequested(int index)
     signal recentRequested(string path)
@@ -24,6 +25,7 @@ RowLayout {
     signal resultExportRequested()
     spacing: 0
     NavigationPanel {
+        onProjectRequested: root.projectRequested()
         theme: root.theme; uiState: root.uiState
         collapsed: root.navigationCollapsed; recentFiles: root.recentFiles
         Layout.preferredWidth: implicitWidth; Layout.fillHeight: true
@@ -39,24 +41,13 @@ RowLayout {
             id: viewer; theme: root.theme; uiState: root.uiState; actions: root.actions
             onFileDropped: function(url) { root.fileDropped(url) }
         }
-        Repeater {
-            model: ["Wafer Map", "이미지 정합", "3D 뷰어"]
-            Rectangle {
-                required property int index
-                required property string modelData
-                objectName: "workspacePlaceholder" + (index + 1)
-                color: root.theme.viewer
-                ColumnLayout {
-                    anchors.centerIn: parent; spacing: theme.spacingMd
-                    Text { text: modelData; color: root.theme.text; font.pixelSize: theme.emptyTitleSize }
-                    Text { text: "해당 작업 영역은 아직 연결되지 않았습니다"; color: root.theme.muted; font.pixelSize: theme.bodySize }
-                }
-            }
-        }
+        WaferMapWorkspace { theme: root.theme; uiState: root.uiState; onProjectRequested: root.projectRequested() }
+        RegistrationWorkspace { theme: root.theme; uiState: root.uiState; actions: root.actions }
+        Stack3DWorkspace {theme:root.theme;uiState:root.uiState;onProjectRequested:root.projectRequested()}
     }
     RightContextPanel {
         id: contextPanel; theme: root.theme; uiState: root.uiState; actions: root.actions
-        visible: !root.contextCollapsed
+        visible: !root.contextCollapsed && root.uiState.workspaceIndex === 0 && root.uiState.hasLoadedImage && (requestedContext !== "result" || root.uiState.hasResult)
         Layout.preferredWidth: requestedContext === "feedback" ? 440 : requestedContext === "result" ? 380 : root.theme.panelWidth
         Layout.fillHeight: true
         onOverviewRequested: viewer.fitView()

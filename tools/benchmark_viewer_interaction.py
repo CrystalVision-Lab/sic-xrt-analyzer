@@ -71,7 +71,8 @@ class Session:
         self.interceptor = None
         if baseline_viewer:
             ui_dir = Path(prepared_view.__file__).parent
-            baseline = subprocess.check_output(['git','show','18b9b9cdc27332ada788097866507d05851aa012:src/sic_xrt_analyzer/ui/ImageViewer.qml'],text=True,encoding='utf8')
+            ref = baseline_viewer if isinstance(baseline_viewer, str) else '18b9b9cdc27332ada788097866507d05851aa012'
+            baseline = subprocess.check_output(['git','show',ref+':src/sic_xrt_analyzer/ui/ImageViewer.qml'],text=True,encoding='utf8')
             baseline_path = output/'TD01ImageViewer.qml'
             baseline_path.write_text('import "'+ui_dir.as_uri()+'"\n'+baseline,encoding='utf8')
             class BaselineUrl(QQmlAbstractUrlInterceptor):

@@ -99,7 +99,7 @@ def test_empty_opening_first_frame_and_ready_with_live_event_loop(load_case):
     assert phase(w) == 'READY' and w.item('pageSlider').property('enabled')
 
 
-@pytest.mark.parametrize('context', ['analysis', 'roi'])
+@pytest.mark.parametrize('context', ['viewer', 'roi'])
 def test_first_frame_pan_zoom_fit_pixel_roi_and_original_analysis(load_case, context):
     c, w = load_case, load_case.w
     analysis_gate = Event()
@@ -119,23 +119,19 @@ def test_first_frame_pan_zoom_fit_pixel_roi_and_original_analysis(load_case, con
         invoke(w.item('fitAction'), 'trigger')
         assert w.state.property('fitMode') and viewer.property('panX') == 0
         assert w.bridge.pixelValue(40, 50) == str(c.raw[0, 50, 40])
-        invoke(w.item('roiAction'), 'trigger')
-        draw(w, start=(40, 50), end=(140, 150))
-        assert w.state.property('hasRoi') and w.state.property('roiX') == pytest.approx(40, abs=1)
-        w.state.setProperty('analysisScope', 'ROI')
-        assert w.state.property('canAnalyze') and w.bridge.pipeline.source is w.bridge.original_source
-        invoke(w.item('runAction'), 'trigger')
-        spin(w.app, adapter.entered.is_set)
-        assert adapter.image.dtype == np.uint16
-        region = adapter.request.roi
-        np.testing.assert_array_equal(adapter.image, c.raw[0, region.y:region.y+region.height, region.x:region.x+region.width])
-        # Even programmatic rejected navigation must not invalidate an analysis.
-        analysis_id = adapter.request.analysis_id
+        invoke(w.item('toolRectangleAction'),'trigger')
+        draw(w,start=(40,50),end=(140,150))
+        assert not w.state.property('hasRoi')
+        record=w.bridge.roi_manager.records[-1]
+        assert record.tool=='Rectangle' and record.bbox[0]==pytest.approx(40,abs=1)
+        w.bridge.measurements.measure()
+        assert not w.bridge.measurements.error and w.bridge.measurements.rows[-1]['metric']=='Area'
+        assert not w.state.property('canAnalyze')
+        assert not w.bridge.requestAnalysis('ROI',40,50,100,100,{})
+        assert not adapter.entered.is_set()
         assert not w.bridge.requestPage(7)
-        QTest.keyClick(w.window, Qt.Key_End)
-        assert w.bridge.analysis['state'] == 'RUNNING'
-        assert w.bridge.pipeline._active.request.analysis_id == analysis_id
-        assert w.state.property('pageIndex') == 0
+        QTest.keyClick(w.window,Qt.Key_End)
+        assert w.state.property('pageIndex')==0
     finally:
         analysis_gate.set()
 
@@ -150,9 +146,11 @@ def test_stack_progress_labels_context_and_original_record_gates(load_case):
     assert '현재 페이지 1 / 8' == w.item('currentPageLabel').property('text')
     assert '4 / 8 페이지 준비' in w.item('preloadStatus').property('text')
     assert '전체 페이지 준비 후' in w.item('navigationReadyReason').property('text')
-    for name in ('nextPageButton', 'pageSlider', 'displayLowSlider', 'importRoisAction', 'toolRectangleAction', 'advancedMacroAction', 'imagejRunButton'):
+    for name in ('nextPageButton', 'pageSlider', 'displayLowSlider', 'importRoisAction'):
         assert not w.item(name).property('enabled'), name
-    assert w.item('roiAction').property('enabled')
+    assert w.item('roiAction').property('enabled')  # A viewable page supports an ROI for 3D while the stack prepares.
+    for name in ('toolRectangleAction','advancedMacroAction','imagejRunButton'):
+        assert w.item(name).property('enabled'),name
     c.finish()
     assert w.panel.property('requestedContext') == 'viewer'
     assert w.item('toolRectangleAction').property('enabled')
@@ -169,6 +167,7 @@ def test_single_images_have_no_stack_progress_or_lingering_indicator(workbench, 
         tifffile.imwrite(path, pixels, photometric='rgb')
     w.open(path)
     assert phase(w) == 'READY'
+    assert not w.item('stackPreparationOverlay').property('visible')
     assert w.item('tiffLoadState').property('stackLabel') == ''
     assert not w.item('preloadStatus').property('visible')
     assert not w.item('initialLoadingOverlay').property('visible')
@@ -183,6 +182,7 @@ def test_partial_prepare_error_retains_frame_and_can_retry(load_case):
     c.tail.set()
     spin(w.app, lambda: bool(w.bridge.stack_viewer.preload_error))
     assert phase(w) == 'ERROR' and w.bridge.stack_viewer.frame is first_frame
+    assert not w.item('stackPreparationOverlay').property('visible')
     assert w.state.property('canNavigateImage') and not w.item('pageSlider').property('enabled')
     assert 'synthetic' not in w.item('loadingStatus').property('text')
     assert 'synthetic private' in w.item('tiffLoadState').property('errorDetails')
@@ -299,3 +299,49 @@ def test_shutdown_cancels_active_tiff_worker(load_case):
         assert controller.frame is None
     finally:
         release.join()
+
+
+@pytest.mark.parametrize('size', [(1100, 700), (1440, 900)])
+def test_stack_loading_is_visible_in_wide_viewer_until_ready(load_case, size):
+    c, w = load_case, load_case.w
+    c.tail_index = 4
+    w.window.resize(*size)
+    c.start()
+    c.first_frame()
+    QTest.qWait(40)
+    assert not w.panel.property('visible') and w.window.property('inspectorCollapsed')
+    overlay, viewport = w.item('stackPreparationOverlay'), w.item('viewerViewport')
+    assert overlay.property('visible') and w.item('stackPreparationSpinner').property('running')
+    assert w.item('stackPreparationProgress').property('value') == 4
+    assert w.item('stackPreparationProgress').property('to') == 8
+    assert w.item('stackPreparationText').property('text') == '4 / 8 페이지 · 50%'
+    center = overlay.mapToScene(QPointF(overlay.property('width')/2, overlay.property('height')/2))
+    view_center = viewport.mapToScene(QPointF(viewport.property('width')/2, viewport.property('height')/2))
+    origin = overlay.mapToScene(QPointF())
+    view_origin = viewport.mapToScene(QPointF())
+    assert origin.x() + overlay.width() == pytest.approx(view_origin.x() + viewport.width() - 16, abs=1)
+    assert origin.y() == pytest.approx(view_origin.y() + 16, abs=1)
+    assert center.y() < view_center.y()  # Preparation leaves the image center available.
+    assert w.item('viewerMouseArea').property('enabled')  # Existing progressive interaction stays available.
+    assert w.item('workspaceViewerLabel').property('text') == '이미지 뷰어'
+    assert w.item('workspaceViewerMenu').property('text') == '이미지 뷰어'
+    invoke(w.window, 'selectWorkspace', 0)
+    assert w.state.property('statusText') == '이미지 뷰어 화면'
+    c.finish()
+    assert not overlay.property('visible') and not w.item('stackPreparationSpinner').property('running')
+    assert not w.panel.property('visible')
+    choose(w, 'viewer')
+    assert w.item('pageSlider').property('visible') and w.item('pageSlider').property('enabled')
+
+
+def test_stack_loading_cancel_from_viewer_clears_state(load_case):
+    c, w = load_case, load_case.w
+    c.start()
+    c.first_frame()
+    assert w.item('stackPreparationOverlay').property('visible') and not w.panel.property('visible')
+    w.click('cancelStackOverlay')
+    assert phase(w) == 'EMPTY' and not w.state.property('hasLoadedImage')
+    assert not w.item('stackPreparationOverlay').property('visible')
+    c.tail.set()
+    QTest.qWait(100)
+    assert phase(w) == 'EMPTY' and w.bridge.original_source is None

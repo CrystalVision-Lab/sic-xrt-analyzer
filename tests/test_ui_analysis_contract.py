@@ -57,7 +57,17 @@ def test_ui_original_metadata_and_pipeline_states(qt_app, tmp_path):
         bridge.pipeline.invalidate()
         qt_app.processEvents()
         assert state.property("modelAvailable")
-        assert run.property("enabled")  # TD-04: explicit, visible FULL_IMAGE default.
+        assert run.property("enabled")  # A compatible single-page TIFF is a 2D input.
+        from PIL import Image
+
+        from sic_xrt_analyzer.analysis.contracts import AnalysisScope
+        from sic_xrt_analyzer.analysis.model_adapter import ModelInputContract
+        adapter.input_contract = ModelInputContract(tuple(AnalysisScope), (3,), ("uint8",), "native", "none", "rgb", "preserve RGB8")
+        jpg = tmp_path / "large-original.jpg"
+        Image.new("RGB", (8000,6000), (200,200,200)).save(jpg)
+        invoke(window,"selectImagePath",str(jpg))
+        spin(qt_app,lambda:not state.property("loading"),30)
+        assert run.property("enabled")
         state.setProperty("roiStartX", .125)
         state.setProperty("roiStartY", 1 / 3)
         state.setProperty("roiEndX", .175)
@@ -87,6 +97,7 @@ def test_ui_original_metadata_and_pipeline_states(qt_app, tmp_path):
         original = bridge.original_source
         bad = tmp_path / "bad.tif"
         bad.write_bytes(b"bad TIFF")
+        spin(qt_app,lambda:not bridge.projects.busy)
         invoke(window, "selectImagePath", str(bad))
         spin(qt_app, lambda: not state.property("loading"))
         assert state.property("loadError") and bridge.original_source is original

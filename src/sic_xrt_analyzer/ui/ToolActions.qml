@@ -6,7 +6,7 @@ QtObject {
     property QtObject uiState
     property var baseActions
     property var hostWindow
-    readonly property bool stackEnabled: uiState.stackFeaturesVisible && uiState.canNavigateImage && uiState.loadFlow.recordReady
+    readonly property bool stackEnabled: uiState.imagejFeaturesVisible && uiState.canNavigateImage && uiState.loadFlow.imagejReady && !uiState.projectReview.editing
     // Selection is derived from the existing Viewer state, never duplicated.
     function selected(tool) { return uiState.activeTool === tool && !uiState.roiEditMode }
     function forTool(tool) {
@@ -15,9 +15,26 @@ QtObject {
         return root[tool.charAt(0).toLowerCase() + tool.slice(1)]
     }
     function selectTool(tool) {
+        uiState.selectingRoi = false
+        uiState.feedbackVisible = false
         uiState.roiEditMode = false
         uiState.activeTool = tool
         Qt.callLater(function() { root.hostWindow.viewer.focusView() })
+    }
+    function hint(tool) {
+        var hints = { Rectangle: "드래그하여 사각형 선택 · R", Oval: "드래그하여 타원 선택",
+            Polygon: "클릭으로 점 추가 · Enter/더블클릭 완료 · Esc 취소", Freehand: "드래그하여 자유 영역 선택",
+            Line: "드래그하여 직선 · 측정 버튼으로 길이 확인", Polyline: "연속 클릭 · Enter/더블클릭 완료",
+            FreeLine: "드래그하여 자유선", Angle: "세 점 클릭하여 각도 선택", Point: "클릭하여 점 추가",
+            Wand: "클릭한 픽셀과 연결된 영역 · 허용오차는 도구 옵션", Text: "클릭하여 주석 · 내용은 도구 옵션",
+            Arrow: "드래그하여 화살표", Picker: "클릭하여 원본 픽셀 색 추출",
+            Brush: "드래그하여 그리기 · 작업 복사본 생성", Fill: "클릭하여 연결 영역 채우기 · 작업 복사본 생성",
+            Pan: "드래그하여 이동 · H", Zoom: "클릭 확대 · Alt+클릭 축소" }
+        return hints[tool] || ""
+    }
+    function tooltip(tool) {
+        var action = forTool(tool)
+        return action.text + " · " + hint(tool) + (action.enabled ? "" : "\n현재 TIFF 페이지와 진행 중인 작업이 준비되면 사용할 수 있습니다.")
     }
     readonly property var roiChoices: [
         {tool: "Rectangle", label: "사각형 ROI", action: rectangle},

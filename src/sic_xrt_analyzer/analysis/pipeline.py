@@ -1,5 +1,6 @@
 """Qt background orchestration with cooperative cancellation and generation guards."""
 import logging
+from collections import OrderedDict
 from dataclasses import replace
 from time import monotonic
 
@@ -69,6 +70,7 @@ def original_detections(output, request, contract):
 
 class _Signals(QObject):
     finished = Signal(int, object)
+    progress = Signal(int, object)
 
 
 class _Task(QRunnable):
@@ -76,6 +78,7 @@ class _Task(QRunnable):
         super().__init__()
         self.generation, self.request, self.adapter, self.token = generation, request, adapter, token
         self.signals = _Signals()
+        self.token.on_progress = lambda payload: self.signals.progress.emit(self.generation, payload)
 
     def run(self):
         request = self.request
@@ -137,6 +140,9 @@ class AnalysisPipeline(QObject):
         self._active = None
         self._tasks = {}
         self._used_ids = set()
+        self._cache = OrderedDict()
+        self.progress = {}
+        self.live_detections = ()
         self._pool = QThreadPool(self)
         self._pool.setMaxThreadCount(1)  # Never invoke a model instance concurrently.
         self._timer = QTimer(self)
@@ -153,13 +159,26 @@ class AnalysisPipeline(QObject):
             self._active.token.cancel()
         self._active = None
         self.result = self.error = None
+        self.progress = {}
+        self.live_detections = ()
         self.state = self._rest_state()
         self.changed.emit()
+
+    def _cache_key(self, source):
+        return (source.identity, self.adapter.model_id, self.adapter.model_version) if source and self.adapter else None
 
     def set_source(self, source):
         self.invalidate()
         self.source = source
         self.current_roi = None
+        key = self._cache_key(source)
+        cached = self._cache.get(key)
+        if cached:
+            source.validate_identity()
+            self._cache.move_to_end(key)
+            # Rebind to the current original reader; never retain old display pixels.
+            self.result = replace(cached, request=replace(cached.request, source=source))
+            self.state = AnalysisState.COMPLETED
         self.changed.emit()
 
     def set_current_roi(self, roi):
@@ -210,6 +229,7 @@ class AnalysisPipeline(QObject):
         self._tasks[self._generation] = task
         self._active = task
         task.signals.finished.connect(self._finished)
+        task.signals.progress.connect(self._progress)
         self.state = AnalysisState.RUNNING
         self.changed.emit()
         self._pool.start(task)
@@ -223,8 +243,20 @@ class AnalysisPipeline(QObject):
         self._generation += 1  # Ignore late results even from noncooperative adapters.
         self._active = None
         self.result = None
+        self.live_detections = ()
+        self.progress = {}
         self.error = AnalysisError("CANCELED", "분석이 취소되었습니다")
         self.state = AnalysisState.CANCELED
+        self.changed.emit()
+
+    @Slot(int, object)
+    def _progress(self, generation, payload):
+        if generation != self._generation or self._active is None or self.source is None:
+            return
+        self.progress = {k: v for k, v in payload.items() if k != "detections"}
+        output = AdapterOutput(tuple(payload.get("detections", ())))
+        validated = original_detections(output, self._active.request, self.adapter.output_contract)
+        self.live_detections += validated
         self.changed.emit()
 
     @Slot(int, object)
@@ -237,6 +269,17 @@ class AnalysisPipeline(QObject):
             return
         self._active = None
         self.result, self.error, self.state = result, result.error, result.status
+        self.live_detections = ()
+        self.progress = {}
+        if result.status == AnalysisState.COMPLETED:
+            key = self._cache_key(self.source)
+            header = object.__new__(type(result.request.source))
+            for name, value in result.request.source.__dict__.items():
+                object.__setattr__(header, name, None if name == "prepared" else value)
+            self._cache[key] = replace(result, request=replace(result.request, source=header))
+            self._cache.move_to_end(key)
+            while len(self._cache) > 8:
+                self._cache.popitem(last=False)
         self.changed.emit()
 
     def shutdown(self):

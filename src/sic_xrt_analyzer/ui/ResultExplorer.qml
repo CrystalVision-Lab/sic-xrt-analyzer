@@ -8,204 +8,182 @@ ColumnLayout {
     property QtObject theme
     property QtObject uiState
     readonly property var results: uiState.research
+    readonly property var navigator: fileBridge.research.regions
+    readonly property var area: navigator.state
+    readonly property var visibleRows: area.enabled ? area.rows : results.displayRows
+    Component.onCompleted: navigator.activate(true)
+    readonly property int navigationIndex: area.enabled ? area.candidateIndex : results.selectedIndex
+    readonly property int navigationTotal: area.enabled ? area.rows.length : results.filteredTotal
     readonly property var selected: results.selected || ({})
     readonly property QtObject presentation: uiState.resultPresentation
-    readonly property string filterLabel: results.filterKind === "ALL" ? "전체 후보" : results.filterKind + " 후보"
     signal exportRequested()
     signal overviewRequested()
     signal reviewRequested()
-    spacing: theme.spacingXs
-    function filter(kind, low, query) {
-        fileBridge.research.setFilter(kind, low, query)
-        // Retained selections on later list pages must remain reachable.
-        var index = fileBridge.research.state.selectedIndex
-        if (index >= 0) fileBridge.research.setResultPage(Math.floor(index / 100))
+    Layout.minimumWidth:0
+    property bool optionsExpanded:false
+    spacing: root.height<650 ? 5 : theme.spacingSm
+    Connections {
+        target: fileBridge.research
+        function onChanged() { Qt.callLater(function() { if (root.results.selectedIndex >= 0) candidates.positionViewAtIndex(root.visibleRows.findIndex(function(p){return p.id===root.selected.id}), ListView.Contain) }) }
     }
-    onResultsChanged: Qt.callLater(function() {
-        if (!selected.id) detail.close()
-        if (results.selectedIndex >= 0 && Math.floor(results.selectedIndex / 100) === results.page)
-            candidates.positionViewAtIndex(results.selectedIndex % 100, ListView.Contain)
-    })
+    Text { objectName: "resultOrigin"; visible: results.savedActive; text: "저장된 이력"; color: theme.muted; font.pixelSize: theme.smallSize }
     RowLayout {
         Layout.fillWidth: true
-        Text { objectName: "resultTotal"; text: "총 후보 " + presentation.count(results.total) + "개"; color: theme.text; font.pixelSize: theme.titleSize; font.weight: Font.Medium; Layout.fillWidth: true }
-        AppButton { objectName: "resultOverview"; theme: root.theme; quiet: true; text: "전체 보기"; onClicked: root.overviewRequested() }
+        Text { objectName: "resultTotal"; text: "검출 후보 " + presentation.count(results.total); color: root.theme.text; font.pixelSize: 22; font.weight: Font.DemiBold; Layout.fillWidth: true; Layout.minimumWidth:0; elide:Text.ElideRight }
+        AppButton { objectName: "resultOverview"; theme: root.theme; text: "전체 보기"; quiet: true; compact: true; onClicked: root.overviewRequested() }
     }
     RowLayout {
-        spacing: theme.spacingXs; Layout.fillWidth: true
-        AppButton {
-            objectName: "resultFilterALL"; theme: root.theme; quiet: true
-            text: "전체"; checked: results.filterKind === "ALL"
-            Accessible.name: "전체 후보 " + presentation.count(results.total) + "개"
-            onClicked: root.filter("ALL", results.filterLow, results.query)
-        }
+        Layout.fillWidth: true
+        spacing: 4
         Repeater {
-            model: ["BPD", "TED", "TSD"]
+            model: ["ALL", "BPD", "TED", "TSD"]
             AppButton {
                 required property string modelData
                 objectName: "resultFilter" + modelData
-                theme: root.theme; quiet: true; Layout.fillWidth: true
-                text: modelData + " " + presentation.count(results.counts[modelData])
-                checked: results.filterKind === modelData
-                Accessible.name: modelData + " 후보 " + presentation.count(results.counts[modelData]) + "개"
-                contentItem: RowLayout {
-                    spacing: theme.spacingXs
-                    Rectangle { Layout.preferredWidth: 6; Layout.preferredHeight: 6; radius: theme.radiusSm; color: presentation.colorFor(modelData) }
-                    Text { text: parent.parent.text; color: theme.text; font.pixelSize: theme.smallSize; elide: Text.ElideRight; Layout.fillWidth: true; horizontalAlignment: Text.AlignHCenter }
+                theme: root.theme
+                compact: true
+                labelSize: 13
+                leftPadding: 8; rightPadding: 8
+                text: modelData === "ALL" ? "전체" : modelData + " " + presentation.count(root.results.counts[modelData] || 0)
+                checked: root.results.filterKind === modelData
+                Layout.fillWidth: true
+                Layout.minimumWidth: 0
+                onClicked: {
+                    fileBridge.research.setFilter(modelData, false, "")
+                    root.uiState.bpdLayerVisible = modelData === "ALL" || modelData === "BPD"
+                    root.uiState.tedLayerVisible = modelData === "ALL" || modelData === "TED"
+                    root.uiState.tsdLayerVisible = modelData === "ALL" || modelData === "TSD"
                 }
-                onClicked: root.filter(modelData, results.filterLow, results.query)
             }
         }
     }
-    Text {
-        objectName: "resultFilterSummary"; Layout.fillWidth: true; color: theme.muted; font.pixelSize: theme.smallSize
-        text: root.filterLabel + " · " + presentation.count(results.filteredTotal) + "개" + (results.query ? " · 검색 적용" : "") + (results.filterLow ? " · 낮은 점수만" : "")
+    Text { visible: results.limited; text: "후보 생성 한도 도달 · 일부 후보가 제외됐습니다. 작은 ROI로 나누어 다시 분석하세요."; wrapMode: Text.Wrap; color: theme.warning; font.pixelSize: theme.smallSize; Layout.fillWidth: true }
+    Text { visible: results.excluded > 0; text: "분류 제외 " + results.excluded + "개 · " + results.exclusionSummary; wrapMode: Text.Wrap; color: theme.muted; font.pixelSize: theme.smallSize; Layout.fillWidth: true }
+    RowLayout {
+        Layout.fillWidth: true
+        visible:root.height>=650 || root.optionsExpanded
+        AppComboBox { Layout.minimumWidth:0; theme: root.theme; currentIndex:root.area.enabled?["AREA","PRIORITY","SAMPLE","SCAN"].indexOf(root.area.mode):4; model: ["영역별 검토", "우선 검토", "분산 표본 순서", "원본 전체 훑기", "개별 후보"]; Layout.fillWidth: true; onActivated: function(index) { root.navigator.activate(index !== 4); if (index !== 4) root.navigator.setMode(["AREA","PRIORITY","SAMPLE","SCAN"][index]) } }
+        AppComboBox { theme: root.theme; model: ["256 px", "512 px", "1024 px"]; currentIndex: [256,512,1024].indexOf(root.area.edge); onActivated: function(index) { root.navigator.setEdge([256,512,1024][index]) } }
     }
     RowLayout {
-        visible: results.total > 0; Layout.fillWidth: true
-        AppButton { objectName: "previousCandidate"; theme: root.theme; text: "← 이전"; enabled: results.selectedIndex > 0; onClicked: fileBridge.research.stepCandidate(-1) }
-        Text {
-            objectName: "candidateIndex"; horizontalAlignment: Text.AlignHCenter; color: theme.text; font.pixelSize: theme.bodySize; Layout.fillWidth: true
-            text: selected.id ? "후보 " + presentation.count(results.selectedIndex + 1) + " / " + presentation.count(results.filteredTotal) : "후보 선택 전"
-        }
-        AppButton { objectName: "nextCandidate"; theme: root.theme; text: "다음 →"; enabled: results.filteredTotal > 0 && results.selectedIndex < results.filteredTotal - 1; onClicked: fileBridge.research.stepCandidate(1) }
+        Layout.fillWidth: true
+        AppButton { objectName: "previousReviewArea"; theme: root.theme; text: "← 이전 영역"; compact: true; enabled: root.area.index > 0; onClicked: root.navigator.stepArea(-1) }
+        Text { text: (root.area.index+1)+" / "+root.area.total; color: root.theme.muted; horizontalAlignment: Text.AlignHCenter; Layout.fillWidth: true }
+        AppButton { objectName: "nextReviewArea"; theme: root.theme; text: "다음 영역 →"; compact: true; enabled: root.area.index+1 < root.area.total; onClicked: root.navigator.stepArea(1) }
     }
-    Rectangle { visible: results.total > 0; Layout.fillWidth: true; implicitHeight: 1; color: theme.borderSubtle }
-    Text {
-        objectName: "emptyCandidateDetail"; visible: results.total > 0 && !selected.id
-        Layout.fillWidth: true; Layout.preferredHeight: 58; verticalAlignment: Text.AlignVCenter; wrapMode: Text.Wrap; color: theme.muted; font.pixelSize: theme.bodySize
-        text: results.filteredTotal ? presentation.count(results.filteredTotal) + "개의 " + root.filterLabel + "가 있습니다.\n검토할 후보를 선택하세요." : "조건에 맞는 후보가 없습니다. 필터를 변경하세요."
+    Text { text: root.area.label+" · 후보 "+root.area.rows.length+"개"; color: root.theme.text; font.pixelSize: 13; Layout.fillWidth: true }
+    Text { text: "열어본 영역 "+root.area.opened+" · 직접 확인 "+root.area.reviewed+"개"; color: root.theme.muted; font.pixelSize: 12 }
+    RowLayout {
+        CheckBox {checked:root.area.allChecked;enabled:root.area.rows.length>0;onClicked:root.navigator.checkArea(checked);Accessible.name:"현재 영역 후보 모두 선택";ToolTip.visible:hovered;ToolTip.text:"현재 영역 모두 선택 / 해제"}
+        AppButton { theme: root.theme; text: "확인"; compact: true; enabled: !!root.selected.id || root.area.checked.length>0; onClicked: root.navigator.mark("CONFIRMED") }
+        AppButton { theme: root.theme; text: "보류"; compact: true; enabled: !!root.selected.id || root.area.checked.length>0; onClicked: root.navigator.mark("HOLD") }
+        AppButton { theme: root.theme; text: "신고 ("+root.area.checked.length+")"; compact: true; enabled: root.area.checked.length>0; onClicked: report.open() }
+        AppButton {theme:root.theme;text:"누락";tip:"선택 ROI의 누락 결함 신고";compact:true;enabled:root.uiState.hasRoi;onClicked:{report.missingDefect=true;report.open()}}
     }
-    ColumnLayout {
-        visible: !!selected.id; Layout.fillWidth: true; spacing: theme.spacingXs
+    Text { visible: !!root.area.error; text: root.area.error; color: root.theme.warning; wrapMode: Text.Wrap; Layout.fillWidth: true }
+    Rectangle {
+        visible: !!root.selected.id
+        Layout.fillWidth: true
+        implicitHeight: selectionContent.implicitHeight + 24
+        Layout.minimumHeight: selectionContent.implicitHeight + 24
+        radius: root.theme.radiusDialog
+        color: root.theme.surface
+        border.color: root.theme.borderSubtle
         RowLayout {
-            Layout.fillWidth: true
-            Text { objectName: "selectedCandidateHeader"; text: selected.id ? "후보 #" + selected.number + " · " + selected.type : ""; color: theme.text; font.weight: Font.DemiBold; font.pixelSize: theme.titleSize; Layout.fillWidth: true }
-            AppButton { objectName: "refocusCandidate"; theme: root.theme; quiet: true; text: "위치로"; onClicked: fileBridge.research.selectCandidate(selected.id) }
-            AppButton { objectName: "candidateDetails"; theme: root.theme; quiet: true; text: "상세…"; onClicked: detail.open() }
-        }
-        RowLayout {
-            Layout.fillWidth: true; spacing: theme.spacingMd
-            Rectangle {
-                Layout.preferredWidth: 88; Layout.preferredHeight: 88; color: theme.viewer; clip: true
-                Image { objectName: "candidateThumbnail"; anchors.fill: parent; source: results.thumbnailSource; cache: false; smooth: false }
-                Rectangle { visible: !!results.thumbnailSource; width: 19; height: 1; color: "#ffff40"; x: parent.width * results.thumbnailCenter[0] - width/2; y: parent.height * results.thumbnailCenter[1] }
-                Rectangle { visible: !!results.thumbnailSource; width: 1; height: 19; color: "#ffff40"; x: parent.width * results.thumbnailCenter[0]; y: parent.height * results.thumbnailCenter[1] - height/2 }
-                BusyIndicator { anchors.centerIn: parent; width: 24; height: 24; running: !!selected.id && !results.thumbnailSource && !results.thumbnailError }
-                Text { anchors.fill: parent; anchors.margins: 4; visible: !!results.thumbnailError; text: "패치 읽기 실패"; color: theme.warning; wrapMode: Text.Wrap; font.pixelSize: theme.smallSize }
-            }
+            id: selectionContent
+            anchors.fill: parent; anchors.margins: 12
+            spacing: root.theme.spacingMd
+            Image { objectName: "candidateThumbnail"; source: root.results.thumbnailSource; cache: false; smooth: false; Layout.preferredWidth: root.height<650?60:88; Layout.preferredHeight: root.height<650?60:88 }
             ColumnLayout {
-                Layout.fillWidth: true; spacing: theme.spacingXs
-                Text { objectName: "candidateConfidence"; text: presentation.confidence(selected.score); color: theme.text; font.pixelSize: theme.metricSize; font.weight: Font.Medium }
+                Layout.fillWidth: true
+                spacing: 6
+                Text { objectName: "selectedCandidateHeader"; text: "#" + root.selected.number + " · " + root.selected.type; color: root.theme.text; font.pixelSize: 18; font.weight: Font.DemiBold; Layout.fillWidth: true }
+                Text { objectName: "candidateConfidence"; text: "모델 점수 " + root.presentation.confidence(root.selected.score) + " · 정답 확률 아님"; wrapMode: Text.Wrap; color: root.theme.text; font.pixelSize: 14; Layout.fillWidth: true }
+                Text { visible:root.height>=650; text: Math.round(root.selected.x || 0) + ", " + Math.round(root.selected.y || 0) + " px"; color: root.theme.muted; font.pixelSize: root.theme.smallSize; Layout.fillWidth: true }
                 RowLayout {
-                    Layout.fillWidth: true; spacing: theme.spacingSm
-                    Repeater {
-                        model: ["BPD", "TED", "TSD"]
-                        Text {
-                            required property string modelData
-                            required property int index
-                            visible: modelData !== selected.type
-                            text: modelData + " " + presentation.confidence(selected.scores && selected.scores.length === 3 ? selected.scores[index] : undefined)
-                            color: theme.muted; font.pixelSize: theme.smallSize
-                        }
-                    }
+                    Layout.alignment: Qt.AlignLeft
+                    spacing: 6
+                    AppButton { objectName: "candidateDetails"; theme: root.theme; text: "상세"; compact: true; onClicked: details.open() }
+                    AppButton { objectName: "reportCandidate"; theme: root.theme; text: "신고"; compact: true; enabled: root.results.pixelsAvailable; onClicked: report.open() }
                 }
-                Text { objectName: "candidatePosition"; text: selected.id ? "위치 (" + selected.x.toFixed(2) + ", " + selected.y.toFixed(2) + ") px" : ""; color: theme.muted; font.pixelSize: theme.smallSize; elide: Text.ElideRight; Layout.fillWidth: true }
-                Text { text: selected.low_score ? "낮은 점수 · 사람 검수 미확정" : "사람 검수 미확정"; color: selected.low_score ? theme.warning : theme.muted; font.pixelSize: theme.captionSize }
             }
         }
     }
     RowLayout {
-        visible: results.total > 0; Layout.fillWidth: true
-        Text { text: "후보 목록"; color: theme.muted; font.pixelSize: theme.smallSize; Layout.fillWidth: true }
-        Text { text: "살펴봄 " + presentation.count(results.viewedCount) + "개"; color: theme.muted; font.pixelSize: theme.captionSize }
+        visible: results.filteredTotal > 0
+        Layout.fillWidth: true
+        AppButton { objectName: "previousCandidate"; theme: root.theme; text: "← 후보"; compact: true; enabled: root.navigationIndex > 0; onClicked: root.area.enabled ? root.navigator.stepCandidate(-1) : fileBridge.research.stepCandidate(-1) }
+        Text { objectName: "candidateIndex"; font.pixelSize: 13; text: selected.id ? "후보 " + presentation.count(root.navigationIndex + 1) + " / " + presentation.count(root.navigationTotal) : "후보 선택 전"; color: theme.muted; horizontalAlignment: Text.AlignHCenter; Layout.fillWidth: true }
+        AppButton { objectName: "nextCandidate"; theme: root.theme; text: "후보 →"; compact: true; enabled: root.navigationTotal > 0 && root.navigationIndex < root.navigationTotal - 1; onClicked: root.area.enabled ? root.navigator.stepCandidate(1) : fileBridge.research.stepCandidate(1) }
     }
-    AppButton { objectName: "reviewSelectedCandidate"; theme: root.theme; text: "선택 후보 검수하기"; Layout.fillWidth: true; visible: !!selected.id; enabled: uiState.feedback.ready; onClicked: root.reviewRequested() }
+    Text { objectName: "emptyCandidateDetail"; visible: results.filteredTotal > 0 && !selected.id; text: "후보를 선택하세요"; color: theme.muted; font.pixelSize: theme.bodySize }
     ListView {
-        id: candidates; objectName: "candidateList"
-        visible: results.total > 0
-        Layout.fillWidth: true; Layout.fillHeight: true; Layout.minimumHeight: 80; clip: true; spacing: theme.spacingXs
-        model: results.displayRows
+        id: candidates
+        objectName: "candidateList"
+        visible: results.filteredTotal > 0
+        Layout.fillWidth: true
+        Layout.fillHeight: true
+        Layout.minimumHeight: 80
+        clip: true
+        spacing: 6
+        model: root.visibleRows
         ScrollBar.vertical: ScrollBar {}
         delegate: ItemDelegate {
             required property var modelData
-            width: candidates.width; height: theme.listRowHeight
+            width: candidates.width; height: root.area.enabled ? 60 : 44
             objectName: "candidateRow" + modelData.number
-            Accessible.name: "후보 " + modelData.number + ", " + modelData.type + ", 신뢰도 " + presentation.confidence(modelData.score)
-            Accessible.selected: selected.id === modelData.id
-            Accessible.description: "모델 점수이며 정답 확률이나 사람 검수 결과가 아닙니다."
-            onClicked: fileBridge.research.selectCandidate(modelData.id)
-            background: Rectangle { color: selected.id === modelData.id ? theme.accentPale : parent.hovered ? theme.hover : "transparent"; radius: theme.radiusSm; border.width: parent.activeFocus ? 2 : 0; border.color: theme.accent }
-            contentItem: RowLayout {
-                spacing: theme.spacingSm
-                Rectangle { width: 3; Layout.fillHeight: true; color: selected.id === modelData.id ? theme.accent : "transparent" }
-                Text { text: "#" + modelData.number; color: theme.text; font.pixelSize: theme.bodySize; font.bold: selected.id === modelData.id; Layout.fillWidth: true }
-                Text { text: modelData.type + " · " + presentation.confidence(modelData.score); color: theme.text; font.pixelSize: theme.bodySize }
-                Text { text: modelData.viewed ? "●" : "○"; color: modelData.viewed ? theme.accent : theme.muted; font.pixelSize: theme.captionSize }
+            background: Rectangle {
+                color: root.selected.id === parent.modelData.id ? root.theme.accentPale : parent.hovered ? root.theme.hover : root.theme.surface
+                radius: root.theme.radiusControl
+                border.width: parent.activeFocus ? 1 : 0
+                border.color: root.theme.accent
             }
+            contentItem: RowLayout {
+                Image {visible:!!modelData.thumbnail;source:modelData.thumbnail||"";cache:false;Layout.preferredWidth:42;Layout.preferredHeight:42;fillMode:Image.PreserveAspectFit}
+                CheckBox { checked: modelData.checked || false; onClicked: root.navigator.check(modelData.id,checked); Accessible.name: "신고·검토 대상으로 선택" }
+                Text { text: modelData.review === "CONFIRMED" ? "확인" : modelData.review === "HOLD" ? "보류" : ""; color: root.theme.muted; font.pixelSize: 11 }
+                Text { text: "#" + modelData.number; color: root.theme.text; Layout.fillWidth: true; font.pixelSize: root.theme.bodySize }
+                Text { text: modelData.type; color: root.presentation.colorFor(modelData.type); font.pixelSize: root.theme.bodySize }
+                Text { text: root.presentation.confidence(modelData.score); color: root.theme.muted; font.pixelSize: 13 }
+            }
+            Accessible.name: "후보 " + modelData.number + " " + modelData.type
+            Accessible.selected: root.selected.id === modelData.id
+            onClicked: fileBridge.research.selectCandidate(modelData.id)
         }
     }
-    Item { visible: !results.total; Layout.fillHeight: true }
-    RowLayout {
-        visible: results.filteredTotal > 0; Layout.fillWidth: true
-        AppButton { objectName: "previousResultPage"; theme: root.theme; quiet: true; text: "‹"; enabled: results.page > 0; onClicked: fileBridge.research.setResultPage(results.page - 1) }
-        Text { objectName: "candidateListPage"; text: "목록 " + presentation.count(results.page + 1) + " / " + presentation.count(results.pages) + " 페이지 · 100개씩"; color: theme.muted; font.pixelSize: theme.captionSize; horizontalAlignment: Text.AlignHCenter; Layout.fillWidth: true }
-        AppButton { objectName: "nextResultPage"; theme: root.theme; quiet: true; text: "›"; enabled: results.page + 1 < results.pages; onClicked: fileBridge.research.setResultPage(results.page + 1) }
-    }
-    Text { visible: results.limited || results.excluded > 0; text: (results.limited ? "자동 후보 상한 도달 · " : "") + "경계·범위 등 제외 " + presentation.count(results.excluded); color: theme.warning; font.pixelSize: theme.captionSize; wrapMode: Text.Wrap; Layout.fillWidth: true }
-    Text { text: "모델 점수 · 정답 확률 아님 / 사람 검수 미확정"; color: theme.muted; font.pixelSize: theme.captionSize; wrapMode: Text.Wrap; Layout.fillWidth: true }
     RowLayout {
         Layout.fillWidth: true
-        AppButton { objectName: "analysisExportButton"; theme: root.theme; quiet: true; text: "전체 결과 저장…"; enabled: uiState.hasResult; onClicked: root.exportRequested() }
-        Item { Layout.fillWidth: true }
-        AppButton { objectName: "resultOptions"; theme: root.theme; quiet: true; text: "탐색 설정…"; onClicked: options.open() }
-        AppButton { objectName: "resultRunInfo"; theme: root.theme; quiet: true; text: "실행 정보"; onClicked: info.open() }
+        AppButton { theme: root.theme; text: "‹"; compact: true; visible: !root.area.enabled && results.pages > 1; enabled: results.page > 0; onClicked: fileBridge.research.setResultPage(results.page - 1) }
+        Text { visible: !root.area.enabled && results.pages > 1; text: (results.page + 1) + " / " + Math.max(1, results.pages); color: theme.muted; horizontalAlignment: Text.AlignHCenter; Layout.fillWidth: true }
+        AppButton { theme: root.theme; text: "›"; compact: true; visible: !root.area.enabled && results.pages > 1; enabled: results.page + 1 < results.pages; onClicked: fileBridge.research.setResultPage(results.page + 1) }
+        Item { visible: results.pages <= 1; Layout.fillWidth: true }
+        AppButton {visible:root.height<650;theme:root.theme;text:"검토 설정";compact:true;onClicked:root.optionsExpanded=!root.optionsExpanded}
+        AppButton { Layout.minimumWidth:0; Layout.fillWidth:true; theme:root.theme; text:"신고 대기열 ("+fileBridge.reports.state.pending+")"; compact:true; onClicked:reportQueue.open() }
+        AppButton { objectName: "analysisExportButton"; theme: root.theme; text: "내보내기"; iconName: "export"; compact: true; onClicked: root.exportRequested() }
     }
-    Text { visible: !!results.error || !!results.exportPath; text: results.error || "저장 완료: " + results.exportPath; color: results.error ? theme.warning : theme.muted; font.pixelSize: theme.captionSize; elide: Text.ElideMiddle; Layout.fillWidth: true }
+    ReportQueueDialog {id: reportQueue; theme:root.theme}
+    ReportDialog { id: report; theme: root.theme; uiState: root.uiState }
     SurfaceDialog {
-        id: detail; objectName: "candidateDetailDialog"; parent: Overlay.overlay
-        title: selected.id ? "후보 #" + selected.number + " · " + selected.type + " 상세" : "후보 상세"
-        modal: true; width: Math.min(520, parent.width - 40); x: (parent.width - width)/2; y: (parent.height - height)/2; standardButtons: Dialog.Close
+        id: details
+        objectName: "candidateDetailDialog"
+        parent: Overlay.overlay
+        title: "후보 상세"
+        modal: true
+        width: 440
+        x: (parent.width - width) / 2
+        y: (parent.height - height) / 2
+        standardButtons: Dialog.Close
         ColumnLayout {
-            width: parent.width; spacing: theme.spacingMd
-            Text { text: "모델 점수 (Confidence) / Raw score"; color: theme.text; font.pixelSize: theme.titleSize }
+            width: parent.width
+            spacing: 16
+            Text { text: "#" + root.selected.number + " · " + root.selected.type; color: root.theme.text; font.pixelSize: 22; font.weight: Font.DemiBold }
             Repeater {
                 model: ["BPD", "TED", "TSD"]
-                Text {
-                    required property string modelData
-                    required property int index
-                    objectName: "rawScore" + modelData
-                    property var score: selected.scores && selected.scores.length === 3 ? selected.scores[index] : undefined
-                    text: modelData + "  " + presentation.confidence(score) + "   /   " + presentation.raw(score)
-                    color: modelData === selected.type ? theme.text : theme.muted; font.bold: modelData === selected.type; font.pixelSize: 13
-                }
+                Text { required property int index; required property string modelData; objectName: "rawScore" + modelData; text: modelData + "  " + root.presentation.confidence(root.selected.scores ? root.selected.scores[index] : undefined) + "   /   " + root.presentation.raw(root.selected.scores ? root.selected.scores[index] : undefined); color: root.theme.text; font.pixelSize: 16 }
             }
-            Text { objectName: "rawAssignedScore"; text: "Assigned " + (selected.type || "") + " · Raw score " + presentation.raw(selected.score); color: theme.muted; font.pixelSize: theme.bodySize }
-            TextArea { Layout.fillWidth: true; readOnly: true; selectByMouse: true; wrapMode: TextEdit.Wrap; text: selected.id ? "ID: " + selected.id + "\nPoint ID: " + selected.point_id + "\nX=" + selected.x + ", Y=" + selected.y + " (원시 픽셀)\n원본 128px 패치 · 사람 검수 미확정" : "" }
-            AppButton { objectName: "copyCandidate"; theme: root.theme; text: "좌표와 ID 복사"; onClicked: fileBridge.copyText(selected.id + "\n" + selected.point_id + "\nX=" + selected.x + ", Y=" + selected.y + "\n예측=" + selected.type) }
+            Text { text: "X " + (root.selected.x || 0).toFixed(2) + "    Y " + (root.selected.y || 0).toFixed(2) + " px"; color: root.theme.muted; font.pixelSize: 14 }
+            AppButton { objectName: "copyCandidate"; theme: root.theme; text: "좌표 복사"; onClicked: fileBridge.copyText("X=" + root.selected.x + " Y=" + root.selected.y + " " + root.selected.type) }
+            Text { visible: root.selected.type === "BPD"; text: "영역: 구조 기반 제안"; color: root.theme.muted; font.pixelSize: root.theme.smallSize }
         }
-    }
-    SurfaceDialog {
-        id: options; objectName: "resultOptionsDialog"; parent: Overlay.overlay; title: "후보 탐색 설정"
-        modal: true; width: Math.min(520, parent.width - 40); x: (parent.width - width)/2; y: (parent.height - height)/2; standardButtons: Dialog.Close
-        ColumnLayout {
-            width: parent.width; spacing: theme.spacingMd
-            AppTextField { objectName: "candidateSearch"; Layout.fillWidth: true; placeholderText: "번호 또는 후보 ID 검색"; placeholderTextColor: theme.muted; color: theme.text; selectByMouse: true; text: results.query; onTextEdited: root.filter(results.filterKind, results.filterLow, text) }
-            CheckBox { objectName: "lowScoreFilter"; text: "낮은 점수 후보만"; checked: results.filterLow; onToggled: root.filter(results.filterKind, checked, results.query) }
-            CheckBox { objectName: "autoCandidateRoi"; text: "자동 ROI"; checked: uiState.autoCandidateRoi; onToggled: uiState.autoCandidateRoi = checked }
-            ComboBox {
-                objectName: "candidateRoiSize"; Layout.fillWidth: true
-                model: ["128 × 128 px", "256 × 256 px", "512 × 512 px"]
-                currentIndex: [128, 256, 512].indexOf(uiState.candidateRoiSize)
-                onActivated: { uiState.candidateRoiSize = [128, 256, 512][currentIndex]; if (uiState.autoCandidateRoi && selected.id) fileBridge.research.selectCandidate(selected.id) }
-            }
-            Text { Layout.fillWidth: true; wrapMode: Text.Wrap; color: theme.muted; font.pixelSize: theme.smallSize; text: uiState.candidateRoiId ? "탐색 ROI: (" + uiState.roiX + ", " + uiState.roiY + ") · " + uiState.roiWidth + " × " + uiState.roiHeight + " px · 결함 윤곽 아님" : "후보 선택 시 사각 ROI 생성 · 수동 선택 시 자동 추적 해제" }
-            CheckBox { objectName: "resultLayerVisibility"; text: "영상에 후보 위치 표시"; checked: uiState.analysisLayerVisible; onToggled: uiState.analysisLayerVisible = checked }
-            Text { Layout.fillWidth: true; wrapMode: Text.Wrap; color: theme.muted; font.pixelSize: theme.smallSize; text: "현재 필터 후보만 표시 · 낮은 점수 후보는 기존 흰색 원 · 선택 후보는 노란 강조선\n색상과 Class 이름은 결과 필터에서 함께 확인합니다." }
-        }
-    }
-    SurfaceDialog {
-        id: info; objectName: "resultInfoDialog"; parent: Overlay.overlay; title: "분석 실행 정보"; modal: true; width: Math.min(560, parent.width - 40); x: (parent.width - width)/2; y: (parent.height - height)/2; standardButtons: Dialog.Close
-        contentItem: TextArea { readOnly: true; selectByMouse: true; wrapMode: TextEdit.Wrap; text: "원본: " + results.runInfo.source + "\n페이지: " + results.runInfo.page + "\n좌표: 원시 픽셀 (EXIF 자동 회전 미적용)\n방식: " + (results.runInfo.mode === "provided_coordinates" ? "제공 좌표 분류" : "밝기 대비 자동 후보") + "\n소요 시간: " + results.runInfo.seconds + "초\n완료: " + results.runInfo.completed + "\n실행 ID: " + results.runInfo.analysisId + "\n모델: " + results.runInfo.model + "\n모델 해시: " + results.runInfo.modelHash + "\n\n살펴봄 표시는 이번 실행의 탐색 기록이며 정답 검수 기록이 아닙니다." }
     }
 }

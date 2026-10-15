@@ -18,10 +18,21 @@ Rectangle {
     property real focusZoom: 1
     property real focusPanX: 0
     property real focusPanY: 0
+    property string focusedArea: ""
+    property var previousView: []
     function focusCandidate(x, y) {
         var candidate = uiState.research.selected || ({})
         var reviewed = uiState.feedback.selected || ({})
         if (!uiState.hasLoadedImage || uiState.loading || !((candidate.id && candidate.x === x && candidate.y === y) || (reviewed.id && reviewed.x === x && reviewed.y === y))) return
+        var area = fileBridge.research.regions.state
+        if (area.enabled && area.rect.length === 4) {
+            var screenX = imageFrame.x + x * displayScale
+            var screenY = imageFrame.y + y * displayScale
+            if (focusedArea === area.key && !uiState.fitMode && screenX >= 0 && screenX <= viewport.width && screenY >= 0 && screenY <= viewport.height) return
+            focusedArea = area.key
+            focusGeometry(area.rect[0],area.rect[1],area.rect[2],area.rect[3])
+            return
+        }
         focusAnimation.stop()
         var current = displayScale
         uiState.zoom = current * uiState.displayPixelRatio
@@ -31,7 +42,19 @@ Rectangle {
         focusZoom = target * uiState.displayPixelRatio
         focusPanX = (uiState.contentWidth / 2 - x) * target
         focusPanY = (uiState.contentHeight / 2 - y) * target
-        uiState.analysisLayerVisible = true
+        focusAnimation.start()
+    }
+    function focusGeometry(x, y, w, h) {
+        if (!uiState.hasLoadedImage || uiState.loading) return
+        focusAnimation.stop()
+        var target = Math.max(fitScale, Math.min(4, (viewport.width - 48) / Math.max(64, w * 1.25), (viewport.height - 48) / Math.max(64, h * 1.25)))
+        var cx = Math.max(w / 2, Math.min(uiState.contentWidth - w / 2, x + w / 2))
+        var cy = Math.max(h / 2, Math.min(uiState.contentHeight - h / 2, y + h / 2))
+        uiState.zoom = displayScale * uiState.displayPixelRatio
+        uiState.fitMode = false
+        focusZoom = target * uiState.displayPixelRatio
+        focusPanX = (uiState.contentWidth / 2 - cx) * target
+        focusPanY = (uiState.contentHeight / 2 - cy) * target
         focusAnimation.start()
     }
     ParallelAnimation {
@@ -74,29 +97,59 @@ Rectangle {
     onDisplayScaleChanged: Qt.callLater(syncDetailView)
     Connections {
         target: root.uiState
-        function onImageSourceChanged() { Qt.callLater(root.syncDetailView) }
+        function onImageSourceChanged() { root.focusedArea=""; root.previousView=[]; Qt.callLater(root.syncDetailView) }
         function onLoadingChanged() { Qt.callLater(root.syncDetailView) }
         function onActiveToolChanged() { root.cancelToolDrawing() }
         function onRoiEditModeChanged() { root.cancelToolDrawing() }
         function onPageIndexChanged() { root.cancelToolDrawing() }
+        function onStackChanged() { if (root.uiState.stack.requestedPage !== root.uiState.pageIndex || root.uiState.stack.busy) root.cancelToolDrawing() }
         function onOpeningChanged() { if (uiState.opening) root.cancelToolDrawing() }
-        function onResearchChanged() { if (!uiState.research.selected.id) focusAnimation.stop() }
+        function onResearchChanged() { if (!uiState.research.selection.id) focusAnimation.stop() }
         function onHasResultChanged() { if (!uiState.hasResult) focusAnimation.stop() }
     }
     function stepPage(delta) {
         if (uiState.hasLoadedImage && uiState.pageCount > 1 && !uiState.loading)
             fileBridge.requestPage(Math.max(0, Math.min(uiState.pageCount - 1, uiState.stack.requestedPage + delta)))
     }
-    function fitView() { resetPan(); uiState.fitMode = true; uiState.statusText = "화면 맞춤" }
+    function fitView() { if (!uiState.fitMode) previousView=[uiState.zoom,panX,panY]; focusedArea=""; resetPan(); uiState.fitMode = true; uiState.statusText = "화면 맞춤" }
+    function restoreView() { if (previousView.length===3) { focusAnimation.stop(); uiState.fitMode=false; uiState.zoom=previousView[0]; panX=previousView[1]; panY=previousView[2]; previousView=[] } }
     function setActualZoom(value) { resetPan(); uiState.zoom = value; uiState.fitMode = false }
     function defaultView() {
         if (uiState.defaultView === "fit") fitView()
         else setActualZoom(uiState.defaultView === "actual" ? 1 : uiState.defaultView === "125" ? 1.25 : 2)
     }
-    function zoomIn() { focusAnimation.stop(); if (uiState.canNavigateImage) { uiState.zoom = Math.min(16, uiState.effectiveZoom * 1.25); uiState.fitMode = false } }
-    function zoomOut() { focusAnimation.stop(); if (uiState.canNavigateImage) { uiState.zoom = Math.max(0.01, uiState.effectiveZoom / 1.25); uiState.fitMode = false } }
+    function zoomAt(value, x, y) {
+        if (!uiState.canNavigateImage || displayScale <= 0) return
+        focusAnimation.stop()
+        // x/y are viewport logical pixels; zoom is physical pixels/source pixel.
+        // Snapshot the source anchor BEFORE changing Fit/zoom or frame bindings.
+        var sourceX = (x - imageFrame.x) / displayScale
+        var sourceY = (y - imageFrame.y) / displayScale
+        var zoom = Math.max(0.01, Math.min(16, value))
+        var scale = zoom / uiState.displayPixelRatio
+        // imageFrame origin = (viewport - originalExtent * scale)/2 + pan.
+        // Solve that same transform for pan, independently on each axis.
+        var nextPanX = x - viewport.width / 2 + (uiState.contentWidth / 2 - sourceX) * scale
+        var nextPanY = y - viewport.height / 2 + (uiState.contentHeight / 2 - sourceY) * scale
+        uiState.zoom = zoom
+        uiState.fitMode = false
+        panX = nextPanX
+        panY = nextPanY
+        if (viewerMouse.containsMouse) updateCursor(viewerMouse.mouseX, viewerMouse.mouseY)
+    }
+    function zoomIn() { zoomAt(uiState.effectiveZoom * 1.25, viewport.width / 2, viewport.height / 2) }
+    function zoomOut() { zoomAt(uiState.effectiveZoom / 1.25, viewport.width / 2, viewport.height / 2) }
+    function reviewPoint(x, y) { return Qt.point((x-imageFrame.x)/displayScale, (y-imageFrame.y)/displayScale) }
+    Connections { target: fileBridge.reviews; function onFocusRequested(x,y,w,h) { root.focusGeometry(x,y,w,h) } }
+    Connections { target: fileBridge.research.regions; function onFocusRequested(x,y,w,h) { root.focusGeometry(x,y,w,h) } }
     function imagePoint(x, y) {
         return Qt.point(Math.max(0, Math.min(1, (x - imageFrame.x) / imageFrame.width)), Math.max(0, Math.min(1, (y - imageFrame.y) / imageFrame.height)))
+    }
+    function updateCursor(x, y) {
+        var inside = x >= imageFrame.x && x < imageFrame.x + imageFrame.width && y >= imageFrame.y && y < imageFrame.y + imageFrame.height
+        var p = imagePoint(x, y)
+        uiState.cursorX = inside ? Math.min(uiState.contentWidth - 1, Math.floor(p.x * uiState.contentWidth)) : -1
+        uiState.cursorY = inside ? Math.min(uiState.contentHeight - 1, Math.floor(p.y * uiState.contentHeight)) : -1
     }
     ColumnLayout {
         anchors.fill: parent
@@ -164,6 +217,19 @@ Rectangle {
                 anchors.fill: parent; enabled: uiState.canNavigateImage; hoverEnabled: true
                 focus: true
                 Keys.onPressed: function(event) {
+                    if (uiState.projectReview.editing) {
+                        if (event.key===Qt.Key_Z && (event.modifiers & Qt.ControlModifier)) { fileBridge.reviews.undo(); event.accepted=true; return }
+                        if (event.key===Qt.Key_Delete) { fileBridge.reviews.deleteVertex(); event.accepted=true; return }
+                        if (event.key===Qt.Key_Escape) { fileBridge.reviews.cancel(); event.accepted=true; return }
+                        if ([Qt.Key_Left,Qt.Key_Right].indexOf(event.key)>=0) { event.accepted=true; return }
+                    }
+
+                    if (uiState.pageCount === 1 && uiState.hasResult && !uiState.roiEditMode && [Qt.Key_Left, Qt.Key_Right].indexOf(event.key) >= 0) {
+                        var delta = event.key === Qt.Key_Right ? 1 : -1
+                        if (fileBridge.research.regions.state.enabled) fileBridge.research.regions.stepCandidate(delta)
+                        else fileBridge.research.stepCandidate(delta)
+                        event.accepted = true; return
+                    }
                     if (event.key === Qt.Key_Escape) { fileBridge.feedback.setMode(""); root.toolPoints = []; root.drawingTool = false; toolPreview.requestPaint(); event.accepted = true; return }
                     if ((event.key === Qt.Key_Return || event.key === Qt.Key_Enter) && root.toolPoints.length) { root.finishTool(); event.accepted = true; return }
                     if (uiState.roiEditMode && event.key === Qt.Key_Delete) { fileBridge.deleteRoiVertex(); event.accepted = true; return }
@@ -181,6 +247,9 @@ Rectangle {
                     forceActiveFocus()
                     if (uiState.analysisRunning && uiState.activeTool === "ROI" && !uiState.roiEditMode) return
                     root.pressX = mouse.x; root.pressY = mouse.y; root.pressPanX = root.panX; root.pressPanY = root.panY
+                    if (uiState.projectReview.editing && uiState.projectReview.tool !== "pan") {
+                        var rp=root.reviewPoint(mouse.x,mouse.y);fileBridge.reviews.press(rp.x,rp.y,8/root.displayScale);return
+                    }
                     root.reviewGesture = !!uiState.feedback.mode
                     if (uiState.feedback.mode) {
                         if (mouse.x >= imageFrame.x && mouse.x < imageFrame.x + imageFrame.width && mouse.y >= imageFrame.y && mouse.y < imageFrame.y + imageFrame.height) {
@@ -194,8 +263,19 @@ Rectangle {
                         root.draggingVertex = fileBridge.beginRoiDrag(editPoint.x * uiState.contentWidth, editPoint.y * uiState.contentHeight, 8 / root.displayScale)
                         return
                     }
-                    if (uiState.activeTool === "Zoom") { if (mouse.modifiers & Qt.AltModifier) root.zoomOut(); else root.zoomIn(); return }
+                    if (uiState.activeTool === "Defect3D") {
+                        var point=root.reviewPoint(mouse.x,mouse.y)
+                        if(fileBridge.defect3d.startVisual(point.x,point.y)){uiState.activeTool="Pan";uiState.workspaceIndex=3}
+                        return
+                    }
+                    if (uiState.activeTool === "Zoom") {
+                        var click = mapToItem(viewport, mouse.x, mouse.y)
+                        root.zoomAt(uiState.effectiveZoom * ((mouse.modifiers & Qt.AltModifier) ? 1 / 1.25 : 1.25), click.x, click.y)
+                        root.updateCursor(click.x, click.y)
+                        return
+                    }
                     if (["Pan", "ROI"].indexOf(uiState.activeTool) < 0) {
+                        if (!uiState.loadFlow.imagejReady) { uiState.statusText = "현재 페이지 준비 후 ImageJ 도구를 사용하세요."; return }
                         var t = root.toolPoint(mouse)
                         if (["Polygon", "Polyline", "Angle"].indexOf(uiState.activeTool) >= 0) {
                             root.toolPoints = root.toolPoints.concat([t])
@@ -214,11 +294,13 @@ Rectangle {
                     }
                 }
                 onPositionChanged: function(mouse) {
+                    if (uiState.projectReview.editing && uiState.projectReview.tool !== "pan") {
+                        if (pressed) { var rp=root.reviewPoint(mouse.x,mouse.y);fileBridge.reviews.drag(rp.x,rp.y) }
+                        return
+                    }
                     if (root.reviewGesture) return
-                    var inside = mouse.x >= imageFrame.x && mouse.x < imageFrame.x + imageFrame.width && mouse.y >= imageFrame.y && mouse.y < imageFrame.y + imageFrame.height
+                    root.updateCursor(mouse.x, mouse.y)
                     var p = root.imagePoint(mouse.x, mouse.y)
-                    uiState.cursorX = inside ? Math.min(uiState.contentWidth - 1, Math.floor(p.x * uiState.contentWidth)) : -1
-                    uiState.cursorY = inside ? Math.min(uiState.contentHeight - 1, Math.floor(p.y * uiState.contentHeight)) : -1
                     if (!pressed || (uiState.analysisRunning && uiState.activeTool === "ROI" && !uiState.roiEditMode)) return
                     if (root.drawingTool) {
                         var t = root.toolPoint(mouse)
@@ -229,12 +311,13 @@ Rectangle {
                     if (["Pan", "ROI"].indexOf(uiState.activeTool) < 0 && !uiState.roiEditMode) return
                     if (uiState.roiEditMode) {
                         if (root.draggingVertex) fileBridge.dragRoiVertex(p.x * uiState.contentWidth, p.y * uiState.contentHeight)
-                        else { root.panX = root.pressPanX + mouse.x - root.pressX; root.panY = root.pressPanY + mouse.y - root.pressY }
+                        else { root.panX = root.pressPanX + mouse.x - root.pressX; root.panY = root.pressPanY + mouse.y - root.pressY; root.updateCursor(mouse.x, mouse.y) }
                         return
                     }
                     if (uiState.activeTool === "Pan") {
                         root.panX = root.pressPanX + mouse.x - root.pressX
                         root.panY = root.pressPanY + mouse.y - root.pressY
+                        root.updateCursor(mouse.x, mouse.y)
                     } else {
                         uiState.roiEndX = p.x; uiState.roiEndY = p.y
                         uiState.hasRoi = uiState.roiWidth > 0 && uiState.roiHeight > 0
@@ -242,6 +325,7 @@ Rectangle {
                 }
                 onExited: { uiState.cursorX = -1; uiState.cursorY = -1 }
                 onDoubleClicked: function(mouse) {
+                    if (uiState.projectReview.editing) return
                     if (["Polygon", "Polyline"].indexOf(uiState.activeTool) >= 0) { root.finishTool(); return }
                     if (uiState.roiEditMode) {
                         var p = root.imagePoint(mouse.x, mouse.y)
@@ -250,6 +334,7 @@ Rectangle {
                     }
                 }
                 onReleased: function(mouse) {
+                    if (uiState.projectReview.editing) { fileBridge.reviews.release(false); return }
                     if (root.reviewGesture) { root.reviewGesture = false; return }
                     if (uiState.feedbackVisible && uiState.activeTool === "Pan" && Math.hypot(mouse.x-root.pressX, mouse.y-root.pressY) < 4) {
                         var reviewPoints = uiState.feedback.rows, nearest = null, radius = 12
@@ -259,45 +344,86 @@ Rectangle {
                         }
                         if (nearest) { fileBridge.feedback.selectRecord(nearest.id); return }
                     }
-                    if (uiState.activeTool === "Pan" && !uiState.roiEditMode && uiState.hasResult && uiState.analysisLayerVisible && Math.hypot(mouse.x-root.pressX, mouse.y-root.pressY) < 4) {
-                        var points = uiState.research.filteredPoints, best = null, distance = 12
+                    if (uiState.activeTool === "Pan" && !uiState.roiEditMode && Math.hypot(mouse.x-root.pressX, mouse.y-root.pressY) < 4) {
+                        if (geometryOverlay.visible) {
+                            var hit = geometryOverlay.hit((mouse.x-imageFrame.x)/root.displayScale, (mouse.y-imageFrame.y)/root.displayScale, 8/root.displayScale)
+                            if (hit) { fileBridge.experiments.select(hit); return }
+                        }
+                        if (!uiState.hasResult || !uiState.analysisLayerVisible) return
+                        var points = uiState.research.points, best = null, distance = root.displayScale<.15 && uiState.research.points.length>500 ? 28 : 12
                         for (var i=0; i<points.length; i++) {
-                            var p=points[i], d=Math.hypot(mouse.x-imageFrame.x-p.x*root.displayScale, mouse.y-imageFrame.y-p.y*root.displayScale)
+                            var p=points[i]; if (!uiState.candidateLayer(p.type)) continue
+                            var d=Math.hypot(mouse.x-imageFrame.x-p.x*root.displayScale, mouse.y-imageFrame.y-p.y*root.displayScale)
                             if (d < distance) { best=p; distance=d }
                         }
                         if (best) fileBridge.research.selectCandidate(best.id)
                     }
                     if (root.drawingTool) root.finishTool(); uiState.selectingRoi = false; if (root.draggingVertex) fileBridge.finishRoiDrag(false); root.draggingVertex = false
                 }
-                onCanceled: { root.reviewGesture = false; root.toolPoints = []; root.drawingTool = false; toolPreview.requestPaint(); uiState.selectingRoi = false; if (root.draggingVertex) fileBridge.finishRoiDrag(true); root.draggingVertex = false }
+                onCanceled: { if (uiState.projectReview.editing) fileBridge.reviews.release(true); root.reviewGesture = false; root.toolPoints = []; root.drawingTool = false; toolPreview.requestPaint(); uiState.selectingRoi = false; if (root.draggingVertex) fileBridge.finishRoiDrag(true); root.draggingVertex = false }
                 onWheel: function(wheel) {
                     var delta = wheel.angleDelta.y || wheel.pixelDelta.y
                     if (delta === 0) return
                     if (uiState.hasLoadedImage && uiState.pageCount > 1 && !(wheel.modifiers & Qt.ControlModifier)) root.stepPage(delta < 0 ? 1 : -1)
-                    else if (delta > 0) root.actions.zoomIn.trigger()
-                    else root.actions.zoomOut.trigger()
+                    else {
+                        var anchor = mapToItem(viewport, wheel.x, wheel.y)
+                        root.zoomAt(uiState.effectiveZoom * (delta > 0 ? 1.25 : 1 / 1.25), anchor.x, anchor.y)
+                        root.updateCursor(anchor.x, anchor.y)
+                    }
                     wheel.accepted = true
                 }
+            }
+            ReviewGeometryOverlay {
+                anchors.fill: parent; z: 5; review: uiState.projectReview
+                imageX: imageFrame.x; imageY: imageFrame.y; imageScale: root.displayScale
             }
             ImportedRoiOverlay {
                 z: 3
                 anchors.fill: parent
                 rois: uiState.importedRois.items
                 imageX: imageFrame.x; imageY: imageFrame.y; imageScale: root.displayScale
-                layerVisible: uiState.roiLayerVisible && uiState.hasLoadedImage
+                layerVisible: uiState.roiLayerVisible && uiState.imagejRoiLayerVisible && uiState.hasLoadedImage
                 editMode: uiState.roiEditMode; selectedVertex: uiState.importedRois.vertex
             }
             Canvas {
+                id:annotationLayers; objectName:"annotationLayers"; anchors.fill:parent; z:2
+                property var rows:fileBridge.displayLayers.rows
+                property var position:[imageFrame.x,imageFrame.y,root.displayScale]
+                onRowsChanged:requestPaint();onPositionChanged:requestPaint()
+                visible:uiState.hasLoadedImage
+                onPaint:{var c=getContext("2d");c.reset();c.lineWidth=2;for(var i=0;i<rows.length;i++){var r=rows[i];if(!r.visible)continue;c.strokeStyle="#69dfcf";if(r.paths){c.beginPath();for(var j=0;j<r.paths.length;j++){var path=r.paths[j];for(var k=0;k<path.length;k++){var x=imageFrame.x+path[k][0]*root.displayScale,y=imageFrame.y+path[k][1]*root.displayScale;if(r.kind==="point"){c.moveTo(x-4,y);c.lineTo(x+4,y);c.moveTo(x,y-4);c.lineTo(x,y+4)}else if(k===0)c.moveTo(x,y);else c.lineTo(x,y)}if(r.kind==="polygon")c.closePath()}c.stroke()}else c.strokeRect(imageFrame.x+r.x*root.displayScale,imageFrame.y+r.y*root.displayScale,r.width*root.displayScale,r.height*root.displayScale);c.fillStyle=c.strokeStyle;c.font="12px sans-serif";c.fillText(r.name,imageFrame.x+r.x*root.displayScale+5,imageFrame.y+r.y*root.displayScale+16)}}
+            }
+            Canvas {
+                id:analysisScan; anchors.fill:parent; z:2; visible:uiState.analysisRunning
+                property var scan:uiState.analysis.progress
+                property var position:[imageFrame.x,imageFrame.y,root.displayScale]
+                onScanChanged:requestPaint();onPositionChanged:requestPaint();onVisibleChanged:requestPaint()
+                onPaint:{var c=getContext("2d");c.reset();var r=scan.region||[];if(!visible||r.length!==4)return;c.fillStyle="#2949ced6";c.strokeStyle="#49ced6";c.lineWidth=2;c.fillRect(imageFrame.x+r[0]*root.displayScale,imageFrame.y+r[1]*root.displayScale,r[2]*root.displayScale,r[3]*root.displayScale);c.strokeRect(imageFrame.x+r[0]*root.displayScale,imageFrame.y+r[1]*root.displayScale,r[2]*root.displayScale,r[3]*root.displayScale)}
+            }
+            Rectangle {
+                anchors.horizontalCenter:parent.horizontalCenter; anchors.top:parent.top; anchors.topMargin:16;z:8;visible:uiState.analysisRunning
+                color:theme.panel;radius:8;width:330;height:72
+                ColumnLayout{anchors.fill:parent;anchors.margins:10
+                    RowLayout{Text{text:uiState.analysis.progress.stage||"분석 중";color:theme.text;Layout.fillWidth:true}Text{text:(uiState.research.livePoints||[]).length+"개";color:theme.accent}AppButton{theme:root.theme;text:"취소";onClicked:fileBridge.cancelAnalysis()}}
+                    ProgressBar{Layout.fillWidth:true;from:0;to:Math.max(1,uiState.analysis.progress.total||1);value:uiState.analysis.progress.completed||0;indeterminate:!(uiState.analysis.progress.total>0)}
+                }
+            }
+            Canvas {
                 id: analysisOverlay; objectName: "analysisOverlay"; anchors.fill: parent; z: 3
-                property var points: uiState.research.filteredPoints
+                property var points: uiState.analysisRunning ? uiState.research.livePoints || [] : uiState.research.points
                 property var selected: uiState.research.selected
                 property bool reviewing: uiState.feedbackVisible
-                readonly property real candidateOpacity: 0.55
+                property real paintMs: 0
+                property int paintCount: 0
+                readonly property real candidateOpacity: 0.75
+                readonly property real markerRadius: Math.max(6, Math.min(12, 6 + Math.log(Math.max(1,imageScale))/Math.LN2*2))
+                property var layers: [uiState.bpdLayerVisible, uiState.tedLayerVisible, uiState.tsdLayerVisible, uiState.selectedLayerVisible]
+                onLayersChanged: requestPaint()
                 readonly property real selectedOpacity: 1
                 property real imageX: imageFrame.x
                 property real imageY: imageFrame.y
                 property real imageScale: root.displayScale
-                visible: uiState.hasResult && uiState.analysisLayerVisible && uiState.hasLoadedImage
+                visible: (uiState.hasResult || uiState.analysisRunning) && (uiState.analysisLayerVisible || (uiState.selectedLayerVisible && !!selected.id)) && uiState.hasLoadedImage
                 onPointsChanged: requestPaint()
                 onSelectedChanged: requestPaint()
                 onReviewingChanged: requestPaint()
@@ -306,16 +432,28 @@ Rectangle {
                 onImageScaleChanged: requestPaint()
                 onVisibleChanged: requestPaint()
                 onPaint: {
+                    var started = Date.now()
                     var c = getContext("2d"); c.reset()
                     if (!visible) return
                     c.lineWidth = 1.5; c.globalAlpha = candidateOpacity
-                    for (var i = 0; i < points.length; i++) {
-                        var p = points[i], x = imageX + p.x * imageScale, y = imageY + p.y * imageScale
+                    var bins={}
+                    var overviewMode=imageScale<.15 && points.length>500
+                    for (var i = 0; uiState.analysisLayerVisible && i < points.length; i++) {
+                        var p = points[i]; if (!uiState.candidateLayer(p.type)) continue
+                        var x = imageX + p.x * imageScale, y = imageY + p.y * imageScale
                         if (x < -6 || y < -6 || x > width + 6 || y > height + 6) continue
+                        if(overviewMode){var key=Math.floor(x/28)+":"+Math.floor(y/28);var bin=bins[key]||{x:0,y:0,n:0};bin.x+=x;bin.y+=y;bin.n++;bins[key]=bin;continue}
                         c.strokeStyle = p.low_score ? "#ffffff" : uiState.resultPresentation.colorFor(p.type)
-                        c.beginPath(); c.arc(x, y, 5, 0, Math.PI * 2); c.stroke()
+                        if (p.region && p.region.length >= 3) {
+                            c.globalAlpha=.18; c.fillStyle=c.strokeStyle; c.beginPath()
+                            c.moveTo(imageX+p.region[0][0]*imageScale,imageY+p.region[0][1]*imageScale)
+                            for(var r=1;r<p.region.length;r++)c.lineTo(imageX+p.region[r][0]*imageScale,imageY+p.region[r][1]*imageScale)
+                            c.closePath();c.fill();c.globalAlpha=.95;c.lineWidth=2;c.stroke();c.globalAlpha=candidateOpacity
+                        }
+                        c.beginPath(); c.arc(x, y, markerRadius, 0, Math.PI * 2); c.stroke()
                     }
-                    if (selected.id && !reviewing) {
+                    if(overviewMode){c.globalAlpha=.8;c.font="11px sans-serif";c.textAlign="center";for(var key in bins){var b=bins[key],bx=b.x/b.n,by=b.y/b.n;c.fillStyle="#23636b";c.beginPath();c.arc(bx,by,Math.min(14,5+Math.sqrt(b.n)),0,Math.PI*2);c.fill();c.fillStyle="#f2f6fa";c.fillText(String(b.n),bx,by+4)}c.textAlign="left"}
+                    if (selected.id && uiState.selectedLayerVisible && !reviewing) {
                         c.globalAlpha = selectedOpacity
                         var sx=imageX+selected.x*imageScale, sy=imageY+selected.y*imageScale
                         c.strokeStyle="#fff04a"; c.lineWidth=2
@@ -324,7 +462,24 @@ Rectangle {
                         c.fillStyle="#14191e"; c.fillRect(sx+15,sy-30,110,22)
                         c.fillStyle="#fff04a"; c.font="12px sans-serif"; c.fillText("#"+selected.number+"  "+selected.type,sx+20,sy-15)
                     }
+                    paintMs = Date.now() - started; paintCount += 1
                 }
+            }
+            GeometryOverlay {
+                id: geometryOverlay; objectName: "geometryOverlay"; anchors.fill: parent; z: 3
+                controller: fileBridge.experiments
+                rows: uiState.experiment.rows
+                selectedId: uiState.experiment.selected.id || ""
+                viewTransform: [imageFrame.x, imageFrame.y, root.displayScale]
+                visible: uiState.hasLoadedImage && uiState.structureLayerVisible && uiState.experiment.total > 0
+                maskMode: uiState.maskMode; lines: uiState.structureLinesVisible
+                highlight: uiState.selectedLayerVisible; lineWidth: uiState.structureLineWidth
+            }
+            Text {
+                anchors.left: parent.left; anchors.bottom: parent.bottom; anchors.margins: 12; z: 5
+                visible: geometryOverlay.visible
+                text: uiState.experiment.status + (geometryOverlay.stats.maskError ? " · Mask 읽기 오류" : uiState.maskMode !== "off" && geometryOverlay.stats.maskLimited > 0 ? " · Mask 일부 표시 (캐시 제한)" : "")
+                color: "#d3bef8"; font.pixelSize: 11; style: Text.Outline; styleColor: "#111518"
             }
             Canvas {
                 id: feedbackOverlay; objectName: "feedbackOverlay"; anchors.fill: parent; z: 4
@@ -387,6 +542,10 @@ Rectangle {
                 AppButton { theme: root.theme; action: root.actions.open; text: "XRT 이미지 열기"; iconName: "open"; Layout.alignment: Qt.AlignHCenter }
                 Text { text: "또는 TIFF/JPG 파일을 이 영역에 놓으세요"; color: theme.muted; font.pixelSize: theme.smallSize; Layout.alignment: Qt.AlignHCenter }
             }
+            StackPreparationOverlay {
+                anchors.top: parent.top; anchors.right: parent.right; anchors.margins: 16; z: 8
+                theme: root.theme; loadFlow: uiState.loadFlow; closeAction: root.actions.closeImage
+            }
             Rectangle {
                 objectName: "initialLoadingOverlay"
                 z: 10
@@ -407,6 +566,17 @@ Rectangle {
                 }
             }
             DropArea { anchors.fill: parent; onDropped: function(drop) { if (drop.hasUrls && drop.urls.length > 0) root.fileDropped(drop.urls[0].toString()) } }
+            OverviewMap {
+                coverage:fileBridge.research.regions.state.coverage
+                z: 7; anchors.right: parent.right; anchors.bottom: parent.bottom; anchors.margins: 12
+                visible: uiState.hasLoadedImage && !uiState.loading && viewport.width > 500
+                theme: root.theme; imageSource: uiState.imageSource
+                imageWidth: uiState.contentWidth; imageHeight: uiState.contentHeight
+                viewRect: [-imageFrame.x/Math.max(.0001,root.displayScale),-imageFrame.y/Math.max(.0001,root.displayScale),viewport.width/Math.max(.0001,root.displayScale),viewport.height/Math.max(.0001,root.displayScale)]
+                selectedPoint: uiState.research.selected.id ? [uiState.research.selected.x,uiState.research.selected.y] : []
+                onNavigate: function(x,y) { focusAnimation.stop(); root.panX=(uiState.contentWidth/2-x)*root.displayScale; root.panY=(uiState.contentHeight/2-y)*root.displayScale }
+            }
+            AppButton { z: 7; anchors.left: parent.left; anchors.bottom: parent.bottom; anchors.margins: 12; theme: root.theme; text: "이전 확대 위치"; visible: root.previousView.length===3; onClicked:root.restoreView() }
             Rectangle {
                 visible: uiState.pageLoading; anchors.right: parent.right; anchors.top: parent.top; anchors.margins: 12
                 width: Math.min(parent.width - 24, 320); height: 30; color: theme.panel; border.color: theme.border; radius: theme.radiusSm

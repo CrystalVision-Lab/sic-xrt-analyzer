@@ -60,7 +60,7 @@ def test_invalid_discovered_bundle_is_not_marked_connected(project, tmp_path, br
 def test_no_bundle_explains_how_to_connect(project, tmp_path, bridge_factory):
     bridge = bridge_factory(settings=QSettings(str(tmp_path / 'empty.ini'), QSettings.IniFormat))
     bridge.research.load_saved()
-    assert '모델 폴더를 찾지 못했습니다' in bridge.research.state['error']
+    assert '관리자에게 모델 배포를 요청하세요' in bridge.research.state['error']
     assert not bridge.analysis['modelAvailable']
 
 

@@ -8,6 +8,7 @@ Rectangle {
     property QtObject uiState
     property var recentFiles: []
     property bool collapsed: false
+    signal projectRequested()
     signal collapseRequested()
     signal workspaceRequested(int index)
     signal recentRequested(string path)
@@ -21,21 +22,45 @@ Rectangle {
             AppButton { theme: root.theme; text: root.collapsed ? "›" : "‹"; quiet: true; implicitWidth: 28; tip: "작업 영역 접기 / 펼치기"; onClicked: root.collapseRequested() }
         }
         Repeater {
-            model: [{name:"이미지 분석",icon:"image"},{name:"Wafer Map",icon:"wafer"},{name:"이미지 정합",icon:"align"},{name:"3D 뷰어",icon:"cube"}]
-            delegate: Rectangle {
+            model: [{name:"이미지 뷰어",icon:"image"},{name:"Wafer Map",icon:"wafer"},{name:"이미지 정합",icon:"align"}]
+            delegate: ItemDelegate {
+                id: workspaceItem
+                objectName: "workspaceTab" + index
                 required property int index
                 required property var modelData
-                Layout.fillWidth: true; Layout.preferredHeight: theme.listRowHeight
-                color: root.uiState.workspaceIndex === index ? "#252d33" : itemHover.containsMouse ? theme.hover : "transparent"
-                Rectangle { visible: root.uiState.workspaceIndex === index; width: 2; height: parent.height; color: theme.accent }
-                RowLayout {
-                    anchors.fill: parent; anchors.leftMargin: 13; anchors.rightMargin: 8; spacing: theme.spacingSm
-                    AppIcon { name: modelData.icon; ink: root.uiState.workspaceIndex === index ? theme.accent : theme.muted }
-                    Text { visible: !root.collapsed; text: modelData.name; color: root.uiState.workspaceIndex === index ? theme.text : theme.muted; font.pixelSize: theme.bodySize; Layout.fillWidth: true }
+                readonly property bool current: root.uiState.workspaceIndex === index
+                Layout.fillWidth: true
+                Layout.leftMargin: 8; Layout.rightMargin: 8
+                Layout.preferredHeight: theme.listRowHeight
+                text: modelData.name
+                Accessible.name: text
+                Accessible.selected: current
+                onClicked: root.workspaceRequested(index)
+                Keys.onReturnPressed: root.workspaceRequested(index)
+                Keys.onEnterPressed: root.workspaceRequested(index)
+                background: Rectangle {
+                    radius: theme.radiusControl
+                    color: workspaceItem.current ? theme.surface : workspaceItem.hovered ? theme.hover : "transparent"
+                    Rectangle {
+                        visible: workspaceItem.current
+                        anchors.left: parent.left; anchors.verticalCenter: parent.verticalCenter
+                        width: 3; height: 20; radius: 1.5; color: theme.accent
+                    }
                 }
-                MouseArea { id: itemHover; anchors.fill: parent; hoverEnabled: true; onClicked: root.workspaceRequested(index) }
-                ToolTip.visible: itemHover.containsMouse && (root.collapsed || index > 0)
-                ToolTip.text: index > 0 ? modelData.name + " · 향후 분석 기능입니다" : modelData.name
+                contentItem: RowLayout {
+                    spacing: theme.spacingSm
+                    AppIcon { name: workspaceItem.modelData.icon; ink: workspaceItem.current ? theme.accent : theme.muted; Layout.preferredWidth: 20; Layout.preferredHeight: 20 }
+                    Text {
+                        objectName: workspaceItem.index === 0 ? "workspaceViewerLabel" : ""
+                        visible: !root.collapsed; text: workspaceItem.text
+                        color: workspaceItem.current ? theme.text : theme.muted
+                        font.pixelSize: theme.bodySize
+                        font.weight: workspaceItem.current ? Font.DemiBold : Font.Normal
+                        Layout.fillWidth: true
+                    }
+                }
+                ToolTip.visible: hovered && root.collapsed
+                ToolTip.text: text
             }
         }
         CurrentFileNavigation {
@@ -58,12 +83,17 @@ Rectangle {
                 }
             }
         }
+        ColumnLayout {
+            visible: !root.collapsed && root.uiState.project.active; Layout.fillWidth: true; Layout.margins: 12; spacing: theme.spacingXs
+            Text { objectName: "activeProjectName"; textFormat: Text.PlainText; text: root.uiState.project.name; color: theme.text; elide: Text.ElideRight; Layout.fillWidth: true; font.pixelSize: theme.smallSize }
+            Text { objectName: "activeProjectStatus"; text: (root.uiState.project.readOnly ? "읽기 전용" : root.uiState.project.dirty ? "저장하지 않은 변경" : "저장됨") + (root.uiState.project.needsSource ? " · 원본 연결 필요" : "") + " · 원본 " + root.uiState.project.sourceCount + " · Run " + root.uiState.project.runCount; color: root.uiState.project.dirty ? theme.warning : theme.muted; font.pixelSize: theme.captionSize; Layout.fillWidth: true; wrapMode: Text.Wrap }
+            AppButton { objectName: "projectWorkspaceButton"; theme: root.theme; text: "프로젝트 · 이력…"; quiet: true; Layout.fillWidth: true; onClicked: fileBridge.projects.state.active && root.projectRequested() }
+        }
         Item { Layout.fillHeight: true }
         ColumnLayout {
             visible: !root.collapsed; Layout.fillWidth: true; Layout.margins: 12; spacing: theme.spacingXs
             Rectangle { Layout.fillWidth: true; height: 1; color: theme.border }
             Text { text: "SiC XRT Analyzer"; color: theme.muted; font.pixelSize: theme.captionSize; font.letterSpacing: 0.8 }
-            Text { text: "로컬 작업 공간"; color: theme.disabled; font.pixelSize: theme.captionSize }
         }
     }
 }

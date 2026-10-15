@@ -5,11 +5,9 @@ import numpy as np
 import pytest
 import tifffile
 from PIL import Image
-from PySide6.QtCore import QPointF
-from PySide6.QtQml import QQmlExpression, qmlContext
 from test_analysis_pipeline import TestAdapter, spin
 from test_context_panel import choose
-from test_desktop_research import create_source
+from test_desktop_research import create_jpeg_source as create_source
 from test_result_explorer import ManyCandidates
 from test_toolbar import (
     workbench as workbench,  # noqa: PLC0414 - pytest fixture reexport
@@ -120,43 +118,27 @@ def test_uint16_shared_action_gate_and_other_tools_remain_available(workbench, s
     w.bridge.pipeline.invalidate()
     w.window.resize(*size)
     spin(w.app, lambda: w.panel.x()+w.panel.width() <= w.window.width()+1)
-    choose(w, 'analysis')
-    w.state.setProperty('analysisScope', scope)
-    if scope == 'ROI':
-        w.state.setProperty('roiStartX', .1); w.state.setProperty('roiStartY', .1)
-        w.state.setProperty('roiEndX', .5); w.state.setProperty('roiEndY', .5)
-        w.state.setProperty('hasRoi', True)
-    w.app.processEvents()
-    before = w.bridge.original_source.identity
-    assert w.state.property('generalReady') and not w.state.property('canAnalyze')
+    choose(w,'viewer')
+    before=w.bridge.original_source.identity
     assert w.state.property('inputCompatibilityState') == 'INCOMPATIBLE'
-    for name in ('contextRunAnalysis', 'menuRunAnalysis', 'runAction'):
-        assert not w.item(name).property('enabled'), name
-    w.same_action('contextRunAnalysis', 'menuRunAnalysis')
-    invoke(w.item('runAction'), 'trigger')
-    w.app.processEvents()
-    assert not adapter.requests and w.bridge.pipeline.error is None
-    assert '16비트 단일 채널' in w.item('analysisInputSummary').property('text')
-    requirement = w.item('analysisModelInputRequirement')
-    assert requirement.property('visible') and '8비트 RGB' in requirement.property('text')
-    assert '현재 입력은 이 모델에서 지원하지 않습니다' in w.item('analysisReadinessReasons').property('text')
-    accessible = QQmlExpression(qmlContext(requirement), requirement, 'Accessible.name')
-    description = accessible.evaluate()[0]
-    assert not accessible.hasError()
-    assert '16비트 단일 채널' in description and '8비트 RGB' in description
-    for name in ('analysisInputSummary', 'analysisModelInputRequirement', 'contextRunAnalysis'):
-        item = w.item(name); p = item.mapToScene(QPointF())
-        assert 0 <= p.y() and p.y()+item.height() <= size[1]-28, name
-    for name in ('roiAction', 'zoomInAction', 'actualSizeAction', 'importRoisAction'):
-        assert w.item(name).property('enabled'), name
+    assert not w.state.property('canAnalyze')
+    assert not w.item('imagePrepareAnalysis').property('visible')
+    assert not w.item('menuRunAnalysis').property('rowAvailable')
+    assert w.item('roiAction').property('enabled')  # Stack ROI supports viewing, not inference.
+    assert not invoke(w.window,'requestContext','analysis','MANUAL')
+    assert not w.bridge.requestAnalysis(scope,0,0,256,256,{})
+    assert not adapter.requests
+    for name in ('zoomInAction','actualSizeAction','importRoisAction'):
+        assert w.item(name).property('enabled')
     w.bridge.newPointRoi()
     assert len(w.bridge.roi_manager.records) == 1
-    assert w.state.property('stackFeaturesVisible')
-    assert w.bridge.setDisplayRange(0, 10000)
-    spin(w.app, lambda: not w.bridge.stack_viewer.busy)
+    assert w.bridge.setDisplayRange(0,10000)
+    spin(w.app,lambda:not w.bridge.stack_viewer.busy)
     assert w.bridge.original_source.identity == before
-    invoke(w.window, 'imagejTools')  # Incompatibility does not gate ImageJ UI.
-    assert w.panel.property('requestedContext') == 'analysis'
+    invoke(w.window,'imagejTools')
+    assert w.item('imagejDialog').property('visible')
+    assert w.panel.property('requestedContext') == 'viewer'
+    invoke(w.item('imagejDialog'),'close')
 
 
 def test_file_loading_model_and_close_recompute_without_stale_compatibility(workbench):
@@ -217,8 +199,8 @@ def test_compatible_one_click_full_and_roi_requests_keep_contract(workbench, sco
         w.state.setProperty('roiEndX', 1); w.state.setProperty('roiEndY', 1)
         w.state.setProperty('hasRoi', True)
     w.app.processEvents()
-    assert w.state.property('canAnalyze') and w.item('contextRunAnalysis').property('enabled')
-    w.click('contextRunAnalysis')
+    assert w.state.property('canAnalyze') and w.item('confirmAnalysis').property('enabled')
+    w.click('confirmAnalysis')
     spin(w.app, lambda: w.bridge.analysis['hasResult'])
     assert len(adapter.requests) == 1 and adapter.requests[0].scope.value == scope
     assert (adapter.requests[0].roi is not None) == (scope == 'ROI')
@@ -228,9 +210,10 @@ def test_compatible_one_click_full_and_roi_requests_keep_contract(workbench, sco
 
 def test_model_contract_missing_ui_error_has_no_false_scope_warning(workbench):
     w = workbench; adapter = RecordingAdapter(); adapter.input_contract = None
+    w.open(create_source(w.path.parent).path)
     w.bridge.pipeline.adapter = adapter; w.bridge.pipeline.invalidate(); choose(w, 'analysis')
     assert w.state.property('inputCompatibilityState') == 'ERROR'
-    reasons = w.item('analysisReadinessReasons').property('text')
+    reasons = w.state.property('analysisReason')
     assert '입력 계약을 확인할 수 없습니다' in reasons and '분석 범위를 지원하지' not in reasons
     assert not w.item('runAction').property('enabled')
 

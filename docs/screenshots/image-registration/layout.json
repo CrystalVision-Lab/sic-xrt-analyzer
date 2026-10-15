@@ -1,0 +1,44 @@
+{
+  "layouts": [
+    {
+      "size": [
+        1100,
+        700
+      ],
+      "dpr": 1.0,
+      "viewport": [
+        451,
+        176
+      ],
+      "coordinate_roundtrip_error": 0.0
+    },
+    {
+      "size": [
+        1440,
+        900
+      ],
+      "dpr": 1.0,
+      "viewport": [
+        618,
+        376
+      ],
+      "coordinate_roundtrip_error": 0.0
+    },
+    {
+      "size": [
+        1920,
+        1080
+      ],
+      "dpr": 1.0,
+      "viewport": [
+        858,
+        556
+      ],
+      "coordinate_roundtrip_error": 0.0
+    }
+  ],
+  "warnings": [],
+  "manual_qtest_point_count": 4,
+  "input": "synthetic",
+  "acceptance": "automated_QTest_not_physical_mouse"
+}

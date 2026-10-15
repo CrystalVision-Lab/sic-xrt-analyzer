@@ -4,11 +4,11 @@ import sys
 from pathlib import Path
 
 from PySide6.QtCore import QTimer, QUrl
-from PySide6.QtGui import QGuiApplication
+from PySide6.QtGui import QGuiApplication, QIcon
 from PySide6.QtQml import QQmlApplicationEngine
-from PySide6.QtQuickControls2 import QQuickStyle
 
 from sic_xrt_analyzer.ui.bridge import FileBridge, TiffImageProvider
+from sic_xrt_analyzer.ui.style import configure_style
 
 
 def main() -> int:
@@ -19,9 +19,10 @@ def main() -> int:
         app = QApplication(sys.argv)
     else:
         app = QGuiApplication(sys.argv)
+    app.setWindowIcon(QIcon(str(Path(__file__).parent / "ui/assets/app-logo.png")))
     app.setApplicationName("sic-xrt-analyzer")
     app.setOrganizationName("CrystalVision-Lab")
-    QQuickStyle.setStyle("Basic")
+    configure_style(app)
     engine = QQmlApplicationEngine()
     provider = TiffImageProvider()
     engine.addImageProvider("tiff", provider)
@@ -38,7 +39,13 @@ def main() -> int:
         ctypes.windll.dwmapi.DwmSetWindowAttribute(
             int(engine.rootObjects()[0].winId()), 20, ctypes.byref(dark), ctypes.sizeof(dark)
         )
-    return app.exec()
+    QTimer.singleShot(1000, bridge.app_update_controller.checkOnStartup)
+    result = app.exec()
+    bridge.app_update_controller.launch_after_exit()
+    if bridge.app_update_controller.launch_error:
+        from PySide6.QtWidgets import QMessageBox
+        QMessageBox.warning(None, "프로그램 업데이트", bridge.app_update_controller.launch_error)
+    return result
 
 
 if __name__ == "__main__":

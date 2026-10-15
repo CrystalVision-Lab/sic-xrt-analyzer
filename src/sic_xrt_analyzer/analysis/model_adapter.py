@@ -20,6 +20,7 @@ from .contracts import (
 class CancellationToken:
     def __init__(self):
         self._event = Event()
+        self.on_progress = None
 
     @property
     def cancel_requested(self):
@@ -27,6 +28,11 @@ class CancellationToken:
 
     def cancel(self):
         self._event.set()
+
+    def report(self, **payload):
+        self.check()
+        if self.on_progress:
+            self.on_progress(payload)
 
     def check(self):
         if self.cancel_requested:

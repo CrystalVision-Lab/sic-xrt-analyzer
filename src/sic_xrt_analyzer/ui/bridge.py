@@ -1,7 +1,6 @@
 """Local desktop integration and persisted, applicable UI preferences."""
 import os
 import platform
-from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 
 from PySide6.QtCore import (
@@ -17,6 +16,7 @@ from PySide6.QtCore import (
 from PySide6.QtGui import QDesktopServices, QGuiApplication, QImage
 from PySide6.QtQuick import QQuickImageProvider
 
+from sic_xrt_analyzer import __version__
 from sic_xrt_analyzer.analysis.contracts import (
     AnalysisError,
     AnalysisRequest,
@@ -30,6 +30,7 @@ from sic_xrt_analyzer.imaging.image_stack import open_stack
 from sic_xrt_analyzer.imaging.original_source import OriginalPixelSource
 from sic_xrt_analyzer.imaging.roi_edit import export_copy
 from sic_xrt_analyzer.ui import (
+    geometry_overlay,  # noqa: F401  (register QML type)
     native_plugin_window,  # noqa: F401  (register QML type)
     prepared_view,  # noqa: F401  (register QML type)
 )
@@ -61,9 +62,30 @@ class TiffImageProvider(QQuickImageProvider):
         self.image = QImage()
         self.detail_image = QImage()
         self.research_image = QImage()
+        self.region_images = {}
         self.feedback_image = QImage()
+        self.experiment_image = QImage()
+        self.project_review_image = QImage()
+        self.registration_images = {}
+        self.wafer_images = {}
+        self.folder_images = {}
+        self.stack3d_images = {}
 
     def requestImage(self, image_id: str, size: QSize, requested_size: QSize) -> QImage:
+        if image_id.startswith('region-'):
+            return self.region_images.get(image_id[7:].split('?')[0],QImage())
+        if image_id.startswith('stack3d-'):
+            return self.stack3d_images.get(image_id[8:].split('?')[0], QImage())
+        if image_id.startswith('folder-'):
+            return self.folder_images.get(image_id[7:].split('?')[0], QImage())
+        if image_id.startswith('wafer-'):
+            return self.wafer_images.get(image_id[6:].split('?')[0], QImage())
+        if image_id.startswith('registration-'):
+            return self.registration_images.get(image_id.split('-')[1].split('?')[0], QImage())
+        if image_id.startswith('projectreview'):
+            return self.project_review_image
+        if image_id.startswith('experiment'):
+            return self.experiment_image
         if image_id.startswith('feedback'):
             return self.feedback_image
         if image_id.startswith('research'):
@@ -111,7 +133,32 @@ class FileBridge(QObject):
         self.stack_viewer.changed.connect(self.analysisChanged)
         self._settings = settings or QSettings("CrystalVision-Lab", "sic-xrt-analyzer")
         self.research_controller = ResearchController(self)
+        from .project_controller import ProjectController
+        self.project_controller = ProjectController(self)
+        from .registration_controller import RegistrationController
+        self.registration_controller = RegistrationController(self)
+        from .wafer_map_controller import WaferMapController
+        self.wafer_map_controller = WaferMapController(self)
+        from .stack3d_controller import Stack3DController
+        self.stack3d_controller = Stack3DController(self)
         self.feedback_controller = FeedbackController(self)
+        self.feedback_controller.changed.connect(self.research_controller.changed)
+        from .review_controller import ReviewController
+        self.review_controller = ReviewController(self)
+        from .sync_controller import SyncController
+        self.sync_controller = SyncController(self)
+        from .model_update_controller import ModelUpdateController
+        self.model_update_controller = ModelUpdateController(self)
+        from .app_update_controller import AppUpdateController
+        self.app_update_controller = AppUpdateController(self)
+        from .issue_reports import IssueReports
+        from .overlay_layers import DisplayLayers
+        self.display_layers = DisplayLayers(self)
+        from .folder_map import FolderMap
+        self.folder_map = FolderMap(self)
+        from .defect3d_controller import Defect3DController
+        self.defect3d_controller = Defect3DController(self)
+        self.issue_reports = IssueReports(self)
         stored = self._settings.value("preferences", {})
         self._preferences = self._validated(stored if isinstance(stored, dict) else {})
         recent = self._settings.value("recentFiles", [])
@@ -142,15 +189,24 @@ class FileBridge(QObject):
         return self._recent_files
 
     @Property(QObject, constant=True)
+    def folderMap(self):
+        return self.folder_map
+
+    @Property(QObject, constant=True)
+    def displayLayers(self):
+        return self.display_layers
+
+    @Property(QObject, constant=True)
+    def reports(self):
+        return self.issue_reports
+
+    @Property(QObject, constant=True)
     def nativeDialogs(self):
         return self.native_dialogs
 
     @Property(str, constant=True)
     def appVersion(self):
-        try:
-            return version("sic-xrt-analyzer")
-        except PackageNotFoundError:
-            return "설치된 버전 없음"
+        return __version__
 
     @Property(str, constant=True)
     def systemInfo(self):
@@ -192,6 +248,7 @@ class FileBridge(QObject):
         if self.stack_viewer.initial_loading or self.stack_viewer.frame is None or not 0 <= page < self.stack_viewer.frame.source.metadata.page_count:
             return False
         if page != self.stack_viewer.frame.source.page_index:
+            self.research_controller.experiments.unload()
             self.pipeline.invalidate()
         return self.stack_viewer.page(page)
 
@@ -365,6 +422,11 @@ class FileBridge(QObject):
 
     @Slot(str)
     def selectImportedRoi(self, roi_id):
+        if not roi_id:
+            self.roi_manager.selected = ""
+            self.roi_manager.vertex = 0
+            self.roisChanged.emit()
+            return
         if any(r.id == roi_id for r in self.roi_manager.records):
             self.roi_manager.selected = roi_id
             self.roi_manager.vertex = 0
@@ -402,6 +464,7 @@ class FileBridge(QObject):
                   AnalysisState.RUNNING: "분석 중", AnalysisState.COMPLETED: "완료",
                   AnalysisState.FAILED: "실패", AnalysisState.CANCELED: "취소됨"}
         return {
+            "progress": p.progress,
             "state": p.state.value, "statusLabel": labels[p.state],
             "modelAvailable": bool(adapter and adapter.available),
             "modelName": adapter.model_name if adapter else "",
@@ -410,6 +473,7 @@ class FileBridge(QObject):
             "supportedScopes": preflight["modelExpected"].get("supportedScopes", []),
             "inputPreflight": preflight,
             "sourceReady": p.source is not None,
+            "sourcePath": p.source.path if p.source else "",
             "inputSource": f"Original {p.source.metadata.format}" if p.source else "",
             "scope": p.result.scope.value if p.result else "",
             "analysisId": p.result.analysis_id if p.result else "",
@@ -425,6 +489,13 @@ class FileBridge(QObject):
 
     @Slot(str, int, int, int, int, "QVariantMap", result=bool)
     def requestAnalysis(self, scope, x, y, width, height, parameters):
+        source = self.original_source or self.pipeline.source
+        if source is not None and (source.metadata.page_count != 1 or self._stack_context):
+            return self.pipeline.reject(AnalysisError("INVALID_INPUT", "여러 페이지 TIFF는 스택·3D 탐색용입니다. 모델 분석에는 단일 페이지 2D 이미지를 여세요"))
+        if self.review_controller.pending:
+            self.review_controller.error="작성 중인 검수·영역을 기록하거나 취소한 뒤 분석하세요."
+            self.review_controller.changed.emit()
+            return False
         # Caller must choose scope explicitly. Presence of a viewer ROI never chooses it.
         if self.pipeline.adapter is None or not self.pipeline.adapter.available:
             return self.pipeline.reject(AnalysisError("MODEL_NOT_AVAILABLE", "승인된 모델이 연결되지 않았습니다"))
@@ -501,11 +572,14 @@ class FileBridge(QObject):
 
     @Slot(str, result="QVariantMap")
     def openImage(self, url):
+        self.research_controller.experiments.unload()
         self.workbench.runtime.session += 1
         self.pipeline.invalidate()
         path = self.localPath(url)
         if not path or not self.isAccessible(path):
             return {"ok": False, "error": "접근 가능한 로컬 TIFF/JPG 파일을 선택하세요"}
+        self.stack3d_controller.openingFile(path)
+        self.defect3d_controller.openingFile(path)
         try:
             stack = open_stack(path)
             try:
@@ -531,15 +605,22 @@ class FileBridge(QObject):
         self._request_image(url)
 
     def _request_image(self, url):
+        controller=self.stack3d_controller
+        if controller.manual_pending and controller.source and str(Path(self.localPath(url)).resolve())!=str(Path(controller.source.source_reference).resolve()):
+            self.imageOpened.emit({"ok":False,"error":"수동 3D Track 초안을 저장하거나 초안 취소한 뒤 파일을 전환하세요."})
+            return
         if self.workbench.busy:
             self.workbench.cancel()
         self._pending_working_path = ''
+        self.research_controller.experiments.unload()
         self.pipeline.invalidate()
         self.pixel_reader.clear()
         self.detail_reader.clear()
         self.roi_manager.invalidate_pending()
         path = self.localPath(url)
         # Filesystem/header/decode errors occur in the worker, with latest-request semantics.
+        self.stack3d_controller.openingFile(path)
+        self.defect3d_controller.openingFile(path)
         self.stack_viewer.open(path)
 
     @Slot(str)
@@ -559,7 +640,7 @@ class FileBridge(QObject):
             self.measurements.reset()
         if working and self.original_source and (frame.source.metadata.width, frame.source.metadata.height) != (self.original_source.metadata.width, self.original_source.metadata.height):
             self.roi_manager.clear()
-        result = self._publish(frame.source.path, frame.preview, frame.source, record_recent=opening and not working)
+        result = self._publish(frame.source.path, frame.preview, frame.source, record_recent=opening and not working, rebind_source=opening)
         result['workingCopy'] = working
         result['stackContext'] = self._stack_context
         result["browsePreview"] = frame.pixels is None and frame.source.metadata.page_count > 1
@@ -570,16 +651,17 @@ class FileBridge(QObject):
     def _on_stack_error(self, error, opening):
         (self.imageOpened if opening else self.pageChanged).emit({"ok": False, "error": error})
 
-    def _publish(self, path, preview, original, *, record_recent=True):
+    def _publish(self, path, preview, original, *, record_recent=True, rebind_source=True):
         self.detail_reader.clear()
         if self.original_source is None or self.original_source.identity != original.identity:
             self.pixel_reader.clear()
         if record_recent:
             self.roi_manager.clear()
         self.original_source = original
+        self.research_controller.experiments.bind_source(original)
         if not isinstance(original, OriginalPixelSource):
             self.pipeline.set_source(None)
-        elif self.pipeline.source is None or self.pipeline.source.identity != original.identity:
+        elif rebind_source or self.pipeline.source is None or self.pipeline.source.identity != original.identity:
             self.pipeline.set_source(original)
         self.provider.image = preview.image
         self.revision += 1
@@ -599,6 +681,11 @@ class FileBridge(QObject):
 
     @Slot()
     def clearImage(self):
+        self.defect3d_controller.cancel()
+        self.defect3d_controller.mesh = None
+        self.defect3d_controller.meshChanged.emit()
+        self.defect3d_controller.changed.emit()
+        self.stack3d_controller.openingFile("")
         self.workbench.cancel()
         self.workbench.runtime.session += 1
         self._working_path = ''
@@ -609,16 +696,33 @@ class FileBridge(QObject):
         self.roi_manager.clear()
         self.detail_reader.clear()
         self.original_source = None
+        self.research_controller.experiments.bind_source(None)
         self.pipeline.set_source(None)
         self.provider.image = QImage()
 
     @Slot()
     def waitForLoads(self):
+        self.folder_map.shutdown()
+        self.defect3d_controller.shutdown()
+        self.issue_reports.shutdown()
+        self.app_update_controller.shutdown()
+        self.model_update_controller.shutdown()
+        self.sync_controller.shutdown()
+        self.stack3d_controller.shutdown()
+        self.wafer_map_controller.shutdown()
+        self.registration_controller.shutdown()
+        self.project_controller.shutdown()
+        self.review_controller.crop_reader.shutdown()
         self.feedback_controller.loader.shutdown()
         self.feedback_controller.preview_loader.shutdown()
         self.native_dialogs.shutdown()
         # Keep worker signal objects alive until decoding ends during shutdown.
+        for reader in self.research_controller.experiments.mask_readers:
+            reader.shutdown()
+        self.research_controller.experiments.preview_reader.shutdown()
+        self.research_controller.experiments.reader.shutdown()
         self.research_controller.thumbnail_loader.shutdown()
+        self.research_controller.regions.shutdown()
         if self.workbench.busy or self.workbench.windows:
             self.workbench.cancel()
         self.workbench.reader.shutdown()
@@ -632,8 +736,36 @@ class FileBridge(QObject):
         self.workbench.shutdown()
 
     @Property(QObject, constant=True)
+    def reviews(self):
+        return self.review_controller
+
+    @Property(QObject, constant=True)
+    def defect3d(self):
+        return self.defect3d_controller
+
+    @Property(QObject, constant=True)
+    def stack3d(self):
+        return self.stack3d_controller
+
+    @Property(QObject, constant=True)
+    def waferMap(self):
+        return self.wafer_map_controller
+
+    @Property(QObject, constant=True)
+    def registration(self):
+        return self.registration_controller
+
+    @Property(QObject, constant=True)
+    def projects(self):
+        return self.project_controller
+
+    @Property(QObject, constant=True)
     def research(self):
         return self.research_controller
+
+    @Property(QObject, constant=True)
+    def experiments(self):
+        return self.research_controller.experiments
 
     @Property(QObject, constant=True)
     def feedback(self):
@@ -654,3 +786,15 @@ class FileBridge(QObject):
     @Slot(result=bool)
     def openIssueTracker(self):
         return QDesktopServices.openUrl(QUrl("https://github.com/CrystalVision-Lab/sic-xrt-analyzer/issues"))
+
+    @Property(QObject, constant=True)
+    def centralSync(self):
+        return self.sync_controller
+
+    @Property(QObject, constant=True)
+    def modelUpdates(self):
+        return self.model_update_controller
+
+    @Property(QObject, constant=True)
+    def appUpdates(self):
+        return self.app_update_controller

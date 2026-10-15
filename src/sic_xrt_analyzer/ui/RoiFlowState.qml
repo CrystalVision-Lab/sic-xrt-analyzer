@@ -22,7 +22,7 @@ QtObject {
     readonly property var recordTools: ["Rectangle", "Oval", "Polygon", "Freehand", "Point", "Wand", "Line", "Polyline", "FreeLine", "Angle", "Arrow", "Text"]
     readonly property bool recordToolActive: !uiState.roiEditMode && recordTools.indexOf(uiState.activeTool) >= 0
     readonly property bool isDrawing: recordToolActive && ((!!uiState.roiInteraction && (uiState.roiInteraction.drawingTool || uiState.roiInteraction.toolPoints.length > 0)) || (uiState.activeTool === "Wand" && fileBridge.imagej.state.busy))
-    readonly property bool canEdit: !!selected && selected.active && selected.visible && selected.paths.length === 1 && uiState.loadFlow.recordReady && !uiState.loading && !uiState.importedRois.busy
+    readonly property bool canEdit: !!selected && selected.active && selected.visible && selected.paths.length === 1 && (uiState.tiffMode ? uiState.loadFlow.imagejReady : uiState.loadFlow.recordReady) && !uiState.loading && !uiState.importedRois.busy
     readonly property string imagejPhase: uiState.importedRois.busy ? "IMPORTING"
         : uiState.importedRois.errors.length || uiState.importedRois.editError ? "ERROR"
         : uiState.roiEditMode ? "EDITING" : isDrawing ? "DRAWING"
@@ -40,11 +40,11 @@ QtObject {
         : uiState.importedRois.busy ? "가져오기가 끝나면 목록이 갱신됩니다."
         : uiState.roiEditMode ? canEdit ? "점을 드래그하여 편집 · 편집 종료 또는 H로 종료" : "편집 모드 · 현재 페이지의 표시된 ROI를 선택하세요."
         : recordToolActive ? "현재 도구: " + uiState.activeTool + "\n" + toolHint
-        : !count ? "아직 저장된 ROI가 없습니다.\nToolbar의 ROI 메뉴에서 도형을 선택하여 그리세요."
+        : !count ? "아직 저장된 ROI가 없습니다.\nTIFF 도구 모음의 선택 아이콘으로 도형을 그리세요."
         : selected && !selected.active ? "현재 페이지에 표시되지 않는 ROI입니다."
         : selected && !selected.visible ? "숨겨진 ROI입니다. 표시를 켜면 편집할 수 있습니다."
         : "목록에서 기록을 선택하여 관리하세요."
     readonly property string viewerMode: uiState.roiEditMode ? "ROI 편집"
         : uiState.activeTool === "ROI" ? "분석 영역" + (uiState.selectingRoi ? " · 지정 중" : "")
-        : recordToolActive ? "ROI · " + uiState.activeTool + (isDrawing ? " · 생성 중" : "") : uiState.activeTool.toUpperCase()
+        : recordToolActive ? (uiState.tiffMode ? "ImageJ · " : "ROI · ") + uiState.activeTool + (isDrawing ? " · 생성 중" : "") : uiState.activeTool.toUpperCase()
 }

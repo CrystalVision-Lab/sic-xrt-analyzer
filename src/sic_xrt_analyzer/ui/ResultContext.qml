@@ -17,13 +17,13 @@ ColumnLayout {
     Text {
         objectName: "resultLifecycleMessage"
         visible: !root.uiState.hasResult || !root.uiState.research.total
-        text: root.message; color: root.theme.muted; font.pixelSize: theme.bodySize
+        text: root.uiState.pageCount > 1 && !root.uiState.hasResult ? "TIFF는 스택 탐색·3D용 데이터입니다." : root.message; color: root.theme.muted; font.pixelSize: theme.bodySize
         wrapMode: Text.Wrap; Layout.fillWidth: true
     }
     ResultExplorer {
-        visible: root.uiState.hasResult; theme: root.theme; uiState: root.uiState
+        visible: root.uiState.hasLoadedImage && root.uiState.hasResult; theme: root.theme; uiState: root.uiState
         Layout.fillWidth: true; Layout.fillHeight: true
         onExportRequested: root.exportRequested(); onOverviewRequested: root.overviewRequested(); onReviewRequested: root.reviewRequested()
     }
-    Item { visible: !root.uiState.hasResult; Layout.fillHeight: true }
+    Item { visible: !root.uiState.hasLoadedImage; Layout.fillHeight: true }
 }
