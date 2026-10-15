@@ -101,3 +101,5 @@ jobs:
         working-directory: web
       - run: npm run build
         working-directory: web
+      - name: Verify proxy follows recreated backend addresses
+        run: python tools/validate_proxy_dns.py
