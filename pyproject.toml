@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "sic-xrt-analyzer"
-version = "0.4.3"
+version = "0.5.0"
 license = {file = "LICENSE"}
 description = "SiC XRT desktop analysis scaffold"
 readme = "README.md"
@@ -16,8 +16,8 @@ sync = ["httpx>=0.27,<1", "keyring>=25,<26", "cryptography>=46,<47", "packaging>
 research = ["numpy>=1.26", "Pillow>=10", "tifffile>=2024.2", "opencv-python-headless>=4.8", "scipy>=1.11", "scikit-image>=0.25,<0.27", "psutil>=5.9", "onnxruntime>=1.18", "ipywidgets>=8,<9"]
 imagej = ["JPype1>=1.6,<2"]
 dev = ["ruff>=0.6,<1", "pytest>=8,<9"]
-viewer = ["PySide6>=6.7,<7", "numpy>=1.26", "tifffile>=2024.2", "imagecodecs>=2024.1", "roifile>=2024.3.20,<2026"]
-ui = ["PySide6>=6.7,<7", "numpy>=1.26", "opencv-python-headless>=4.8", "scikit-image>=0.22", "tifffile>=2024.2", "imagecodecs>=2024.1", "roifile>=2024.3.20,<2026", "onnxruntime>=1.18"]
+viewer = ["PySide6>=6.8,<7", "numpy>=1.26", "tifffile>=2024.2", "imagecodecs>=2024.1", "roifile>=2024.3.20,<2026"]
+ui = ["PySide6>=6.8,<7", "numpy>=1.26", "opencv-python-headless>=4.8", "scikit-image>=0.22", "tifffile>=2024.2", "imagecodecs>=2024.1", "roifile>=2024.3.20,<2026", "onnxruntime>=1.18"]
 
 [tool.setuptools.packages.find]
 where = ["src"]

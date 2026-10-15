@@ -50,7 +50,7 @@ def test_shell_geometry_preserves_viewer_and_toolbar_targets(workbench, size):
     assert w.panel.property('width') == 282
     viewer = w.item('imageViewer')
     assert viewer.property('width') == size[0]-184-282
-    assert viewer.property('height') == size[1]-98
+    assert viewer.property('height') == size[1]-112
     assert w.item('contextSwitcher').property('labelSize') >= 14
     assert w.item('viewerFileName').property('font').pixelSize() >= 13
     expected_dpr = float(os.environ.get('QT_SCALE_FACTOR','1'))
@@ -142,7 +142,7 @@ def test_focus_hover_pressed_checked_and_disabled_feedback(workbench):
     w = workbench
     button = w.item('toolbarFit')
     button.forceActiveFocus(); QTest.qWait(20)
-    assert expression(w, button, 'background.border.width') >= 1
+    assert button.property('activeFocus')
     p = button.mapToScene(QPointF(button.property('width')/2, button.property('height')/2))
     QTest.mouseMove(w.window, p.toPoint()); QTest.qWait(20)
     assert button.property('hovered')

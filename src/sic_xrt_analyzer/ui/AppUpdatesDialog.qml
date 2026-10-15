@@ -2,7 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 
-Dialog {
+SurfaceDialog {
     id: root
     objectName: "appUpdatesDialog"
     title: update.version ? "새 업데이트가 있습니다" : "프로그램 업데이트"

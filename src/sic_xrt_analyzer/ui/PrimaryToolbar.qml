@@ -10,18 +10,18 @@ Rectangle {
     objectName: "primaryToolbar"
     visible: uiState.workspaceIndex === 0
     color: theme.toolbar
-    implicitHeight: 40
+    implicitHeight: theme.commandBarHeight
     RowLayout {
         objectName: "primaryToolbarRow"
-        anchors.fill: parent; anchors.leftMargin: 10; anchors.rightMargin: 10
+        anchors.fill: parent; anchors.leftMargin: 12; anchors.rightMargin: 12
         spacing: theme.spacingXs
         FileToolGroup { theme: root.theme; actions: root.actions }
-        Rectangle { width: 1; height: 22; color: theme.border; Layout.leftMargin: 6; Layout.rightMargin: 6 }
+        Rectangle { width: 1; height: 22; color: theme.borderSubtle; Layout.leftMargin: 6; Layout.rightMargin: 6 }
         ViewerToolGroup { theme: root.theme; uiState: root.uiState; actions: root.actions; hostWindow: root.hostWindow }
-        Rectangle { width: 1; height: 22; color: theme.border; Layout.leftMargin: 6; Layout.rightMargin: 6 }
+        Rectangle { width: 1; height: 22; color: theme.borderSubtle; Layout.leftMargin: 6; Layout.rightMargin: 6 }
         RoiToolGroup { visible: !root.uiState.tiffMode; theme: root.theme; uiState: root.uiState; actions: root.actions; hostWindow: root.hostWindow }
         MeasurementToolGroup { visible: !root.uiState.tiffMode; theme: root.theme; uiState: root.uiState; actions: root.actions; hostWindow: root.hostWindow }
-        Rectangle { width: 1; height: 22; color: theme.border; Layout.leftMargin: 6; Layout.rightMargin: 6 }
+        Rectangle { width: 1; height: 22; color: theme.borderSubtle; Layout.leftMargin: 6; Layout.rightMargin: 6 }
         AdvancedToolGroup { visible: !root.uiState.tiffMode; theme: root.theme; uiState: root.uiState; actions: root.actions; hostWindow: root.hostWindow }
         StackViewerToolGroup { visible: root.uiState.tiffMode; theme: root.theme; uiState: root.uiState; hostWindow: root.hostWindow; compact: root.width < 1250 }
         TiffWorkbenchControls { visible: root.uiState.tiffMode; theme: root.theme; uiState: root.uiState; actions: root.actions; hostWindow: root.hostWindow; compact: root.width < 1250 }

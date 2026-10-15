@@ -29,7 +29,7 @@ def test_wide_default_analysis_entry_and_panel_roundtrip(workbench, size):
     pos = button.mapToScene(QPointF())
     assert pos.x() > size[0] - 150
     assert pos.x() + button.property('width') <= size[0] - 5
-    assert pos.y() + button.property('height') <= 70
+    assert pos.y() + button.property('height') <= 84
     w.window.grabWindow().save(str(w.path.parent / 'wide-viewer.png'))
     w.select('toolbarContextTools', 'toolbarContextimage')
     assert w.panel.property('visible') and w.panel.property('requestedContext') == 'image'

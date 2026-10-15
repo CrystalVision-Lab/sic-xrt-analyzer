@@ -1,4 +1,5 @@
 """Real popup selection, Viewer gestures and shared commands after TD-02."""
+import os
 import time
 from pathlib import Path
 
@@ -19,7 +20,14 @@ from sic_xrt_analyzer.ui.bridge import TiffImageProvider
 
 @pytest.fixture
 def workbench(qt_app, tmp_path, bridge_factory):
-    QQuickStyle.setStyle('Basic')
+    if os.environ.get("SIC_XRT_TEST_UI_STYLE") == "FluentWinUI3":
+        from sic_xrt_analyzer.ui.style import configure_style
+        configure_style(qt_app)
+        assert QQuickStyle.name() == "FluentWinUI3"
+        if qt_app.platformName() != "offscreen":
+            assert qt_app.styleHints().colorScheme() == Qt.ColorScheme.Dark
+    else:
+        QQuickStyle.setStyle('Basic')
     engine = QQmlApplicationEngine()
     provider = TiffImageProvider()
     bridge = bridge_factory(provider=provider, settings=QSettings(str(tmp_path/'toolbar.ini'), QSettings.IniFormat))
@@ -68,7 +76,7 @@ def workbench(qt_app, tmp_path, bridge_factory):
             point = obj.mapToScene(QPointF(obj.property('width')/2, obj.property('height')/2))
             assert 0 <= point.x() < window.width() and 0 <= point.y() < window.height(), (name, point)
             QTest.mouseClick(window, Qt.LeftButton, Qt.NoModifier, QPoint(round(point.x()), round(point.y())))
-            QTest.qWait(30)
+            QTest.qWait(180 if os.environ.get("SIC_XRT_TEST_UI_STYLE") == "FluentWinUI3" else 30)
 
         def select(self, button, menu_item):
             self.click(button)
@@ -202,7 +210,7 @@ def test_overflow_shared_commands_stack_access_and_gating(workbench, tmp_path):
     assert w.item('roiToolDropdown').property('visible')
     assert not w.item('stackViewerToolGroup').property('visible')
     assert w.item('toolAnalysisRoi').property('enabled')
-    assert w.item('topToolbar').property('height') == 40
+    assert w.item('topToolbar').property('height') == 52
 
 
 @pytest.mark.parametrize('size', [(1100, 700), (1440, 900)])
@@ -219,7 +227,7 @@ def test_toolbar_layout_and_analysis_menu_entry(workbench, size):
             p = obj.mapToScene(QPointF())
             assert obj.property('visible') and obj.property('width') >= 32 and obj.property('height') >= 32
             assert 0 <= p.x() and p.x() + obj.property('width') <= size[0]
-            assert 30 <= p.y() and p.y() + obj.property('height') <= 70
+            assert 32 <= p.y() and p.y() + obj.property('height') <= 84
             assert obj.property('tip') or name.startswith('tiffTool')
     assert w.window.findChild(QObject, 'analysisToolGroup') is None
     # The synthetic research classifier uses an RGB input contract.
@@ -240,3 +248,13 @@ def test_toolbar_layout_and_analysis_menu_entry(workbench, size):
     assert w.bridge.research.state['total'] == 231
     assert w.panel.property('requestedContext') == 'result'  # TD-03 completion milestone.
     assert w.panel.property('lastReason') == 'ANALYSIS_COMPLETE'
+
+
+def test_workspace_navigation_supports_keyboard(workbench):
+    w = workbench
+    for index, key in [(1, Qt.Key_Space), (2, Qt.Key_Return), (0, Qt.Key_Space)]:
+        button = w.item("workspaceTab" + str(index))
+        button.forceActiveFocus()
+        QTest.keyClick(w.window, key)
+        QTest.qWait(40)
+        assert w.state.property("workspaceIndex") == index

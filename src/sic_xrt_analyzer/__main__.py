@@ -6,9 +6,9 @@ from pathlib import Path
 from PySide6.QtCore import QTimer, QUrl
 from PySide6.QtGui import QGuiApplication, QIcon
 from PySide6.QtQml import QQmlApplicationEngine
-from PySide6.QtQuickControls2 import QQuickStyle
 
 from sic_xrt_analyzer.ui.bridge import FileBridge, TiffImageProvider
+from sic_xrt_analyzer.ui.style import configure_style
 
 
 def main() -> int:
@@ -22,7 +22,7 @@ def main() -> int:
     app.setWindowIcon(QIcon(str(Path(__file__).parent / "ui/assets/app-logo.png")))
     app.setApplicationName("sic-xrt-analyzer")
     app.setOrganizationName("CrystalVision-Lab")
-    QQuickStyle.setStyle("Basic")
+    configure_style(app)
     engine = QQmlApplicationEngine()
     provider = TiffImageProvider()
     engine.addImageProvider("tiff", provider)

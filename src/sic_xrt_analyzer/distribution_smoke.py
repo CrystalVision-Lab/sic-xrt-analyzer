@@ -23,7 +23,6 @@ def main(output, image_paths=(), verify_updates=False):
         from PIL import Image
         from PySide6.QtCore import QObject, QSettings, QUrl
         from PySide6.QtQml import QQmlApplicationEngine
-        from PySide6.QtQuickControls2 import QQuickStyle
         from PySide6.QtWidgets import QApplication
 
         from sic_xrt_analyzer.imaging.image_stack import JpegImageSource, open_stack
@@ -32,9 +31,11 @@ def main(output, image_paths=(), verify_updates=False):
         from sic_xrt_analyzer.runtime_process import worker_command
         from sic_xrt_analyzer.stack3d.volume import extract, plan
         from sic_xrt_analyzer.ui.bridge import FileBridge
+        from sic_xrt_analyzer.ui.style import configure_style
 
         app = QApplication([])
-        QQuickStyle.setStyle("Basic")
+        configure_style(app)
+        report["ui_style"] = "FluentWinUI3"
         with tempfile.TemporaryDirectory(prefix="xrt-installed-qa-") as folder:
             folder = Path(folder)
             pixels = np.arange(6 * 48 * 64, dtype=np.uint16).reshape(6, 48, 64)

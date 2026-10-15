@@ -9,11 +9,13 @@ MenuBar {
     property var fileBridge
     property var actions
     objectName: "appMenuBar"
+    topPadding: 0; bottomPadding: 0
+    leftPadding: 8; rightPadding: 8
     background: Rectangle { color: theme.panel }
     delegate: MenuBarItem {
         id: barItem
         visible: !menu || menu.available
-        implicitHeight: 30; implicitWidth: visible ? contentItem.implicitWidth + 24 : 0
+        implicitHeight: 32; implicitWidth: visible ? contentItem.implicitWidth + 24 : 0
         contentItem: Text { text: barItem.text; color: theme.text; font.family: theme.fontFamily; font.pixelSize: theme.bodySize; verticalAlignment: Text.AlignVCenter; horizontalAlignment: Text.AlignHCenter }
         background: Rectangle { color: barItem.highlighted ? theme.accentPale : theme.panel }
     }

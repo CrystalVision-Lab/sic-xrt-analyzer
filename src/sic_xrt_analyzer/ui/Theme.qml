@@ -1,17 +1,18 @@
 import QtQuick
 QtObject {
-    readonly property color window: "#161a1e"
-    readonly property color panel: "#1d2227"
-    readonly property color toolbar: "#20262b"
-    readonly property color surface: "#272d33"
-    readonly property color hover: "#30373e"
-    readonly property color border: "#343c43"
-    readonly property color text: "#e4e8eb"
-    readonly property color muted: "#929da6"
-    readonly property color disabled: "#87939d"
-    readonly property color borderSubtle: "#2d353c"
-    readonly property color accent: "#45c3cf"
-    readonly property color accentPale: "#253a40"
+    readonly property color window: "#14191f"
+    readonly property color panel: "#1b222b"
+    readonly property color toolbar: "#1b232c"
+    readonly property color surface: "#27323d"
+    readonly property color hover: "#33414f"
+    readonly property color border: "#3b4a59"
+    readonly property color text: "#f2f6fa"
+    readonly property color muted: "#b2bfcc"
+    readonly property color disabled: "#95a2b0"
+    readonly property color borderSubtle: "#2a3643"
+    readonly property color accent: "#61d7cf"
+    readonly property color accentText: "#092a2a"
+    readonly property color accentPale: "#203e43"
     readonly property color success: "#68ba8b"
     readonly property color warning: "#d6ac64"
     readonly property color error: "#e68181"
@@ -29,24 +30,25 @@ QtObject {
     readonly property int spacingXl: 24
     readonly property int radiusSm: 4
     readonly property int radiusControl: 6
-    readonly property int radiusDialog: 8
-    readonly property int compactHeight: 28
-    readonly property int primaryHeight: 36
-    readonly property int toolbarButtonHeight: 32
-    readonly property int menuRowHeight: 32
-    readonly property int listRowHeight: 40
+    readonly property int radiusDialog: 12
+    readonly property int compactHeight: 32
+    readonly property int primaryHeight: 40
+    readonly property int toolbarButtonHeight: 36
+    readonly property int menuRowHeight: 36
+    readonly property int listRowHeight: 44
     readonly property int iconSize: 18
     readonly property int toolbarIconSize: 20
     readonly property int metricSize: 22
     readonly property int panelWidth: 282
     readonly property int navigationWidth: 184
+    readonly property int commandBarHeight: 52
     readonly property int toolbarHeight: 80
     readonly property int statusHeight: 28
-    readonly property int controlHeight: 32
-    readonly property int bodySize: 13
+    readonly property int controlHeight: 36
+    readonly property int bodySize: 14
     readonly property int smallSize: 12
     readonly property int captionSize: 11
-    readonly property int sectionSize: 13
+    readonly property int sectionSize: 14
     readonly property int emptyTitleSize: 17
-    readonly property int titleSize: 15
+    readonly property int titleSize: 18
 }

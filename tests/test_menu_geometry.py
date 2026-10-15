@@ -16,7 +16,7 @@ def test_closed_menu_keeps_available_row_height(workbench):
     menu = w.item("analysisMenu")
     assert not menu.property("visible")
     # Ancestor visibility must not change an available row's intrinsic size.
-    assert run.property("implicitHeight") == 32
+    assert run.property("implicitHeight") == 36
     invoke(menu, "open")
     QTest.qWait(30)
     center = run.mapToItem(
@@ -25,7 +25,7 @@ def test_closed_menu_keeps_available_row_height(workbench):
     assert 0 <= center.y() < menu.property("contentItem").height()
     y, height = run.y(), menu.property("height")
     invoke(menu, "close")
-    assert run.property("implicitHeight") == 32
+    assert run.property("implicitHeight") == 36
     invoke(menu, "open")
     QTest.qWait(30)
     assert (run.y(), menu.property("height")) == (y, height)
@@ -55,5 +55,5 @@ def test_disabled_action_and_feature_hidden_rows(workbench):
     assert (
         not hidden.property("rowAvailable") and hidden.property("implicitHeight") == 0
     )
-    assert run.property("rowAvailable") and run.property("implicitHeight") == 32
+    assert run.property("rowAvailable") and run.property("implicitHeight") == 36
     assert action.property("enabled")

@@ -170,6 +170,21 @@ def main():
     required += list((bundle / "_internal/skimage").rglob("*.pyi"))
     required += list((bundle / "_internal/skimage/segmentation").glob("*.pyd"))
     required += list((bundle / "_internal/sic_xrt_analyzer/ui").glob("*.qml"))
+    # Fluent is a startup dependency. Check every shipped style asset while building,
+    # and keep a small critical set in the launcher's runtime integrity manifest.
+    fluent_path = Path("PySide6/qml/QtQuick/Controls/FluentWinUI3")
+    fluent_source = Path(sysconfig.get_paths()["purelib"]) / fluent_path
+    fluent_bundle = bundle / "_internal" / fluent_path
+    for asset in fluent_source.rglob("*"):
+        if asset.is_file() and not (fluent_bundle / asset.relative_to(fluent_source)).is_file():
+            raise RuntimeError("Missing Fluent runtime asset: " + str(asset.relative_to(fluent_source)))
+    for name in ["qmldir", "Config.qml", "Button.qml", "Dialog.qml", "TextField.qml",
+                 "ComboBox.qml", "FocusFrame.qml", "qtquickcontrols2fluentwinui3styleplugin.dll",
+                 "impl/qmldir", "impl/ButtonBackground.qml", "impl/qtquickcontrols2fluentwinui3styleimplplugin.dll"]:
+        asset = fluent_bundle / name
+        if not asset.is_file():
+            raise RuntimeError("Missing Fluent startup dependency: " + name)
+        required.append(asset)
     lines = []
     for file in sorted(required):
         with file.open("rb") as stream:

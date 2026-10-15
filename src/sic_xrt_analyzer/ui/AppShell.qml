@@ -31,8 +31,9 @@ ApplicationWindow {
     palette.text: shellTheme.text
     palette.button: shellTheme.surface
     palette.buttonText: shellTheme.text
-    palette.highlight: shellTheme.accentPale
-    palette.highlightedText: shellTheme.text
+    palette.accent: shellTheme.accent
+    palette.highlight: shellTheme.accent
+    palette.highlightedText: shellTheme.accentText
     palette.mid: shellTheme.border
     palette.dark: shellTheme.border
     palette.light: shellTheme.hover
@@ -48,7 +49,7 @@ ApplicationWindow {
     header: PrimaryToolbar {
         objectName: "topToolbar"
         theme: shell.shellTheme; uiState: shell.shellState; actions: shell.shellActions; hostWindow: shell
-        height: 40
+        height: shell.shellTheme.commandBarHeight
     }
     MainWorkspace {
         id: workspace; anchors.fill: parent
