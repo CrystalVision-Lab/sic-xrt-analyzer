@@ -10,6 +10,7 @@ Rectangle {
     property real imageHeight: 1
     property var viewRect: [0,0,1,1]
     property var selectedPoint: []
+    property var coverage: []
     signal navigate(real x, real y)
     width: 190; height: 160
     radius: theme.radiusControl
@@ -25,6 +26,9 @@ Rectangle {
             id: map
             x: (overview.width-overview.paintedWidth)/2; y: (overview.height-overview.paintedHeight)/2
             width: overview.paintedWidth; height: overview.paintedHeight; clip: true
+            Repeater {model:root.coverage
+                Rectangle {required property var modelData;x:modelData.rect[0]/Math.max(1,root.imageWidth)*map.width;y:modelData.rect[1]/Math.max(1,root.imageHeight)*map.height;width:modelData.rect[2]/Math.max(1,root.imageWidth)*map.width;height:modelData.rect[3]/Math.max(1,root.imageHeight)*map.height;color:modelData.checked?"#6657ba88":"#334fa2c4"}
+            }
             Rectangle {
                 objectName: "overviewViewport"
                 x: Math.max(0,root.viewRect[0])/Math.max(1,root.imageWidth)*map.width

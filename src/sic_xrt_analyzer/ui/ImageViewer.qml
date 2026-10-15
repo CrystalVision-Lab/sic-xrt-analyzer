@@ -26,7 +26,9 @@ Rectangle {
         if (!uiState.hasLoadedImage || uiState.loading || !((candidate.id && candidate.x === x && candidate.y === y) || (reviewed.id && reviewed.x === x && reviewed.y === y))) return
         var area = fileBridge.research.regions.state
         if (area.enabled && area.rect.length === 4) {
-            if (focusedArea === area.key) return
+            var screenX = imageFrame.x + x * displayScale
+            var screenY = imageFrame.y + y * displayScale
+            if (focusedArea === area.key && !uiState.fitMode && screenX >= 0 && screenX <= viewport.width && screenY >= 0 && screenY <= viewport.height) return
             focusedArea = area.key
             focusGeometry(area.rect[0],area.rect[1],area.rect[2],area.rect[3])
             return
@@ -109,7 +111,7 @@ Rectangle {
         if (uiState.hasLoadedImage && uiState.pageCount > 1 && !uiState.loading)
             fileBridge.requestPage(Math.max(0, Math.min(uiState.pageCount - 1, uiState.stack.requestedPage + delta)))
     }
-    function fitView() { if (!uiState.fitMode) previousView=[uiState.zoom,panX,panY]; resetPan(); uiState.fitMode = true; uiState.statusText = "화면 맞춤" }
+    function fitView() { if (!uiState.fitMode) previousView=[uiState.zoom,panX,panY]; focusedArea=""; resetPan(); uiState.fitMode = true; uiState.statusText = "화면 맞춤" }
     function restoreView() { if (previousView.length===3) { focusAnimation.stop(); uiState.fitMode=false; uiState.zoom=previousView[0]; panX=previousView[1]; panY=previousView[2]; previousView=[] } }
     function setActualZoom(value) { resetPan(); uiState.zoom = value; uiState.fitMode = false }
     function defaultView() {
@@ -222,7 +224,12 @@ Rectangle {
                         if ([Qt.Key_Left,Qt.Key_Right].indexOf(event.key)>=0) { event.accepted=true; return }
                     }
 
-                    if (uiState.pageCount === 1 && uiState.hasResult && !uiState.roiEditMode && [Qt.Key_Left, Qt.Key_Right].indexOf(event.key) >= 0) { fileBridge.research.stepCandidate(event.key === Qt.Key_Right ? 1 : -1); event.accepted = true; return }
+                    if (uiState.pageCount === 1 && uiState.hasResult && !uiState.roiEditMode && [Qt.Key_Left, Qt.Key_Right].indexOf(event.key) >= 0) {
+                        var delta = event.key === Qt.Key_Right ? 1 : -1
+                        if (fileBridge.research.regions.state.enabled) fileBridge.research.regions.stepCandidate(delta)
+                        else fileBridge.research.stepCandidate(delta)
+                        event.accepted = true; return
+                    }
                     if (event.key === Qt.Key_Escape) { fileBridge.feedback.setMode(""); root.toolPoints = []; root.drawingTool = false; toolPreview.requestPaint(); event.accepted = true; return }
                     if ((event.key === Qt.Key_Return || event.key === Qt.Key_Enter) && root.toolPoints.length) { root.finishTool(); event.accepted = true; return }
                     if (uiState.roiEditMode && event.key === Qt.Key_Delete) { fileBridge.deleteRoiVertex(); event.accepted = true; return }
@@ -343,7 +350,7 @@ Rectangle {
                             if (hit) { fileBridge.experiments.select(hit); return }
                         }
                         if (!uiState.hasResult || !uiState.analysisLayerVisible) return
-                        var points = uiState.research.points, best = null, distance = 12
+                        var points = uiState.research.points, best = null, distance = root.displayScale<.15 && uiState.research.points.length>500 ? 28 : 12
                         for (var i=0; i<points.length; i++) {
                             var p=points[i]; if (!uiState.candidateLayer(p.type)) continue
                             var d=Math.hypot(mouse.x-imageFrame.x-p.x*root.displayScale, mouse.y-imageFrame.y-p.y*root.displayScale)
@@ -429,10 +436,13 @@ Rectangle {
                     var c = getContext("2d"); c.reset()
                     if (!visible) return
                     c.lineWidth = 1.5; c.globalAlpha = candidateOpacity
+                    var bins={}
+                    var overviewMode=imageScale<.15 && points.length>500
                     for (var i = 0; uiState.analysisLayerVisible && i < points.length; i++) {
                         var p = points[i]; if (!uiState.candidateLayer(p.type)) continue
                         var x = imageX + p.x * imageScale, y = imageY + p.y * imageScale
                         if (x < -6 || y < -6 || x > width + 6 || y > height + 6) continue
+                        if(overviewMode){var key=Math.floor(x/28)+":"+Math.floor(y/28);var bin=bins[key]||{x:0,y:0,n:0};bin.x+=x;bin.y+=y;bin.n++;bins[key]=bin;continue}
                         c.strokeStyle = p.low_score ? "#ffffff" : uiState.resultPresentation.colorFor(p.type)
                         if (p.region && p.region.length >= 3) {
                             c.globalAlpha=.18; c.fillStyle=c.strokeStyle; c.beginPath()
@@ -442,6 +452,7 @@ Rectangle {
                         }
                         c.beginPath(); c.arc(x, y, markerRadius, 0, Math.PI * 2); c.stroke()
                     }
+                    if(overviewMode){c.globalAlpha=.8;c.font="11px sans-serif";c.textAlign="center";for(var key in bins){var b=bins[key],bx=b.x/b.n,by=b.y/b.n;c.fillStyle="#23636b";c.beginPath();c.arc(bx,by,Math.min(14,5+Math.sqrt(b.n)),0,Math.PI*2);c.fill();c.fillStyle="#f2f6fa";c.fillText(String(b.n),bx,by+4)}c.textAlign="left"}
                     if (selected.id && uiState.selectedLayerVisible && !reviewing) {
                         c.globalAlpha = selectedOpacity
                         var sx=imageX+selected.x*imageScale, sy=imageY+selected.y*imageScale
@@ -532,7 +543,7 @@ Rectangle {
                 Text { text: "또는 TIFF/JPG 파일을 이 영역에 놓으세요"; color: theme.muted; font.pixelSize: theme.smallSize; Layout.alignment: Qt.AlignHCenter }
             }
             StackPreparationOverlay {
-                anchors.centerIn: parent; z: 8
+                anchors.top: parent.top; anchors.right: parent.right; anchors.margins: 16; z: 8
                 theme: root.theme; loadFlow: uiState.loadFlow; closeAction: root.actions.closeImage
             }
             Rectangle {
@@ -556,6 +567,7 @@ Rectangle {
             }
             DropArea { anchors.fill: parent; onDropped: function(drop) { if (drop.hasUrls && drop.urls.length > 0) root.fileDropped(drop.urls[0].toString()) } }
             OverviewMap {
+                coverage:fileBridge.research.regions.state.coverage
                 z: 7; anchors.right: parent.right; anchors.bottom: parent.bottom; anchors.margins: 12
                 visible: uiState.hasLoadedImage && !uiState.loading && viewport.width > 500
                 theme: root.theme; imageSource: uiState.imageSource

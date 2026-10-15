@@ -42,9 +42,14 @@ def test_shell_geometry_preserves_viewer_and_toolbar_targets(workbench, size):
     w = workbench
     w.window.resize(*size); QTest.qWait(50)
     choose(w, 'image')
-    for name in ('toolbarOpen','toolbarPan','toolbarZoom','toolbarFit','tiffToolRectangle','tiffToolOval','tiffToolWand','tiffContrast','tiffMore'):
+    tools = ('tiffToolOval','tiffToolWand') if size[0] >= 1250 else ()
+    for name in ('toolbarOpen','toolbarPan','toolbarZoom','toolbarFit','tiffToolRectangle','tiffContrast','tiffMore') + tools:
         node = in_window(w, name)
         assert node.property('height') >= 32 and node.property('width') >= 32
+    if size[0] < 1250:
+        for tool in ('Oval', 'Wand'):
+            w.select('tiffMore', 'tiffMore' + tool)
+            assert w.state.property('activeTool') == tool
     for name in ('contextSwitcher','viewerHeader','viewerFileName','viewerPageMetadata'):
         in_window(w, name)
     assert w.panel.property('width') == 282

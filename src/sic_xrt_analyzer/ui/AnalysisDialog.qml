@@ -8,6 +8,7 @@ SurfaceDialog {
     property QtObject theme
     property QtObject uiState
     property var actions
+    property bool detailsExpanded: false
     property var hostWindow
     parent: Overlay.overlay
     title: "이미지 분석"
@@ -49,8 +50,9 @@ SurfaceDialog {
             Layout.fillWidth: true
             AppButton { objectName: "analysisSpecifyArea"; theme: root.theme; action: root.actions.roi; text: "ROI 지정"; iconName: "roi"; quiet: true; compact: true; onClicked: root.close() }
             Item { Layout.fillWidth: true }
-            AppButton { objectName: "analysisInputInfo"; theme: root.theme; text: "상세 정보"; quiet: true; compact: true; onClicked: root.actions.analysisInputInfo.trigger() }
+            AppButton { objectName: "analysisInputInfo"; theme: root.theme; text: root.detailsExpanded ? "상세 접기 ▴" : "상세 정보 ▾"; quiet: true; compact: true; onClicked: root.detailsExpanded=!root.detailsExpanded }
         }
+        Text {visible:root.detailsExpanded;text:root.uiState.inputPreflight.currentInputDetail+"\n표시 밝기·배율과 별개로 원본 픽셀을 사용합니다.";color:root.theme.muted;wrapMode:Text.Wrap;Layout.fillWidth:true}
         Text { visible: !root.uiState.canAnalyze; text: root.uiState.analysisReason; color: root.theme.warning; Layout.fillWidth: true; wrapMode: Text.Wrap }
         Rectangle { Layout.fillWidth: true; height: 1; color: root.theme.borderSubtle }
         RowLayout {

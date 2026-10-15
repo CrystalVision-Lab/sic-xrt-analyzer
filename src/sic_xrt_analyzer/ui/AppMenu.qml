@@ -8,6 +8,17 @@ Menu {
     enabled: available
     width: 250
     padding: visualTheme.spacingXs
+    height: Math.min(contentItem.implicitHeight + topPadding + bottomPadding, Overlay.overlay ? Overlay.overlay.height - 24 : 680)
+    contentItem: ListView {
+        implicitHeight: contentHeight
+        model: root.contentModel
+        currentIndex: root.currentIndex
+        clip: true
+        interactive: contentHeight > height
+        boundsBehavior: Flickable.StopAtBounds
+        highlightMoveDuration: 0
+        ScrollIndicator.vertical: ScrollIndicator {}
+    }
     background: Rectangle { color: root.palette.window; border.color: root.palette.mid; radius: root.visualTheme.radiusControl }
     delegate: AppMenuItem {}
 }

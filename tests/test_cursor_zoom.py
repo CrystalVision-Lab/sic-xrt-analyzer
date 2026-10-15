@@ -113,7 +113,7 @@ def assert_anchor(before, after):
     assert math.dist(before, after) < 1e-7, (before, after, math.dist(before, after))
 
 
-@pytest.mark.parametrize("location", [(0.5, 0.5), (0.1, 0.1), (0.9, 0.9)])
+@pytest.mark.parametrize("location", [(0.5, 0.5), (0.1, 0.1), (0.9, 0.65)])
 @pytest.mark.parametrize("tool", ["wheel", "Zoom"])
 def test_pointer_zoom_and_round_trip(viewer, location, tool):
     v = viewer
@@ -132,6 +132,29 @@ def test_pointer_zoom_and_round_trip(viewer, location, tool):
     assert v.viewer.property("displayScale") == pytest.approx(scale)
     assert v.viewer.property("panX") == pytest.approx(73.)
     assert v.viewer.property("panY") == pytest.approx(-61.)
+
+
+def test_overview_navigation_and_previous_view_restore(viewer):
+    v = viewer
+    v.ui.setProperty('activeTool', 'Zoom')
+    overview = v.item('overviewMap')
+    marker = v.item('overviewViewport')
+    map_item = marker.parentItem()
+    center = map_item.mapToScene(QPointF(map_item.width() / 2, map_item.height() / 2))
+    scale = v.viewer.property('displayScale')
+    QTest.mouseClick(v.window, Qt.LeftButton, Qt.NoModifier, QPoint(round(center.x()), round(center.y())))
+    v.settle()
+    assert overview.property('visible')
+    assert v.viewer.property('displayScale') == scale  # Map clicks navigate even in Zoom mode.
+    _, screen_center = v.local_anchor(.5, .5)
+    image_center = v.source(screen_center)
+    assert image_center == pytest.approx((320, 240), abs=4)
+    before = (v.ui.property('zoom'), v.viewer.property('panX'), v.viewer.property('panY'))
+    invoke(v.viewer, 'fitView'); v.settle()
+    assert v.ui.property('fitMode')
+    invoke(v.viewer, 'restoreView'); v.settle()
+    assert not v.ui.property('fitMode')
+    assert before == (v.ui.property('zoom'), v.viewer.property('panX'), v.viewer.property('panY'))
 
 
 def test_toolbar_zoom_preserves_viewport_center_after_pan(viewer):

@@ -15,7 +15,7 @@ RowLayout {
         ToolButton {
             required property string modelData
             objectName: "tiffTool" + modelData
-            visible: !root.compact || ["Freehand", "Polyline"].indexOf(modelData) < 0
+            visible: !root.compact || ["Rectangle", "Line", "Point"].indexOf(modelData) >= 0
             implicitWidth: 34; implicitHeight: 32
             padding: 7; focusPolicy: Qt.StrongFocus; hoverEnabled: true
             action: root.hostWindow.commands.tools.forTool(modelData)

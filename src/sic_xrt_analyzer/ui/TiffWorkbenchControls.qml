@@ -43,11 +43,11 @@ RowLayout {
         AppMenu {
             id: moreMenu; objectName: "tiffMoreMenu"; y: parent.height; width: 290
             Repeater {
-                model: ["Freehand", "Polyline", "FreeLine", "Angle", "Text", "Arrow", "Picker", "Brush", "Fill"]
+                model: ["Oval", "Polygon", "Wand", "Freehand", "Polyline", "FreeLine", "Angle", "Text", "Arrow", "Picker", "Brush", "Fill"]
                 ToolbarMenuItem {
                     required property string modelData
                     objectName: "tiffMore" + modelData
-                    rowAvailable: root.compact || ["Freehand", "Polyline"].indexOf(modelData) < 0
+                    rowAvailable: root.compact || ["Oval", "Polygon", "Wand", "Freehand", "Polyline"].indexOf(modelData) < 0
                     action: root.actions.tools.forTool(modelData)
                     ToolTip.visible: hovered; ToolTip.text: root.actions.tools.tooltip(modelData)
                 }

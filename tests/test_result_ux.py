@@ -66,7 +66,7 @@ def test_summary_filter_navigation_and_overlay_share_state(workbench, kind, tota
     w = workbench
     r = analyzed(w)
     original = w.bridge.pipeline.result
-    assert w.item('resultTotal').property('text') == '결과 2,946'
+    assert w.item('resultTotal').property('text') == '검출 후보 2,946'
     assert r.state['counts'] == {'BPD': 245, 'TED': 1398, 'TSD': 1303}
     for name, color in [('BPD', '#ffad42'), ('TED', '#50e0ee'), ('TSD', '#ff78c4')]:
         assert evaluate(w, f'resultPresentation.colorFor("{name}")') == color
@@ -171,7 +171,7 @@ def test_detail_raw_score_export_and_research_controls_preserved(workbench, tmp_
     before = Path(r.state['exportPath'])
     snapshot = {p.name: p.read_bytes() for p in before.iterdir() if p.is_file()}
     w.click('nextCandidate')
-    assert w.item('candidateConfidence').property('text') == '모델 점수 66.1%'
+    assert w.item('candidateConfidence').property('text') == '모델 점수 66.1% · 정답 확률 아님'
     w.click('candidateDetails')
     assert w.item('candidateDetailDialog').property('visible')
     assert w.item('rawScoreBPD').property('text') == 'BPD  66.1%   /   0.6605'
@@ -300,4 +300,4 @@ def test_assigned_class_is_not_recomputed_from_score_vector(workbench):
     w.click('nextCandidate')
     assert r.state['selected']['type'] == 'BPD'
     assert w.item('selectedCandidateHeader').property('text') == '#1 · BPD'
-    assert w.item('candidateConfidence').property('text') == '모델 점수 66.1%'
+    assert w.item('candidateConfidence').property('text') == '모델 점수 66.1% · 정답 확률 아님'

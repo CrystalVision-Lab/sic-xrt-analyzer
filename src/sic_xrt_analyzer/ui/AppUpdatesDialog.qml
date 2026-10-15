@@ -5,10 +5,10 @@ import QtQuick.Layouts
 SurfaceDialog {
     id: root
     objectName: "appUpdatesDialog"
-    title: update.version ? "새 업데이트가 있습니다" : "프로그램 업데이트"
+    title: update.version ? "새 버전이 준비됐어요" : "프로그램 업데이트"
     modal: true
     width: Math.min(560, parent.width - 40)
-    height: Math.min(540, parent.height - 40)
+    height: Math.min(parent.height - 40, updateContent.implicitHeight + topPadding + bottomPadding + header.implicitHeight + 12)
     anchors.centerIn: parent
     property var controller: fileBridge.appUpdates
     property var update: controller.state
@@ -16,9 +16,10 @@ SurfaceDialog {
     closePolicy: update.busy ? Popup.NoAutoClose : Popup.CloseOnEscape
     contentItem: ScrollView {
         ColumnLayout {
+            id: updateContent
             width: root.availableWidth - 20
             spacing: 12
-            Label { text: root.update.version ? "버전 " + root.update.version : "현재 버전 " + root.update.currentVersion; font.pixelSize: 22; font.bold: true }
+            Label { text: root.update.version ? root.update.version + " 업데이트" : "현재 버전 " + root.update.currentVersion; font.pixelSize: 26; font.bold: true; color:root.visualTheme.text }
             Label { text: "현재 " + root.update.currentVersion + "  →  " + root.update.version; visible: !!root.update.version }
             ColumnLayout {
                 visible: root.update.highlights.length > 0
@@ -42,10 +43,12 @@ SurfaceDialog {
             Label { text: root.update.progress + "%"; visible: root.update.busy && root.update.operation === "download" }
             Label { text: "다운로드 후 프로그램을 다시 실행합니다."; visible: !!root.update.version; wrapMode: Text.Wrap; Layout.fillWidth: true }
             RowLayout {
-                Button { objectName: "checkAppUpdatesButton"; text: "다시 확인"; enabled: !root.update.busy; onClicked: root.controller.checkUpdates() }
-                Button { objectName: "downloadAppUpdateButton"; text: "업데이트"; highlighted: true; enabled: !root.update.busy && !!root.update.version; onClicked: root.controller.update() }
-                Button { objectName: "cancelAppUpdateButton"; text: "취소"; visible: root.update.busy; onClicked: root.controller.cancel() }
-                Button { objectName: "dismissAppUpdateButton"; text: root.update.version ? "나중에" : "닫기"; visible: !root.update.busy; onClicked: root.close() }
+                Layout.fillWidth: true
+                AppButton { objectName: "checkAppUpdatesButton"; theme:root.visualTheme; text: "다시 확인"; quiet:true; enabled: !root.update.busy; onClicked: root.controller.checkUpdates() }
+                Item {Layout.fillWidth:true}
+                AppButton { objectName: "dismissAppUpdateButton"; theme:root.visualTheme; text: root.update.version ? "나중에" : "닫기"; visible: !root.update.busy; onClicked: root.close() }
+                AppButton { objectName: "downloadAppUpdateButton"; theme:root.visualTheme; text: "다운로드 · 업데이트"; primary: true; visible:!!root.update.version; enabled: !root.update.busy && !!root.update.version; onClicked: root.controller.update() }
+                AppButton { objectName: "cancelAppUpdateButton"; theme:root.visualTheme; text: "취소"; visible: root.update.busy; onClicked: root.controller.cancel() }
             }
             Label { text: "소스로 실행 중입니다. 설치된 프로그램에서 업데이트를 적용할 수 있습니다."; visible: !root.update.frozen; wrapMode: Text.Wrap; Layout.fillWidth: true }
             ToolButton { text: root.settingsExpanded ? "연결 설정 ▴" : "연결 설정 ▾"; onClicked: root.settingsExpanded = !root.settingsExpanded }

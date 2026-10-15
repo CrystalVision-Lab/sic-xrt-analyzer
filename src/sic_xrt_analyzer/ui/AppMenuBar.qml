@@ -171,10 +171,10 @@ MenuBar {
         AppMenuItem { objectName: "stackMeasurementMenuItem"; rowAvailable: root.uiState.imagejFeaturesVisible; text: "스케일 · 길이 / 면적 / 개수 측정…"; action: root.actions.advanced.measurement }
         AppMenuItem { text: "ROI 관리자"; action: root.actions.advanced.roiManager }
         AppMenuItem { rowAvailable: root.uiState.imagejFeaturesVisible; text: "결과표"; action: root.actions.advanced.results }
-        MenuSeparator {}
+        MenuSeparator {visible:root.uiState.analysisEligible; height:visible?implicitHeight:0}
         AppMenuItem { rowAvailable: root.uiState.analysisEligible; objectName: "menuRoiTool"; action: root.actions.roi; shortcutLabel: "R" }
         AppMenuItem { rowAvailable: root.uiState.analysisEligible; action: root.actions.clearRoi }
-        MenuSeparator {}
+        MenuSeparator {visible:root.uiState.analysisEligible; height:visible?implicitHeight:0}
         AppMenuItem { rowAvailable: root.uiState.analysisEligible; objectName: "menuRunAnalysis"; action: root.actions.prepareAnalysis; iconName: "run"; ToolTip.text: root.uiState.analysisReason; ToolTip.visible: hovered }
         AppMenuItem { rowAvailable: root.uiState.analysisEligible; objectName: "menuCancelAnalysis"; action: root.actions.cancelAnalysis }
         AppMenuItem { rowAvailable: root.uiState.analysisEligible; action: root.actions.modelInfo }

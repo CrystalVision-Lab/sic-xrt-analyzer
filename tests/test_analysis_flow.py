@@ -215,8 +215,8 @@ def test_advanced_input_and_model_details_preserve_parameters(workbench, tmp_pat
     adapter = prepare(w)
     try:
         w.click('analysisInputInfo')
-        assert w.item('infoDialog').property('visible')
-        invoke(w.item('infoDialog'), 'close')
+        assert w.item('analysisDialog').property('detailsExpanded')
+        assert not w.item('infoDialog').property('visible')
         assert not w.panel.property('visible')
         csv = tmp_path / 'points.csv'
         csv.write_text('point_id,x,y\np1,256,256\n', encoding='utf-8')

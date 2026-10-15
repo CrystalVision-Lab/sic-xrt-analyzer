@@ -221,8 +221,9 @@ def test_toolbar_layout_and_analysis_menu_entry(workbench, size):
     for tool in ('Pan', 'Freehand', 'Text', 'Arrow'):
         w.state.setProperty('activeTool', tool)
         QTest.qWait(30)
+        extra = ('tiffToolOval', 'tiffToolPolygon', 'tiffToolWand') if size[0] >= 1250 else ()
         for name in ('toolbarOpen', 'toolbarPan', 'toolbarZoom', 'toolbarFit',
-                     'tiffToolRectangle', 'tiffToolOval', 'tiffToolPolygon', 'tiffToolLine', 'tiffToolPoint', 'tiffToolWand', 'tiffMeasure', 'tiffContrast', 'tiffMore'):
+                     'tiffToolRectangle', 'tiffToolLine', 'tiffToolPoint', 'tiffMeasure', 'tiffContrast', 'tiffMore') + extra:
             obj = w.item(name)
             p = obj.mapToScene(QPointF())
             assert obj.property('visible') and obj.property('width') >= 32 and obj.property('height') >= 32

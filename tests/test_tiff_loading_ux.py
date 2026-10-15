@@ -317,8 +317,11 @@ def test_stack_loading_is_visible_in_wide_viewer_until_ready(load_case, size):
     assert w.item('stackPreparationText').property('text') == '4 / 8 페이지 · 50%'
     center = overlay.mapToScene(QPointF(overlay.property('width')/2, overlay.property('height')/2))
     view_center = viewport.mapToScene(QPointF(viewport.property('width')/2, viewport.property('height')/2))
-    assert center.x() == pytest.approx(view_center.x(), abs=1)
-    assert center.y() == pytest.approx(view_center.y(), abs=1)
+    origin = overlay.mapToScene(QPointF())
+    view_origin = viewport.mapToScene(QPointF())
+    assert origin.x() + overlay.width() == pytest.approx(view_origin.x() + viewport.width() - 16, abs=1)
+    assert origin.y() == pytest.approx(view_origin.y() + 16, abs=1)
+    assert center.y() < view_center.y()  # Preparation leaves the image center available.
     assert w.item('viewerMouseArea').property('enabled')  # Existing progressive interaction stays available.
     assert w.item('workspaceViewerLabel').property('text') == '이미지 뷰어'
     assert w.item('workspaceViewerMenu').property('text') == '이미지 뷰어'

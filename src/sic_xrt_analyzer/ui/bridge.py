@@ -1,7 +1,6 @@
 """Local desktop integration and persisted, applicable UI preferences."""
 import os
 import platform
-from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 
 from PySide6.QtCore import (
@@ -17,6 +16,7 @@ from PySide6.QtCore import (
 from PySide6.QtGui import QDesktopServices, QGuiApplication, QImage
 from PySide6.QtQuick import QQuickImageProvider
 
+from sic_xrt_analyzer import __version__
 from sic_xrt_analyzer.analysis.contracts import (
     AnalysisError,
     AnalysisRequest,
@@ -62,6 +62,7 @@ class TiffImageProvider(QQuickImageProvider):
         self.image = QImage()
         self.detail_image = QImage()
         self.research_image = QImage()
+        self.region_images = {}
         self.feedback_image = QImage()
         self.experiment_image = QImage()
         self.project_review_image = QImage()
@@ -71,6 +72,8 @@ class TiffImageProvider(QQuickImageProvider):
         self.stack3d_images = {}
 
     def requestImage(self, image_id: str, size: QSize, requested_size: QSize) -> QImage:
+        if image_id.startswith('region-'):
+            return self.region_images.get(image_id[7:].split('?')[0],QImage())
         if image_id.startswith('stack3d-'):
             return self.stack3d_images.get(image_id[8:].split('?')[0], QImage())
         if image_id.startswith('folder-'):
@@ -203,10 +206,7 @@ class FileBridge(QObject):
 
     @Property(str, constant=True)
     def appVersion(self):
-        try:
-            return version("sic-xrt-analyzer")
-        except PackageNotFoundError:
-            return "설치된 버전 없음"
+        return __version__
 
     @Property(str, constant=True)
     def systemInfo(self):
@@ -704,7 +704,7 @@ class FileBridge(QObject):
     def waitForLoads(self):
         self.folder_map.shutdown()
         self.defect3d_controller.shutdown()
-        self.issue_reports.reader.shutdown()
+        self.issue_reports.shutdown()
         self.app_update_controller.shutdown()
         self.model_update_controller.shutdown()
         self.sync_controller.shutdown()
@@ -722,6 +722,7 @@ class FileBridge(QObject):
         self.research_controller.experiments.preview_reader.shutdown()
         self.research_controller.experiments.reader.shutdown()
         self.research_controller.thumbnail_loader.shutdown()
+        self.research_controller.regions.shutdown()
         if self.workbench.busy or self.workbench.windows:
             self.workbench.cancel()
         self.workbench.reader.shutdown()
