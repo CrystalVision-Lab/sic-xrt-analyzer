@@ -37,6 +37,12 @@ Rectangle{
    }
    onWidthChanged:detailTimer.restart()
    onHeightChanged:detailTimer.restart()
+   OverviewMap{z:5;anchors.right:parent.right;anchors.bottom:parent.bottom;anchors.margins:12;visible:root.state.ready;theme:root.theme
+    imageSource:root.state.ready?"image://tiff/folder-mosaic?"+root.state.revision:""
+    imageWidth:root.state.size[0];imageHeight:root.state.size[1]
+    viewRect:[-mosaic.x/(viewport.fitScale*root.scale),-mosaic.y/(viewport.fitScale*root.scale),viewport.width/(viewport.fitScale*root.scale),viewport.height/(viewport.fitScale*root.scale)]
+    onNavigate:function(x,y){root.px=(root.state.size[0]/2-x)*viewport.fitScale*root.scale;root.py=(root.state.size[1]/2-y)*viewport.fitScale*root.scale}
+   }
    MouseArea{anchors.fill:parent;acceptedButtons:Qt.LeftButton|Qt.MiddleButton|Qt.RightButton;property real oldX;property real oldY
     onPressed:function(m){oldX=m.x;oldY=m.y}
     onPositionChanged:function(m){if(pressed){root.px+=m.x-oldX;root.py+=m.y-oldY;oldX=m.x;oldY=m.y}}

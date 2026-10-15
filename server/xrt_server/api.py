@@ -121,6 +121,18 @@ def create_app(url=None, asset_dir=None):
             "client_id": pair[1].id,
         }
 
+    @app.post("/api/v1/reports")
+    def report(request: Request, pair: Annotated[tuple, Depends(identity)]):
+        from .reports import store_report
+        try:
+            receipt=store_report(app.state.asset_dir,pair[0].id,pair[1].id,request.scope["xrt_body"])
+        except ValueError as exc:
+            if str(exc)=="REPORT_ID_CONFLICT":
+                raise HTTPException(409,"REPORT_ID_CONFLICT") from None
+            raise
+        record("CORRECTION_RECEIVED",pair[0].id)
+        return receipt
+
     @app.post("/api/v1/sync/batches")
     def upload(request: Request, pair: Annotated[tuple, Depends(identity)]):
         value = request.scope["xrt_body"]

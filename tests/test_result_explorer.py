@@ -101,6 +101,7 @@ def test_qml_filter_click_animation_center_and_marker_hit(qt_app, tmp_path):
         invoke(window.findChild(QObject, 'runAction'), 'trigger')
         spin(qt_app, lambda: bridge.analysis['hasResult'])
         invoke(window, 'openInspectorTab', 2)
+        bridge.research.regions.activate(False)  # Legacy individual-candidate centering mode.
         invoke(item('resultFilterBPD'), 'clicked')
         assert bridge.research.state['filteredTotal'] == 77
         invoke(window.findChild(QObject, 'nextCandidate'), 'clicked')
@@ -125,6 +126,18 @@ def test_qml_filter_click_animation_center_and_marker_hit(qt_app, tmp_path):
         QTest.mouseClick(window, Qt.LeftButton, Qt.NoModifier, QPoint(round(pos.x()), round(pos.y())))
         spin(qt_app, lambda: bridge.research.state['selected'].get('id') == target['id'])
         assert state.property('roiX') == 88 and state.property('roiY') == 16
+        # Area review keeps nearby candidates in one stable viewport.
+        bridge.research.regions.activate(True)
+        bridge.research.regions.setEdge(256)
+        bridge.research.selectCandidate('candidate_000000')
+        spin(qt_app, lambda: animation.property('running'))
+        spin(qt_app, lambda: not animation.property('running'))
+        view_before=(viewer.property('panX'),viewer.property('panY'),viewer.property('displayScale'))
+        bridge.research.regions.stepCandidate(1)
+        qt_app.processEvents()
+        assert not animation.property('running')
+        assert view_before==(viewer.property('panX'),viewer.property('panY'),viewer.property('displayScale'))
+        bridge.research.regions.activate(False)
         invoke(window.findChild(QObject, 'resultOverview'), 'clicked')
         assert state.property('fitMode') and not animation.property('running')
         # Size changes clamp to the image while preserving the requested size.

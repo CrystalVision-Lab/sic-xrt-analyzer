@@ -18,10 +18,19 @@ Rectangle {
     property real focusZoom: 1
     property real focusPanX: 0
     property real focusPanY: 0
+    property string focusedArea: ""
+    property var previousView: []
     function focusCandidate(x, y) {
         var candidate = uiState.research.selected || ({})
         var reviewed = uiState.feedback.selected || ({})
         if (!uiState.hasLoadedImage || uiState.loading || !((candidate.id && candidate.x === x && candidate.y === y) || (reviewed.id && reviewed.x === x && reviewed.y === y))) return
+        var area = fileBridge.research.regions.state
+        if (area.enabled && area.rect.length === 4) {
+            if (focusedArea === area.key) return
+            focusedArea = area.key
+            focusGeometry(area.rect[0],area.rect[1],area.rect[2],area.rect[3])
+            return
+        }
         focusAnimation.stop()
         var current = displayScale
         uiState.zoom = current * uiState.displayPixelRatio
@@ -86,7 +95,7 @@ Rectangle {
     onDisplayScaleChanged: Qt.callLater(syncDetailView)
     Connections {
         target: root.uiState
-        function onImageSourceChanged() { Qt.callLater(root.syncDetailView) }
+        function onImageSourceChanged() { root.focusedArea=""; root.previousView=[]; Qt.callLater(root.syncDetailView) }
         function onLoadingChanged() { Qt.callLater(root.syncDetailView) }
         function onActiveToolChanged() { root.cancelToolDrawing() }
         function onRoiEditModeChanged() { root.cancelToolDrawing() }
@@ -100,7 +109,8 @@ Rectangle {
         if (uiState.hasLoadedImage && uiState.pageCount > 1 && !uiState.loading)
             fileBridge.requestPage(Math.max(0, Math.min(uiState.pageCount - 1, uiState.stack.requestedPage + delta)))
     }
-    function fitView() { resetPan(); uiState.fitMode = true; uiState.statusText = "화면 맞춤" }
+    function fitView() { if (!uiState.fitMode) previousView=[uiState.zoom,panX,panY]; resetPan(); uiState.fitMode = true; uiState.statusText = "화면 맞춤" }
+    function restoreView() { if (previousView.length===3) { focusAnimation.stop(); uiState.fitMode=false; uiState.zoom=previousView[0]; panX=previousView[1]; panY=previousView[2]; previousView=[] } }
     function setActualZoom(value) { resetPan(); uiState.zoom = value; uiState.fitMode = false }
     function defaultView() {
         if (uiState.defaultView === "fit") fitView()
@@ -129,6 +139,7 @@ Rectangle {
     function zoomOut() { zoomAt(uiState.effectiveZoom / 1.25, viewport.width / 2, viewport.height / 2) }
     function reviewPoint(x, y) { return Qt.point((x-imageFrame.x)/displayScale, (y-imageFrame.y)/displayScale) }
     Connections { target: fileBridge.reviews; function onFocusRequested(x,y,w,h) { root.focusGeometry(x,y,w,h) } }
+    Connections { target: fileBridge.research.regions; function onFocusRequested(x,y,w,h) { root.focusGeometry(x,y,w,h) } }
     function imagePoint(x, y) {
         return Qt.point(Math.max(0, Math.min(1, (x - imageFrame.x) / imageFrame.width)), Math.max(0, Math.min(1, (y - imageFrame.y) / imageFrame.height)))
     }
@@ -544,6 +555,16 @@ Rectangle {
                 }
             }
             DropArea { anchors.fill: parent; onDropped: function(drop) { if (drop.hasUrls && drop.urls.length > 0) root.fileDropped(drop.urls[0].toString()) } }
+            OverviewMap {
+                z: 7; anchors.right: parent.right; anchors.bottom: parent.bottom; anchors.margins: 12
+                visible: uiState.hasLoadedImage && !uiState.loading && viewport.width > 500
+                theme: root.theme; imageSource: uiState.imageSource
+                imageWidth: uiState.contentWidth; imageHeight: uiState.contentHeight
+                viewRect: [-imageFrame.x/Math.max(.0001,root.displayScale),-imageFrame.y/Math.max(.0001,root.displayScale),viewport.width/Math.max(.0001,root.displayScale),viewport.height/Math.max(.0001,root.displayScale)]
+                selectedPoint: uiState.research.selected.id ? [uiState.research.selected.x,uiState.research.selected.y] : []
+                onNavigate: function(x,y) { focusAnimation.stop(); root.panX=(uiState.contentWidth/2-x)*root.displayScale; root.panY=(uiState.contentHeight/2-y)*root.displayScale }
+            }
+            AppButton { z: 7; anchors.left: parent.left; anchors.bottom: parent.bottom; anchors.margins: 12; theme: root.theme; text: "이전 확대 위치"; visible: root.previousView.length===3; onClicked:root.restoreView() }
             Rectangle {
                 visible: uiState.pageLoading; anchors.right: parent.right; anchors.top: parent.top; anchors.margins: 12
                 width: Math.min(parent.width - 24, 320); height: 30; color: theme.panel; border.color: theme.border; radius: theme.radiusSm

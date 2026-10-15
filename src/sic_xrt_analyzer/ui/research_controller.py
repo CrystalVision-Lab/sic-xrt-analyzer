@@ -70,7 +70,13 @@ class ResearchController(QObject):
         self.thumbnail_loader.ready.connect(self._thumbnail_ready)
         from .experiment_controller import ExperimentController
         self.experiments = ExperimentController(self)
+        from .region_review import RegionReview
+        self.region_review = RegionReview(self)
         bridge.pipeline.changed.connect(self._pipeline_changed)
+
+    @Property(QObject, constant=True)
+    def regions(self):
+        return self.region_review
 
     @property
     def display_result(self):
@@ -380,6 +386,7 @@ class ResearchController(QObject):
                 "total": len(self.rows),
                 "lowScoreCount": summary.get("low_score_count", 0),
                 "limited": summary.get("candidate_limit_reached", False),
+                "exclusionSummary": " · ".join({"incomplete_patch":"가장자리 패치 부족", "outside_scope":"범위 밖", "duplicate_center":"중복 중심", "invalid_coordinate":"좌표 오류"}.get(k,k) + " " + str(v) for k,v in summary.get("excluded",{}).items() if v),
                 "excluded": sum(summary.get("excluded", {}).values()), "exportPath": self.export_path}
 
     @Slot(str, result=bool)

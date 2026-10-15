@@ -428,5 +428,5 @@ class FolderMap(QObject):
         self.epoch += 1
         self.detail_serial += 1
         self.detail_reader.shutdown()
-        self.native.close()
         self.reader.shutdown()
+        self.native.close()
