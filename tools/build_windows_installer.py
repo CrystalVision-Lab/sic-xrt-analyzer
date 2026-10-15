@@ -10,6 +10,8 @@ import sysconfig
 import tomllib
 from pathlib import Path
 
+from windows_build_environment import isolated_environment
+
 from sic_xrt_analyzer import __version__
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -69,7 +71,10 @@ def main():
         ["git", "rev-parse", "HEAD"], cwd=ROOT, text=True
     ).strip()
     out.mkdir(parents=True)
-    environment = {**os.environ, "XRT_BUILD_JDK": str(args.jdk.resolve())}
+    environment = isolated_environment(
+        os.environ, python_base=Path(sys.base_prefix), python_env=Path(sys.prefix),
+        jdk=args.jdk.resolve(),
+    )
     bundle = out / "dist/SiCXrtAnalyzer"
     if args.reuse_bundle:
         import shutil
@@ -90,6 +95,8 @@ def main():
                 "--",
                 "src",
                 "installer/launcher.py",
+                "installer/SiCXrtAnalyzer.spec",
+                "tools/windows_build_environment.py",
             ],
             cwd=ROOT,
             text=True,
@@ -193,6 +200,15 @@ def main():
     (bundle / "runtime-files.sha256").write_text(
         "\n".join(lines) + "\n", encoding="utf-8"
     )
+    # Exercise the frozen runtime before compressing or publishing an installer.
+    # The worker waits synchronously and propagates startup/Qt loader failures.
+    smoke_path = out / "bundle-smoke.json"
+    with (out / "bundle-smoke.log").open("w", encoding="utf-8") as log:
+        run([str(bundle / "SiCXrtWorker.exe"), "--smoke-report", str(smoke_path)],
+            cwd=ROOT, env=environment, stdout=log, stderr=subprocess.STDOUT, timeout=600)
+    smoke = json.loads(smoke_path.read_text(encoding="utf-8"))
+    if smoke.get("status") != "PASS" or smoke.get("version") != args.version or smoke.get("qml_warnings"):
+        raise RuntimeError("Frozen runtime smoke verification failed")
     run(
         [
             str(args.compiler.resolve()),
