@@ -28,7 +28,13 @@ class UpdateHandoff {
         form.Controls.Add(label);form.Controls.Add(progress);
         Action<string> status=s=>form.BeginInvoke((Action)(()=>label.Text=s));
         form.Shown+=(s,e)=>ThreadPool.QueueUserWorkItem(_=>{
+            Mutex intent=null;
             try {
+                string token;
+                using(var h=SHA256.Create())token=BitConverter.ToString(h.ComputeHash(System.Text.Encoding.UTF8.GetBytes(folder.ToLowerInvariant()))).Replace("-","");
+                bool created;
+                intent=new Mutex(false,"CrystalVisionLab_XrtUpdating_"+token,out created);
+                if(!created)throw new IOException("Update already active");
                 int pid=int.Parse(args[0]);
                 try { using(var parent=Process.GetProcessById(pid))if(!parent.WaitForExit(60000))throw new IOException("Setup did not exit"); }catch(ArgumentException){}
                 string expected=Path.GetFileNameWithoutExtension(setup);
@@ -44,8 +50,10 @@ class UpdateHandoff {
                 var start=new ProcessStartInfo(setup,"/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /CLOSEAPPLICATIONS /NORESTARTAPPLICATIONS /XRTUPDATE=1 /XRTHANDOFF=1 /DIR="+Quote(folder)+" /LOG="+Quote(Path.Combine(Path.GetDirectoryName(setup),"install.log"))){UseShellExecute=false,CreateNoWindow=true,WorkingDirectory=Path.GetDirectoryName(setup)};
                 using(var process=Process.Start(start)){process.WaitForExit();result=process.ExitCode;}
                 File.AppendAllText(log,"SETUP_EXIT="+result+"\r\n");
+                intent.Dispose();intent=null;
                 if(result==0)Process.Start(new ProcessStartInfo(Path.Combine(folder,"SiCXrtAnalyzer.exe")){UseShellExecute=false,WorkingDirectory=folder});
             } catch(Exception ex){File.AppendAllText(log,"FAILED="+ex.GetType().Name+"\r\n");}
+            if(intent!=null)intent.Dispose();
             form.BeginInvoke((Action)(()=>form.Close()));
         });
         Application.Run(form);

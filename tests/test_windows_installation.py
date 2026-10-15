@@ -118,7 +118,28 @@ def test_update_helper_waits_for_same_install_worker(native, tmp_path):
     parent = subprocess.Popen([str(binary)])
     run = subprocess.Popen([str(helper), str(parent.pid), str(setup), str(native)])
     try:
-        time.sleep(0.4)
+        token = hashlib.sha256(str(native).lower().encode("utf-8")).hexdigest().upper()
+        api = ctypes.WinDLL("kernel32", use_last_error=True)
+        api.OpenMutexW.argtypes = [ctypes.c_uint, ctypes.c_bool, ctypes.c_wchar_p]
+        api.OpenMutexW.restype = ctypes.c_void_p
+        api.CloseHandle.argtypes = [ctypes.c_void_p]
+        until = time.monotonic() + 10
+        while True:
+            handle = api.OpenMutexW(
+                0x100000, False, "CrystalVisionLab_XrtUpdating_" + token
+            )
+            if handle:
+                api.CloseHandle(handle)
+                break
+            assert time.monotonic() < until
+            time.sleep(0.01)
+        assert (
+            subprocess.run(
+                [str(native / "SiCXrtAnalyzer.exe")], timeout=10, check=False
+            ).returncode
+            == 0
+        )
+        assert not (native / "backend.ran").exists()
         assert not (cache / "setup.ran").exists()
         assert worker.wait(timeout=10) == 0
         assert run.wait(timeout=20) == 0

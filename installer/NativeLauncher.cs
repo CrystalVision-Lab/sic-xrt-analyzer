@@ -9,7 +9,9 @@ class NativeLauncher {
     const string SetupMutex="CrystalVisionLab_SicXrt_81CAB3F6-F3BE-4B05-ACB8-E9F47113CC32";
     static string Quote(string x) { return "\""+x.Replace("\"","\\\"").TrimEnd('\\')+"\""; }
     static string Digest(string p) { using(var h=SHA256.Create())using(var f=File.OpenRead(p))return BitConverter.ToString(h.ComputeHash(f)).Replace("-","").ToLowerInvariant(); }
-    static bool Installing() { try { using(var m=Mutex.OpenExisting(SetupMutex))return true; }catch(WaitHandleCannotBeOpenedException){return false;} }
+    static string Token(string root) { using(var h=SHA256.Create())return BitConverter.ToString(h.ComputeHash(System.Text.Encoding.UTF8.GetBytes(root.ToLowerInvariant()))).Replace("-",""); }
+    static bool Exists(string name) { try{using(var m=Mutex.OpenExisting(name))return true;}catch(WaitHandleCannotBeOpenedException){return false;} }
+    static bool Installing(string root) { return Exists(SetupMutex)||Exists("CrystalVisionLab_XrtUpdating_"+Token(root)); }
     static bool Verify(string root) {
         string manifest=Path.Combine(root,"runtime-files.sha256");
         if(!File.Exists(manifest)||new FileInfo(manifest).Length>1024*1024)return false;
@@ -29,18 +31,17 @@ class NativeLauncher {
             if(args.Length==2&&args[0]=="--wait-install") {
                 root=Path.GetFullPath(args[1]).TrimEnd('\\');
                 var until=DateTime.UtcNow.AddMinutes(15);
-                while(Installing()&&DateTime.UtcNow<until)Thread.Sleep(250);
-                if(Installing()||File.Exists(Path.Combine(root,".xrt-install-incomplete"))){Failure();return 66;}
+                while(Installing(root)&&DateTime.UtcNow<until)Thread.Sleep(250);
+                if(Installing(root)||File.Exists(Path.Combine(root,".xrt-install-incomplete"))){Failure();return 66;}
                 Process.Start(new ProcessStartInfo(Path.Combine(root,"SiCXrtAnalyzer.exe")){UseShellExecute=false,WorkingDirectory=root});return 0;
             }
-            if(Installing()) {
+            if(Installing(root)) {
                 string temp=Path.Combine(Path.GetTempPath(),"XrtLaunchWait-"+Process.GetCurrentProcess().Id+".exe");
                 File.Copy(Process.GetCurrentProcess().MainModule.FileName,temp,false);
                 Process.Start(new ProcessStartInfo(temp,"--wait-install "+Quote(root)){UseShellExecute=false,CreateNoWindow=true});return 0;
             }
             if(File.Exists(Path.Combine(root,".xrt-install-incomplete"))||!Verify(root)){Failure();return 65;}
-            string ident;
-            using(var h=SHA256.Create())ident=BitConverter.ToString(h.ComputeHash(System.Text.Encoding.UTF8.GetBytes(root.ToLowerInvariant()))).Replace("-","");
+            string ident=Token(root);
             bool created;
             using(var instance=new Mutex(true,"CrystalVisionLab_XrtRun_"+ident,out created)) {
                 if(!created)return 0;
