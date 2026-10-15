@@ -30,3 +30,5 @@ node_modules/
 web/coverage/
 installer/dist/
 *.tsbuildinfo
+
+.qa/

@@ -40,6 +40,7 @@ class FolderMap(QObject):
         self.busy = False
         self.error = ""
         self.scan_errors = []
+        self.build_errors = []
         self.path = ""
         self.revision = 0
         self.size = [1, 1]
@@ -66,6 +67,10 @@ class FolderMap(QObject):
         self.error = ""
         self.rows = []
         self.groups = []
+        self.current_rows = []
+        self.scan_errors = []
+        self.build_errors = []
+        self.detail_error = ""
         self.transforms = {}
         self.size = [1, 1]
         self.bridge.provider.folder_images = {}
@@ -186,6 +191,7 @@ class FolderMap(QObject):
         self.epoch += 1
         self.detail_serial += 1
         self.detail_revision = 0
+        self.detail_error = ""
         self.detail_reader.invalidate()
         epoch = self.epoch
         self.reader.invalidate()
@@ -280,6 +286,9 @@ class FolderMap(QObject):
                 )
             except ValueError as e:
                 return "mosaic", epoch, None, valid, thumbs, errors + [str(e)]
+            transforms = {valid[i]["id"]: m for i,m in result["transforms"].items()}
+            self.native.prepare(epoch, valid, transforms,
+                                lambda: epoch != self.epoch, progress)
             return "mosaic", epoch, result, valid, thumbs, errors
 
         self.reader.submit(build)
@@ -313,6 +322,7 @@ class FolderMap(QObject):
             self.evidence = {}
             self.size = [1, 1]
         self.current_rows = rows
+        self.build_errors = errors
         self.bridge.provider.folder_images = images
         self.revision += 1
         self.error = " · ".join((self.scan_errors + errors)[:3])
@@ -339,7 +349,7 @@ class FolderMap(QObject):
         rows, transforms = list(self.current_rows), dict(self.transforms)
 
         def render():
-            a, _ = self.native.render(
+            a, rendered_rect = self.native.renderTiles(
                 epoch,
                 rows,
                 transforms,
@@ -350,7 +360,7 @@ class FolderMap(QObject):
             image = QImage(
                 a.data, a.shape[1], a.shape[0], a.strides[0], QImage.Format_RGBA8888
             ).copy()
-            return serial, epoch, rect, image
+            return serial, epoch, rendered_rect, image
 
         self.detail_reader.submit(render)
 
@@ -378,6 +388,11 @@ class FolderMap(QObject):
                 self.openImage(row["id"])
                 return
 
+    @Slot()
+    def retry(self):
+        if not self.busy and self.path:
+            self.open(self.path)
+
     @Slot(str)
     def openImage(self, ident):
         row = next((r for r in self.rows if r["id"] == ident), None)
@@ -402,6 +417,8 @@ class FolderMap(QObject):
             "size": self.size,
             "ready": "mosaic" in self.bridge.provider.folder_images,
             "count": len(self.current_rows),
+            "failed": len(self.scan_errors) + len(self.build_errors),
+            "errors": self.scan_errors + self.build_errors,
             "aligned": len(self.transforms),
             "evidence": self.evidence,
             "progress": self.progress,
