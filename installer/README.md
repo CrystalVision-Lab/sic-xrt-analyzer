@@ -25,3 +25,12 @@ artifacts/distribution120/<new-build>/dist/SiCXrtAnalyzer/SiCXrtAnalyzer.exe --s
 ```
 
 실제 설치·제거는 별도의 새 QA 경로에서 검증한다. 기존 같은 AppId 설치가 있으면 QA 설치로 대체하지 않는다. 설치 밖 프로젝트의 SHA 보존도 대조한다. QA artifact는 Git/사이트에 게시하지 않는다.
+
+
+## 설치·업데이트 검증 (#137)
+
+공식 진입점 SiCXrtAnalyzer.exe는 .NET 네이티브 bootstrap이다. Python 본체는 SiCXrtApp.exe, 기존 작업 프로세스는 SiCXrtWorker.exe다. bootstrap은 설치 중 임시 대기 프로세스로 이동하므로 설치 폴더의 Python/NumPy DLL을 새로 로드하지 않는다. 설치 실패 marker 또는 runtime-files.sha256 불일치는 Python 시작 전 차단한다. 내부 본체를 직접 실행하지 않는다.
+
+업데이트 helper는 설치 폴더 밖에서 실행하며 같은 설치 경로의 앱·worker가 모두 종료된 뒤 검증한 설치 파일을 실행한다. 진행 창을 제공하고 성공·실패를 기록한다. 설치 완료 시 runtime manifest 검사 성공 후에만 marker를 지우고, helper가 설치 종료를 기다린 뒤 앱을 연다. 다른 설치 경로의 앱은 종료하지 않는다.
+
+빌드 폴더 실행 검사에 더해 실제 Inno 설치 후 공식 진입점으로 smoke를 수행한다. 깨끗한 설치와 기존 설치 갱신, 설치 중 바로가기 재실행, DLL 사용 중 설치 대기, 설치 실패 marker·파일 손상 거부를 검증한다. 테스트 설치는 별도 AppGuid와 새 artifacts 경로를 사용해 사용자 설치·설정과 구분한다. 원본·모델·Credential은 패키지에 넣지 않는다.

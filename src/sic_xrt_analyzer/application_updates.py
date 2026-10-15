@@ -205,7 +205,10 @@ class AppUpdateClient:
 def update_command(installer, executable):
     """Use the running per-user installation, never an inferred/default folder."""
     target = Path(executable).resolve()
-    if target.name.lower() != "sicxrtanalyzer.exe" or not target.is_file():
+    if (
+        target.name.lower() not in ("sicxrtanalyzer.exe", "sicxrtapp.exe")
+        or not target.is_file()
+    ):
         raise ValueError("INSTALL_LOCATION_UNAVAILABLE")
     return [
         str(installer),

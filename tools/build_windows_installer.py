@@ -6,6 +6,7 @@ import json
 import os
 import subprocess
 import sys
+import sysconfig
 import tomllib
 from pathlib import Path
 
@@ -24,13 +25,18 @@ def main():
     p.add_argument("--compiler", type=Path, required=True)
     p.add_argument("--output", type=Path, required=True)
     p.add_argument("--version", default=__version__)
-    p.add_argument("--notes", default="선택한 검은 결함의 연결 3D 표면, 실제 촬영 구역의 웨이퍼 모자이크, 설치 화면 없는 업데이트와 자동 재실행을 제공합니다.")
+    p.add_argument(
+        "--notes",
+        default="선택한 검은 결함의 연결 3D 표면, 실제 촬영 구역의 웨이퍼 모자이크, 설치 화면 없는 업데이트와 자동 재실행을 제공합니다.",
+    )
     p.add_argument("--source-directory", type=Path, required=True)
     p.add_argument("--work-cache", type=Path)
     p.add_argument("--reuse-bundle", type=Path)
     p.add_argument("--reuse-source-revision")
     args = p.parse_args()
-    package_version=tomllib.loads((ROOT/"pyproject.toml").read_text(encoding="utf-8"))["project"]["version"]
+    package_version = tomllib.loads(
+        (ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    )["project"]["version"]
     if args.version != __version__ or args.version != package_version:
         raise ValueError("Installer, application and package versions must agree")
     if sys.platform != "win32":
@@ -125,13 +131,57 @@ def main():
             or file.name.lower() in ("admin.json", "db-password.txt")
         ):
             raise RuntimeError("Private file in package")
-    helper=out/'XrtUpdateHandoff.exe'
-    csc=Path(os.environ.get('WINDIR','C:/Windows'))/'Microsoft.NET/Framework64/v4.0.30319/csc.exe'
-    run([str(csc),'/nologo','/target:winexe','/out:'+str(helper),str(ROOT/'installer/UpdateHandoff.cs')],cwd=ROOT)
+    helper = out / "XrtUpdateHandoff.exe"
+    csc = (
+        Path(os.environ.get("WINDIR", "C:/Windows"))
+        / "Microsoft.NET/Framework64/v4.0.30319/csc.exe"
+    )
+    for source, target in [
+        ("UpdateHandoff.cs", helper),
+        ("NativeLauncher.cs", bundle / "SiCXrtAnalyzer.exe"),
+    ]:
+        run(
+            [
+                str(csc),
+                "/nologo",
+                "/target:winexe",
+                "/reference:System.Windows.Forms.dll",
+                "/reference:System.Drawing.dll",
+                "/win32icon:"
+                + str(ROOT / "src/sic_xrt_analyzer/ui/assets/app-icon.ico"),
+                "/out:" + str(target),
+                str(ROOT / "installer" / source),
+            ],
+            cwd=ROOT,
+        )
+    # Required lazy-loader stubs are runtime assets, not optional type hints.
+    package = Path(sysconfig.get_paths()["purelib"]) / "skimage"
+    for stub in package.rglob("*.pyi"):
+        target = bundle / "_internal/skimage" / stub.relative_to(package)
+        if not target.is_file():
+            raise RuntimeError(
+                "Missing runtime stub: " + str(stub.relative_to(package))
+            )
+    required = [
+        bundle / "SiCXrtAnalyzer.exe",
+        bundle / "SiCXrtApp.exe",
+        bundle / "SiCXrtWorker.exe",
+    ]
+    required += list((bundle / "_internal/skimage").rglob("*.pyi"))
+    required += list((bundle / "_internal/skimage/segmentation").glob("*.pyd"))
+    required += list((bundle / "_internal/sic_xrt_analyzer/ui").glob("*.qml"))
+    lines = []
+    for file in sorted(required):
+        with file.open("rb") as stream:
+            digest = hashlib.file_digest(stream, "sha256").hexdigest()
+        lines.append(digest + "  " + file.relative_to(bundle).as_posix())
+    (bundle / "runtime-files.sha256").write_text(
+        "\n".join(lines) + "\n", encoding="utf-8"
+    )
     run(
         [
             str(args.compiler.resolve()),
-            '/DUpdateHelper='+str(helper),
+            "/DUpdateHelper=" + str(helper),
             "/DAppVersion=" + args.version,
             "/DBundleDir=" + str(bundle),
             "/DOutputPath=" + str(out),
