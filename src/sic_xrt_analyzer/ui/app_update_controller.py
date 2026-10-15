@@ -44,7 +44,9 @@ class AppUpdateController(QObject):
         self.progressChanged.connect(self._progress)
         self.cancel_token = threading.Event()
         self.busy = False
-        self.status = "새 버전을 확인하세요. 자동 다운로드는 꺼져 있습니다."
+        self.status = "새 버전을 확인합니다."
+        self.operation = ""
+        self._startup_checked = False
         self.error = ""
         self.release = None
         self.path = self.verified = self.armed = None
@@ -60,9 +62,11 @@ class AppUpdateController(QObject):
         if self.origin != stored_origin:
             bridge._settings.setValue("applicationUpdates/origin", self.origin)
             bridge._settings.sync()
-        self.startup = bridge._settings.value(
-            "applicationUpdates/startup", True, type=bool
-        )
+        # Startup discovery is a product behavior, including installations with
+        # the previous optional check disabled. Download/install still needs a click.
+        self.startup = True
+        bridge._settings.setValue("applicationUpdates/startup", True)
+        bridge._settings.sync()
         self.beta = bridge._settings.value("applicationUpdates/beta", True, type=bool)
         default = (
             Path(QStandardPaths.writableLocation(QStandardPaths.AppLocalDataLocation))
@@ -83,6 +87,7 @@ class AppUpdateController(QObject):
             "startup": self.startup,
             "beta": self.beta,
             "busy": self.busy,
+            "operation": self.operation,
             "status": self.status,
             "error": self.error,
             "progress": self.progress,
@@ -106,11 +111,11 @@ class AppUpdateController(QObject):
             self.error = ERRORS["INVALID_ORIGIN"]
             self.changed.emit()
             return
-        self.startup, self.beta = startup, beta
+        self.startup, self.beta = True, beta
         self.release = self.path = self.verified = self.armed = None
         for key, value in (
             ("origin", self.origin),
-            ("startup", startup),
+            ("startup", True),
             ("beta", beta),
         ):
             self.bridge._settings.setValue("applicationUpdates/" + key, value)
@@ -125,6 +130,7 @@ class AppUpdateController(QObject):
         cancel = self.cancel_token
         origin = self.origin
         self.busy, self.error, self.progress = True, "", 0
+        self.operation = kind
         self.verified = None
         self.changed.emit()
 
@@ -149,9 +155,18 @@ class AppUpdateController(QObject):
         self.reader.submit(run)
 
     @Slot()
+    def checkOnStartup(self):
+        """Check once after the first window is ready; never block initial rendering."""
+        if self._startup_checked:
+            return
+        self._startup_checked = True
+        self.checkUpdates()
+
+    @Slot()
     def checkUpdates(self):
         if self.busy:
             return
+        self.install_after_download = False
         self.status = "새 버전 확인 중…"
         self.release = self.path = None
         self._start("check", lambda c: c.latest(__version__, self.beta))
@@ -174,6 +189,7 @@ class AppUpdateController(QObject):
             try:
                 old_path.unlink(missing_ok=True)
             except OSError:
+                self.install_after_download = False
                 self.error = "이전 업데이트 캐시를 정리할 수 없습니다."
                 self.changed.emit()
                 return
@@ -203,6 +219,7 @@ class AppUpdateController(QObject):
         if self.busy or not self.state["canInstall"]:
             return
         release, path = self.release, self.path
+        self.install_after_download = False
         self.status = "배포 상태·설치 파일 다시 확인 중…"
 
         def verify(client):
@@ -253,13 +270,16 @@ class AppUpdateController(QObject):
 
     def _done(self, result, error):
         self.busy = False
+        self.operation = ""
         if error or not result or result["cancel"].is_set():
+            self.install_after_download = False
             self.error = (
                 ERRORS["CANCELLED"]
                 if self.cancel_token.is_set()
                 else (result or {}).get("error", "업데이트 작업에 실패했습니다.")
             )
         elif "error" in result:
+            self.install_after_download = False
             self.error = result["error"]
         elif result["kind"] == "check":
             self.release = result["value"]

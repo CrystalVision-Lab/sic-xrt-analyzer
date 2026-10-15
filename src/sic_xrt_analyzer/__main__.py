@@ -39,8 +39,7 @@ def main() -> int:
         ctypes.windll.dwmapi.DwmSetWindowAttribute(
             int(engine.rootObjects()[0].winId()), 20, ctypes.byref(dark), ctypes.sizeof(dark)
         )
-    if bridge.app_update_controller.startup:
-        QTimer.singleShot(3000, bridge.app_update_controller.checkUpdates)
+    QTimer.singleShot(1000, bridge.app_update_controller.checkOnStartup)
     result = app.exec()
     bridge.app_update_controller.launch_after_exit()
     if bridge.app_update_controller.launch_error:

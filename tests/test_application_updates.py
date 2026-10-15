@@ -350,7 +350,8 @@ def test_quick_tunnel_preferences_migrate_to_fixed_origin(
     assert DEFAULT_ORIGIN == "https://pc1.tail23f008.ts.net"
     assert b.appUpdates.origin == DEFAULT_ORIGIN
     assert settings.value("applicationUpdates/origin") == DEFAULT_ORIGIN
-    assert not b.appUpdates.startup and not b.appUpdates.beta
+    assert b.appUpdates.startup and not b.appUpdates.beta
+    assert settings.value("applicationUpdates/startup", type=bool) is True
 
 
 @pytest.mark.parametrize(
@@ -391,3 +392,87 @@ def test_update_uses_native_backend_install_folder(tmp_path):
     other.write_bytes(b"MZ")
     with pytest.raises(ValueError, match="INSTALL_LOCATION"):
         update_command(tmp_path / "setup.exe", other)
+
+
+@pytest.mark.parametrize("case", ["newer", "current", "offline"])
+def test_startup_automatically_opens_update_dialog_only_for_newer(
+    case, release, tmp_path, qt_app, monkeypatch
+):
+    import sic_xrt_analyzer.ui.app_update_controller as module
+
+    row, data = release
+    requests = []
+    if case == "offline":
+
+        def fail(request):
+            requests.append(str(request.url))
+            raise httpx.ConnectError("offline", request=request)
+
+        c = AppUpdateClient(
+            "https://research.example", transport=httpx.MockTransport(fail)
+        )
+    else:
+        c = client([row("0.1.2" if case == "newer" else "0.1.1")], data, requests)
+    monkeypatch.setattr(module, "AppUpdateClient", lambda *args: c)
+    monkeypatch.setattr(module, "__version__", "0.1.1")
+    settings = QSettings(str(tmp_path / "startup.ini"), QSettings.IniFormat)
+    settings.setValue("applicationUpdates/startup", False)
+    QQuickStyle.setStyle("Basic")
+    engine = QQmlApplicationEngine()
+    bridge = FileBridge(parent=engine, settings=settings)
+    engine.addImageProvider("tiff", bridge.provider)
+    engine.rootContext().setContextProperty("fileBridge", bridge)
+    warnings = []
+    engine.warnings.connect(lambda items: warnings.extend(i.toString() for i in items))
+    engine.load(
+        QUrl.fromLocalFile(
+            str(Path(__file__).parents[1] / "src/sic_xrt_analyzer/ui/Main.qml")
+        )
+    )
+    assert engine.rootObjects(), warnings
+    window = engine.rootObjects()[0]
+    u = bridge.appUpdates
+    try:
+        assert u.startup
+        u.checkOnStartup()
+        spin(qt_app, lambda: not u.busy)
+        dialog = window.findChild(QObject, "appUpdatesDialog")
+        assert dialog.property("visible") == (case == "newer")
+        assert len(requests) == 1 and requests[0].endswith("/portal-api/releases")
+        assert u.path is None and u.armed is None
+        if case == "newer":
+            window.findChild(QObject, "dismissAppUpdateButton").clicked.emit()
+            qt_app.processEvents()
+            assert not dialog.property("visible") and window.isVisible()
+        u.checkOnStartup()
+        qt_app.processEvents()
+        assert len(requests) == 1
+        assert not warnings
+    finally:
+        bridge.waitForLoads()
+        window.close()
+        engine.deleteLater()
+
+
+def test_failed_update_does_not_install_after_later_manual_download(
+    release, tmp_path, bridge_factory, qt_app, monkeypatch
+):
+    import sic_xrt_analyzer.ui.app_update_controller as module
+
+    row, data = release
+    r = row("0.1.2")
+    clients = [client([r], b"broken"), client([r], data)]
+    monkeypatch.setattr(module, "AppUpdateClient", lambda *args: clients.pop(0))
+    b = bridge_factory(
+        settings=QSettings(str(tmp_path / "retry.ini"), QSettings.IniFormat)
+    )
+    u = b.appUpdates
+    u.release = r
+    install_calls = []
+    monkeypatch.setattr(u, "verifyInstall", lambda: install_calls.append(True))
+    u.update()
+    spin(qt_app, lambda: not u.busy)
+    assert u.error and not u.install_after_download
+    u.download()
+    spin(qt_app, lambda: not u.busy)
+    assert u.path.read_bytes() == data and install_calls == [] and u.armed is None
