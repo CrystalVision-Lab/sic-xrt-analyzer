@@ -1,3 +1,3 @@
 """SiC XRT desktop analysis scaffold."""
 
-__version__ = "0.6.2"
+__version__ = "0.6.3"

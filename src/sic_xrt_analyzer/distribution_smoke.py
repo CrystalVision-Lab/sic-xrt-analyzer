@@ -21,7 +21,7 @@ def main(output, image_paths=(), verify_updates=False):
         import numpy as np
         import tifffile
         from PIL import Image
-        from PySide6.QtCore import QObject, QSettings, QUrl
+        from PySide6.QtCore import Q_ARG, QMetaObject, QObject, QSettings, QUrl
         from PySide6.QtQml import QQmlApplicationEngine
         from PySide6.QtWidgets import QApplication
 
@@ -96,6 +96,27 @@ def main(output, image_paths=(), verify_updates=False):
                     time.sleep(0.01)
 
             spin(lambda: bridge.original_source is not None)
+            from sic_xrt_analyzer.imaging.imagej_commands import command_form
+            native_cases = {
+                "Gaussian Blur...": "sigma=2 slice",
+                "Median...": "radius=2 slice",
+                "Mean...": "radius=2 slice",
+                "Minimum...": "radius=2 slice",
+                "Maximum...": "radius=2 slice",
+                "Variance...": "radius=2 slice",
+                "Unsharp Mask...": "radius=2 mask=0.6 slice",
+                "Remove Outliers...": "radius=2 threshold=50 which=Bright slice",
+                "Subtract Background...": "rolling=50 slice",
+            }
+            dialog = window.findChild(QObject, "imagejDialog")
+            for command in native_cases:
+                assert QMetaObject.invokeMethod(dialog, "showCommand",
+                    Q_ARG("QVariant", command), Q_ARG("QVariant", ""))
+                app.processEvents()
+                assert dialog.property("nativeControls"), command
+                assert window.findChild(QObject, "imagejNativeForm")
+            assert QMetaObject.invokeMethod(dialog, "close")
+            report["tests"].append("nine bundled native ImageJ QML forms")
             window.findChild(QObject, "uiState").setProperty("workspaceIndex", 3)
             c = bridge.stack3d
             c.setActive(True)
@@ -211,6 +232,25 @@ def main(output, image_paths=(), verify_updates=False):
                 result = client.run(frame, command="Multiply...", options="value=1")
                 assert result
                 report["tests"].append("ImageJ working copy")
+                original_bytes = source.read_bytes()
+                for index, (command, options) in enumerate(native_cases.items()):
+                    # A new source identity prevents the direct ImageJ session
+                    # from reusing the previous command's modified working copy.
+                    case_source = folder / f"native-command-{index}.tif"
+                    shutil.copyfile(source, case_source)
+                    case_stack = open_stack(case_source)
+                    try:
+                        case_frame = case_stack.frame(0)
+                        expected = client.run(case_frame, command=command, options=options)
+                        expected_pixels = tifffile.imread(expected["path"])
+                        actual = client.run(case_frame, native=command,
+                            parameters=command_form(command)["values"])
+                        np.testing.assert_array_equal(tifffile.imread(actual["path"]), expected_pixels)
+                    finally:
+                        case_stack.close()
+                    assert case_source.read_bytes() == original_bytes
+                assert source.read_bytes() == original_bytes
+                report["tests"].append("nine native ImageJ operations match direct engine; original preserved")
             finally:
                 client.close()
             assert Path(
