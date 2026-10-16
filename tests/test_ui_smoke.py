@@ -116,7 +116,7 @@ def test_workstation_flow(tmp_path):
     assert settings.property("title") == "설정"
     assert settings.property("categories").toVariant() == ["일반", "뷰어", "단축키", "진단"]
     assert inspector.property("tabIndex") == 0
-    for category in range(10):
+    for category in range(len(settings.property("categories").toVariant())):
         settings.setProperty("category", category)
         settle(app)
     settings.setProperty("category", 1)
@@ -262,3 +262,4 @@ def test_workstation_flow(tmp_path):
     window.close()
     engine.deleteLater()
     settle(app)
+
