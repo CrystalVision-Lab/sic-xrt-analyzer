@@ -138,13 +138,13 @@ MenuBar {
         AppMenuItem { text: "Find Edges"; onTriggered: root.hostWindow.imagejCommand("Find Edges", "") }
         AppMenuItem { text: "Enhance Contrast…"; onTriggered: root.hostWindow.imagejCommand("Enhance Contrast...", "saturated=0.35 normalize") }
         AppMenu { title: "필터 (Filters)"
-            AppMenuItem { text: "Gaussian Blur…"; onTriggered: root.hostWindow.imagejCommand("Gaussian Blur...", "sigma=2") }
-            AppMenuItem { text: "Median…"; onTriggered: root.hostWindow.imagejCommand("Median...", "radius=2") }
-            AppMenuItem { text: "Mean…"; onTriggered: root.hostWindow.imagejCommand("Mean...", "radius=2") }
-            AppMenuItem { text: "Minimum…"; onTriggered: root.hostWindow.imagejCommand("Minimum...", "radius=2") }
-            AppMenuItem { text: "Maximum…"; onTriggered: root.hostWindow.imagejCommand("Maximum...", "radius=2") }
-            AppMenuItem { text: "Variance…"; onTriggered: root.hostWindow.imagejCommand("Variance...", "radius=2") }
-            AppMenuItem { text: "Unsharp Mask…"; onTriggered: root.hostWindow.imagejCommand("Unsharp Mask...", "radius=2 mask=0.60") }
+            AppMenuItem { text: "가우시안 흐림…"; onTriggered: root.hostWindow.imagejCommand("Gaussian Blur...", "sigma=2") }
+            AppMenuItem { text: "중앙값 필터…"; onTriggered: root.hostWindow.imagejCommand("Median...", "radius=2") }
+            AppMenuItem { text: "평균 필터…"; onTriggered: root.hostWindow.imagejCommand("Mean...", "radius=2") }
+            AppMenuItem { text: "최솟값 필터…"; onTriggered: root.hostWindow.imagejCommand("Minimum...", "radius=2") }
+            AppMenuItem { text: "최댓값 필터…"; onTriggered: root.hostWindow.imagejCommand("Maximum...", "radius=2") }
+            AppMenuItem { text: "분산 필터…"; onTriggered: root.hostWindow.imagejCommand("Variance...", "radius=2") }
+            AppMenuItem { text: "선명하게…"; onTriggered: root.hostWindow.imagejCommand("Unsharp Mask...", "radius=2 mask=0.60") }
         }
         AppMenu { title: "이진 이미지 (Binary)"
             Repeater { model: ["Make Binary", "Erode", "Dilate", "Open", "Close-", "Outline", "Skeletonize", "Fill Holes", "Watershed", "Distance Map"]
@@ -153,8 +153,8 @@ MenuBar {
         }
         AppMenu { title: "노이즈 / 배경"
             AppMenuItem { text: "Despeckle"; onTriggered: root.hostWindow.imagejCommand("Despeckle", "") }
-            AppMenuItem { text: "Remove Outliers…"; onTriggered: root.hostWindow.imagejCommand("Remove Outliers...", "radius=2 threshold=50 which=Bright") }
-            AppMenuItem { text: "Subtract Background…"; onTriggered: root.hostWindow.imagejCommand("Subtract Background...", "rolling=50") }
+            AppMenuItem { text: "이상 픽셀 제거…"; onTriggered: root.hostWindow.imagejCommand("Remove Outliers...", "radius=2 threshold=50 which=Bright") }
+            AppMenuItem { text: "배경 제거…"; onTriggered: root.hostWindow.imagejCommand("Subtract Background...", "rolling=50") }
         }
         AppMenuItem { text: "Invert"; onTriggered: root.hostWindow.imagejCommand("Invert", "") }
         AppMenuItem { text: "이미지 계산…"; onTriggered: root.hostWindow.imagejMacro() }

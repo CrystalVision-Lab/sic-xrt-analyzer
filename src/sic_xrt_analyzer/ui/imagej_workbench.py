@@ -7,6 +7,12 @@ from uuid import uuid4
 from PySide6.QtCore import Property, QObject, Signal, Slot
 
 from sic_xrt_analyzer.imaging.imagej_client import ImageJClient
+from sic_xrt_analyzer.imaging.imagej_commands import (
+    command_form,
+    command_options,
+    validate_selection,
+    validate_values,
+)
 from sic_xrt_analyzer.imaging.imagej_roi import MAX_POINTS, MAX_ROIS, ImportedRoi
 from sic_xrt_analyzer.imaging.imagej_runtime import runtime_directory
 from sic_xrt_analyzer.imaging.roi_edit import geometry
@@ -177,6 +183,35 @@ class ImageJWorkbench(QObject):
             self.submit(lambda: {'commands': self.runtime.commands()})
         except ValueError as exc:
             self.error = str(exc); self.changed.emit()
+
+    @Slot(str, str, result='QVariantMap')
+    def commandForm(self, command, options):
+        return command_form(command, options)
+
+    @Slot(str, 'QVariantMap', result=str)
+    def nativeOptions(self, command, parameters):
+        try:
+            options = command_options(command, parameters)
+            self.error = ''
+        except ValueError as exc:
+            options, self.error = '', str(exc)
+        self.changed.emit()
+        return options
+
+    @Slot(str, 'QVariantMap')
+    def executeNative(self, command, parameters):
+        try:
+            frame = self.require_stack()
+            parameters = validate_values(command, parameters)
+            record = self.selected(frame)
+            validate_selection(command, record)
+            if self.recording:
+                import json
+                self.recorded += f'run({json.dumps(command)}, {json.dumps(command_options(command, parameters))});\n'
+            self.submit(lambda: self.runtime.run(frame, native=command, parameters=parameters, record=record), frame.source.identity)
+        except Exception as exc:  # noqa: BLE001 (Qt boundary reports user/Java errors)
+            self.error = str(exc)
+            self.changed.emit()
 
     @Slot(bool)
     def record(self, enabled):

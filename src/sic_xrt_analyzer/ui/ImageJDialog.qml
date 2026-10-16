@@ -11,22 +11,28 @@ SurfaceDialog {
     property var runtimeState: backend.state
     property string mode: "command"
     property string selectedCommand: "Invert"
+    property var nativeSpecification: ({})
+    property bool advancedInput: false
+    property string switchError: ""
+    readonly property bool hasNativeCommand: mode === "command" && !!nativeSpecification.command && nativeSpecification.command === commandField.text
+    readonly property bool nativeControls: hasNativeCommand && !advancedInput
     property alias tabsIndex: tabs.currentIndex
     property alias wholeStack: stackInput.checked
-    modal: false; title: "ImageJ · 명령 / 매크로 / 플러그인 / 결과"
+    modal: false; title: nativeControls ? nativeSpecification.title : "ImageJ · 명령 / 매크로 / 플러그인 / 결과"
     width: 850; height: 640
-    function showCommand(command, options) { mode = "command"; stackInput.checked = false; commandField.text = command; optionsField.text = options || ""; tabs.currentIndex = 0; open() }
+    function showCommand(command, options) { mode = "command"; advancedInput = false; switchError = ""; stackInput.checked = false; commandField.text = command; optionsField.text = options || ""; nativeSpecification = backend.commandForm(command, options || ""); tabs.currentIndex = 0; open() }
     function showMacro() { stackInput.checked = false; mode = "macro"; tabs.currentIndex = 0; open() }
     function showPlugin() { stackInput.checked = false; mode = "plugin"; tabs.currentIndex = 0; open() }
     function showModern(command) { stackInput.checked = false; mode = "modern"; commandField.text = command; optionsField.text = "{}"; tabs.currentIndex = 0; open() }
     contentItem: ColumnLayout {
         spacing: theme.spacingMd
         RowLayout {
-            AppCheckBox { objectName: "imagejGuiMode"; theme: root.theme; text: "플러그인 설정창 사용 (AWT/Swing)"; checked: root.runtimeState.gui; enabled: !root.runtimeState.busy && root.runtimeState.nativeWindowsAvailable; onClicked: backend.configureRuntime(checked, root.runtimeState.fijiPath) }
+            visible: !root.nativeControls
+            AppCheckBox { objectName: "imagejGuiMode"; theme: root.theme; visible: !root.nativeControls; text: "플러그인 설정창 사용 (AWT/Swing)"; checked: root.runtimeState.gui; enabled: !root.runtimeState.busy && root.runtimeState.nativeWindowsAvailable; onClicked: backend.configureRuntime(checked, root.runtimeState.fijiPath) }
             AppButton { theme: root.theme; text: "Fiji 라이브러리…"; enabled: !root.runtimeState.busy; onClicked: fijiFolder.open() }
             AppButton { theme: root.theme; text: "Fiji 해제"; visible: root.runtimeState.fijiPath.length > 0; enabled: !root.runtimeState.busy; onClicked: backend.configureRuntime(root.runtimeState.gui, "") }
         }
-        Text { Layout.fillWidth: true; color: theme.muted; font.pixelSize: theme.smallSize; elide: Text.ElideMiddle; text: root.runtimeState.fijiPath ? "Fiji: " + root.runtimeState.fijiPath : "ImageJ 1 엔진 · Fiji/ImageJ2는 tools/setup_fiji.py 설치 후 라이브러리 폴더를 선택하세요" }
+        Text { visible: !root.nativeControls; Layout.fillWidth: true; color: theme.muted; font.pixelSize: theme.smallSize; elide: Text.ElideMiddle; text: root.runtimeState.fijiPath ? "Fiji: " + root.runtimeState.fijiPath : "ImageJ 1 엔진 · Fiji/ImageJ2는 tools/setup_fiji.py 설치 후 라이브러리 폴더를 선택하세요" }
         TabBar { id: tabs; Layout.fillWidth: true
             TabButton { text: "실행" }
             TabButton { text: "모든 명령"; onClicked: if (!root.runtimeState.commands.length) backend.loadCommands() }
@@ -37,6 +43,7 @@ SurfaceDialog {
         StackLayout { currentIndex: tabs.currentIndex; Layout.fillWidth: true; Layout.fillHeight: true
             ColumnLayout {
                 RowLayout {
+                    visible: !root.nativeControls
                     AppComboBox { theme: root.theme; model: ["명령", "매크로 (IJM)", "Java 플러그인", "Fiji / ImageJ2"]
                         currentIndex: root.mode === "macro" ? 1 : root.mode === "plugin" ? 2 : root.mode === "modern" ? 3 : 0
                         onActivated: { root.mode = currentIndex === 1 ? "macro" : currentIndex === 2 ? "plugin" : currentIndex === 3 ? "modern" : "command"; if (root.mode === "modern") optionsField.text = "{}" }
@@ -44,22 +51,43 @@ SurfaceDialog {
                     AppButton { theme: root.theme; text: "매크로 열기…"; onClicked: macroFile.open() }
                     AppButton { theme: root.theme; text: "플러그인 경로 등록…"; enabled: !root.runtimeState.busy; onClicked: pluginFile.open() }
                 }
-                AppTextField { id: commandField; objectName: "imagejCommand"; Layout.fillWidth: true; visible: root.mode !== "macro"; placeholderText: root.mode === "plugin" || root.mode === "modern" ? "Java 클래스 전체 이름" : "ImageJ 명령 이름"; text: "Invert" }
-                AppTextField { id: optionsField; objectName: "imagejOptions"; Layout.fillWidth: true; visible: root.mode !== "macro"; placeholderText: root.mode === "modern" ? 'JSON 인수 (예: {"sigma": 2})' : "매크로 옵션 (예: sigma=2) / 플러그인 인수" }
+                AppButton {
+                    objectName: "imagejAdvancedInput"; theme: root.theme
+                    visible: root.hasNativeCommand; enabled: !root.runtimeState.busy
+                    text: root.advancedInput ? "기본 설정으로" : "고급 명령 입력"
+                    onClicked: {
+                        if (!root.advancedInput) {
+                            var compiled = backend.nativeOptions(root.nativeSpecification.command, nativeForm.values)
+                            if (!compiled) return
+                            optionsField.text = compiled
+                            root.advancedInput = true
+                        } else {
+                            var spec = backend.commandForm(commandField.text, optionsField.text)
+                            if (spec.command) { root.nativeSpecification = spec; root.advancedInput = false; root.switchError = "" }
+                            else root.switchError = "현재 옵션은 기본 설정으로 표시할 수 없습니다. 고급 입력을 유지합니다."
+                        }
+                    }
+                }
+                ImageJCommandForm { id: nativeForm; theme: root.theme; Layout.fillWidth: true; visible: root.nativeControls; enabled: !root.runtimeState.busy; specification: root.nativeSpecification }
+                AppTextField { id: commandField; objectName: "imagejCommand"; Layout.fillWidth: true; visible: root.mode !== "macro" && !root.nativeControls; placeholderText: root.mode === "plugin" || root.mode === "modern" ? "Java 클래스 전체 이름" : "ImageJ 명령 이름"; text: "Invert"; onTextEdited: { root.nativeSpecification = ({}); root.advancedInput = true } }
+                AppTextField { id: optionsField; objectName: "imagejOptions"; Layout.fillWidth: true; visible: root.mode !== "macro" && !root.nativeControls; placeholderText: root.mode === "modern" ? 'JSON 인수 (예: {"sigma": 2})' : "매크로 옵션 (예: sigma=2) / 플러그인 인수"; onTextEdited: root.switchError = "" }
+                Text { visible: root.advancedInput && root.hasNativeCommand && !!root.switchError; text: root.switchError; Layout.fillWidth: true; wrapMode: Text.Wrap; color: theme.warning }
                 ScrollView { Layout.fillWidth: true; Layout.fillHeight: true; visible: root.mode === "macro"
                     TextArea { id: macroText; objectName: "imagejMacro"; font.family: "Consolas"; text: 'run("Invert");\nrun("Gaussian Blur...", "sigma=1");\nrun("Measure");'; wrapMode: TextEdit.NoWrap; selectByMouse: true }
                 }
-                Text { visible: root.mode !== "macro"; Layout.fillWidth: true; Layout.fillHeight: true; wrapMode: Text.Wrap; color: theme.muted
+                Text { visible: root.mode !== "macro" && !root.nativeControls; Layout.fillWidth: true; Layout.fillHeight: true; wrapMode: Text.Wrap; color: theme.muted
                     text: (root.mode === "modern" ? "선택 ROI를 Fiji Overlay로 전달합니다. Overlay/ImageDisplay를 사용하는 명령에서 선택 영역을 처리합니다. Dataset만 사용하는 명령은 ROI를 무시할 수 있습니다.\n전체 스택에서 allPlanes=true는 같은 XY 영역을 모든 페이지에 적용합니다. false는 현재 페이지만 처리합니다(이 옵션을 지원하는 명령 기준).\n" : "현재 페이지와 선택 ROI를 작업 복사본으로 처리합니다.\n") + "설정창 사용을 켜면 AWT/Swing 플러그인 창을 프로그램 내부에 연결합니다.\nFiji/ImageJ2는 SciJava Command를 실행하며, 이미지 입력은 자동 연결하고 추가 인수는 JSON으로 전달합니다. 모든 외부 플러그인의 호환성을 보장하지는 않습니다."
                 }
-                AppCheckBox { id: stackInput; theme: root.theme; text: "전체 TIFF 스택 전달 (페이지 순서, 공간 Z 미확정)"; enabled: fileBridge.stackState.pageCount > 1 && !fileBridge.stackState.initialLoading; onEnabledChanged: if (!enabled) checked = false }
+                Item { Layout.fillHeight: true; visible: root.nativeControls }
+                Text { visible: root.nativeControls; Layout.fillWidth: true; wrapMode: Text.Wrap; color: theme.muted; text: "현재 페이지에 적용하며 원본 파일은 변경되지 않습니다." }
+                AppCheckBox { id: stackInput; theme: root.theme; visible: !root.nativeControls; text: "전체 TIFF 스택 전달 (페이지 순서, 공간 Z 미확정)"; enabled: !root.nativeControls && fileBridge.stackState.pageCount > 1 && !fileBridge.stackState.initialLoading; onEnabledChanged: if (!enabled) checked = false }
                 RowLayout {
                     AppCheckBox { theme: root.theme; text: "명령 기록"; checked: root.runtimeState.recording; onClicked: backend.record(checked) }
                     AppButton { theme: root.theme; text: "기록 → 편집기"; onClicked: { root.mode = "macro"; macroText.text = root.runtimeState.recorded } }
                     Item { Layout.fillWidth: true }
                     AppButton { theme: root.theme; text: "취소"; enabled: root.runtimeState.busy; onClicked: backend.cancel() }
                     AppButton { objectName: "imagejRunButton"; theme: root.theme; text: root.runtimeState.busy ? "처리 중…" : "실행"; enabled: !root.runtimeState.busy && fileBridge.stackState.frameViewable && !fileBridge.stackState.busy && (!stackInput.checked || !fileBridge.stackState.initialLoading); primary: true
-                        onClicked: backend.execute(root.mode, root.mode === "macro" ? macroText.text : commandField.text, optionsField.text, stackInput.checked)
+                        onClicked: root.nativeControls ? backend.executeNative(root.nativeSpecification.command, nativeForm.values) : backend.execute(root.mode, root.mode === "macro" ? macroText.text : commandField.text, optionsField.text, stackInput.checked)
                     }
                 }
                 Text { visible: fileBridge.stackState.initialLoading; Layout.fillWidth: true; wrapMode: Text.Wrap; color: theme.muted; text: "현재 페이지는 준비 후 처리할 수 있습니다. 전체 스택 처리는 전체 페이지 준비가 필요합니다." }
