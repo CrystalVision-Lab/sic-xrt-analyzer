@@ -1,3 +1,4 @@
+import { SiteDevices } from "./SiteAccess";
 import { ThemeToggle } from "./Theme";
 import { useState } from "react";
 import { Link, NavLink, Route, Routes, useLocation } from "react-router-dom";
@@ -47,6 +48,7 @@ import {
 
 type Page = { items: Json[]; total: number; offset: number; limit: number };
 const menu = [
+  { to: "/admin/site-devices", label: "사이트 기기 승인", icon: ShieldCheck },
   { to: "/admin", label: "운영 개요", icon: LayoutDashboard, end: true },
   { to: "/admin/releases", label: "버전 · 배포 이력", icon: Download },
   { to: "/admin/models", label: "모델 성능", icon: FlaskConical },
@@ -220,6 +222,7 @@ export default function Admin() {
         <main className="admin-content">
           <Routes>
             <Route index element={<Overview />} />
+            <Route path="site-devices" element={<SiteDevices session={active} />} />
             <Route
               path="releases"
               element={<ManageReleases session={active} />}
