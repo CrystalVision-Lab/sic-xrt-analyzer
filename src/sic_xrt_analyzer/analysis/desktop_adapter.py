@@ -64,8 +64,8 @@ class DesktopResearchAdapter:
                 for left in range(x0, x0 + width, 1024):
                     token.check()
                     # Halo supplies the same local context at tile edges.
-                    sx, sy = max(x0, left - 64), max(y0, top - 64)
-                    right, bottom = min(x0 + width, left + 1088), min(y0 + height, top + 1088)
+                    sx, sy = max(0, left - 64), max(0, top - 64)
+                    right, bottom = min(meta.width, left + 1088), min(meta.height, top + 1088)
                     image = source.read_region(sx, sy, right - sx, bottom - sy)
                     local, capped = propose_points(image, threshold=threshold, max_candidates=limit + 1)
                     limited |= capped
@@ -97,7 +97,7 @@ class DesktopResearchAdapter:
             if (cx, cy) in seen:
                 excluded["duplicate_center"] += 1
                 continue
-            if cx < x0 + 64 or cy < y0 + 64 or cx + 64 > x0 + width or cy + 64 > y0 + height:
+            if cx < 64 or cy < 64 or cx + 64 > meta.width or cy + 64 > meta.height:
                 excluded["incomplete_patch"] += 1
                 continue
             seen.add((cx, cy))
@@ -138,7 +138,9 @@ class DesktopResearchAdapter:
                    "model_sha256": self.model_version}
         return AdapterOutput(tuple(detections), summary,
                              {"input": "original_uint8_RGB", "patch_size": 128, "batch_size": 32,
-                              "coordinates": "original_pixels", "no_subtype_or_conversion_claim": True})
+                              "coordinates": "original_pixels", "roi_policy": "candidate_centers_with_original_context",
+                              "edge_policy": "exclude_incomplete_original_patch",
+                              "no_subtype_or_conversion_claim": True})
 
     @staticmethod
     def _region(source, point, token):

@@ -77,3 +77,32 @@ def test_unbranched_curve_is_not_rejected_for_bending():
     component = binary_dilation(component, iterations=2)
     selected, resolved = continue_line(component, (85, 56))
     assert resolved and np.array_equal(selected, component)
+
+
+def test_small_page_translation_preserves_only_observed_pixels(tmp_path):
+    data = np.full((7, 140, 140), 60000, np.uint16)
+    for k in range(1, 6):
+        data[k, 40:100, 50+k*5:53+k*5] = 2000
+    path = tmp_path/'translated.tif'
+    tifffile.imwrite(path, data, photometric='minisblack')
+    mesh = trace(OriginalImageSource(path, 3), (66, 70, 3))
+    assert [s.page for s in mesh.sections] == list(range(1, 6))
+    assert mesh.voxels == np.count_nonzero(data == 2000)
+    for section in mesh.sections:
+        pixels = data[section.page, section.y:section.y+section.height,
+                      section.x:section.x+section.width]
+        assert np.all(pixels[section.mask()] == 2000)
+
+
+def test_translation_rejects_equal_neighbours_and_large_jumps():
+    from sic_xrt_analyzer.stack3d.continuity import translated_reference
+    reference = np.zeros((80, 80), bool)
+    reference[20:60, 39:42] = True
+    labels = np.zeros((80, 80), int)
+    labels[20:60, 34:37] = 1
+    labels[20:60, 44:47] = 2
+    aligned, reason = translated_reference(reference, labels)
+    assert aligned is None and reason == 'AMBIGUOUS_BRANCH'
+    labels[:] = 0
+    labels[20:60, 52:55] = 1
+    assert translated_reference(reference, labels)[0] is None

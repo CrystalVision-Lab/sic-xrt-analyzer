@@ -56,9 +56,10 @@ def test_source_adapter_preserves_coordinates_and_scope_without_full_read(tmp_pa
     request = AnalysisRequest(source, AnalysisScope.ROI, adapter.model_id, adapter.model_version,
                               Region(128, 128, 256, 256), {"point_mode": "provided_coordinates", "points": points})
     result = adapter.analyze_source(request, CancellationToken())
-    assert len(result.detections) == 1
+    assert len(result.detections) == 2
+    assert result.detections[1].geometry.points == ((130.0, 130.0),)
     assert result.detections[0].geometry.points == ((256.2, 256.0),)
-    assert dict(result.summary["excluded"]) == {"duplicate_center": 1, "incomplete_patch": 1, "outside_scope": 1}
+    assert dict(result.summary["excluded"]) == {"duplicate_center": 1, "outside_scope": 1}
     assert not result.summary["human_verified"]
 
 
@@ -150,7 +151,7 @@ def test_real_qml_run_button_results_overlay_and_export(qt_app, tmp_path, suffix
         overlay = window.findChild(QObject, "analysisOverlay")
         assert state.property("resultViewMode") == "distribution"
         assert window.findChild(QObject, "resultDensityOverlay").property("visible")
-        assert not overlay.property("visible")
+        assert overlay.property("visible")
         state.setProperty("resultViewMode", "area")
         qt_app.processEvents()
         assert overlay.property("visible")
