@@ -5,6 +5,9 @@
 
 ## 실행
 
+기본 처리 9종의 한국어 설정 화면과 분석·검증 범위는
+[ImageJ 기본 처리 통합](imagej-native-processing.md)을 참고합니다.
+
 Python 3.11+, Java **17 이상**, 64비트 환경을 사용합니다. Java 실행 파일이 PATH에 있어야 합니다. ImageJ 엔진은 선택 의존성입니다. 엔진을 설치하지 않아도 이미지 보기와 일반 선택·ROI 편집은 동작합니다.
 
 Windows PowerShell, 저장소 디렉터리:

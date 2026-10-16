@@ -215,8 +215,19 @@ class ImageJRuntime:
         roi = self.jp.JClass('ij.io.RoiDecoder')(raw, record.name).getRoi()
         self.image.setRoi(roi)
 
-    def run(self, frame, *, macro='', command='', options='', plugin='', modern='', record=None, whole_stack=False, edit=None):
+    def run(self, frame, *, macro='', command='', options='', plugin='', modern='', record=None, whole_stack=False, edit=None,
+            native='', parameters=None):
         with self.lock:
+            if native:
+                from .imagej_commands import command_options, validate_selection
+                if whole_stack or macro or command or plugin or modern or edit:
+                    raise ValueError('기본 처리 설정은 현재 페이지에만 적용할 수 있습니다')
+                options = command_options(native, parameters)
+                validate_selection(native, record)
+                # Load exactly the displayed input page, even after an advanced command
+                # left a cached multi-image/virtual stack in the JVM.
+                self.invalidate()
+                command = native
             self.load(frame, whole_stack)
             self.roi(record)
             before_images = set(self.Interpreter.getBatchModeImageIDs())
