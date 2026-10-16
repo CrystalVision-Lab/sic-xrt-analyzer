@@ -14,7 +14,7 @@ AppDialog {
     property int draftLimit: 10
     property string draftView: "fit"
     property string draftBackground: "#111518"
-    readonly property var categories: ["일반", "뷰어", "이미지", "분석", "AI / 모델", "보정", "성능", "내보내기", "단축키", "진단"]
+    readonly property var categories: ["일반", "뷰어", "단축키", "진단"]
     signal preferencesApplied(var preferences)
     title: "설정"
     width: 760; height: 550
@@ -69,33 +69,14 @@ AppDialog {
                     Text { text: "기본 보기는 다음 이미지·데모 열기에 적용됩니다. 100%는 원본 픽셀과 화면 픽셀의 1:1 배율입니다."; color: theme.muted; font.pixelSize: theme.bodySize; wrapMode: Text.Wrap; Layout.fillWidth: true }
                 }
                 ColumnLayout {
-                    visible: root.category >= 2 && root.category <= 7; Layout.fillWidth: true; spacing: theme.spacingMd
-                    Text { text: "아직 연결되지 않은 기능입니다."; color: theme.text; font.pixelSize: theme.bodySize }
-                    Text {
-                        text: [
-                            "", "",
-                            "밝기·대비·LUT 조정 연결 후 사용할 수 있습니다.\n현재 TIFF 표시용 정규화 정책은 유지합니다.",
-                            "승인된 모델 연결 후 ROI 기본 좌표와 분석 파라미터를 설정할 수 있습니다.",
-                            "승인된 모델 연결 후 모델·버전·장치와 추론 설정을 확인할 수 있습니다.",
-                            "물리 스케일과 보정 프로필 연결 후 사용할 수 있습니다.",
-                            "분석 실행 환경 연결 후 CPU·GPU와 메모리 설정을 사용할 수 있습니다.",
-                            "분석 결과와 내보내기 연결 후 저장 위치·파일 이름·형식을 설정할 수 있습니다."
-                        ][root.category] || ""
-                        color: theme.muted; font.pixelSize: theme.bodySize; wrapMode: Text.Wrap; Layout.fillWidth: true
-                    }
-                }
-                ColumnLayout {
-                    visible: root.category === 8; Layout.fillWidth: true; spacing: theme.spacingMd
+                    visible: root.category === 2; Layout.fillWidth: true; spacing: theme.spacingMd
                     Text { text: "파일 열기                         Ctrl+O\n이미지 닫기                      Ctrl+W\n프로그램 종료                    Ctrl+Q\n화면 맞춤                         Ctrl+0\n실제 크기 (1:1)                  Ctrl+1\n확대 / 축소                       Ctrl++ / Ctrl+-\nPan / ROI                         H / R\n전체 화면                         F11\n메뉴                       Alt+F/E/V/W/A/T/S/H"; color: theme.text; font.family: theme.monoFontFamily; font.pixelSize: theme.bodySize; lineHeight: 1.5 }
-                    Text { text: "분석 실행 단축키는 모델 연결 전 사용할 수 없습니다."; color: theme.muted; font.pixelSize: theme.bodySize; wrapMode: Text.Wrap; Layout.fillWidth: true }
                 }
                 ColumnLayout {
-                    visible: root.category === 9; Layout.fillWidth: true; spacing: theme.spacingMd
+                    visible: root.category === 3; Layout.fillWidth: true; spacing: theme.spacingMd
                     Text { text: root.fileBridge.systemInfo; color: theme.text; font.pixelSize: theme.bodySize; wrapMode: Text.Wrap; Layout.fillWidth: true }
                     InfoRow { theme: root.theme; label: "앱 버전"; value: root.fileBridge.appVersion; Layout.fillWidth: true }
                 }
-                Text { visible: root.category === 1; text: "픽셀 격자와 스케일 바는 관련 데이터 연결 후 제공됩니다."; color: theme.muted; font.pixelSize: theme.smallSize; wrapMode: Text.Wrap; Layout.fillWidth: true }
-                Text { visible: root.category === 9; text: "로그 설정은 진단 기능 연결 후 제공됩니다."; color: theme.muted; font.pixelSize: theme.bodySize; wrapMode: Text.Wrap; Layout.fillWidth: true }
                 Item { Layout.fillHeight: true }
             }
         }

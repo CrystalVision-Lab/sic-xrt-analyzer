@@ -114,7 +114,7 @@ def test_workstation_flow(tmp_path):
     settle(app)
     assert settings.property("visible"), (warnings, settings.metaObject().className(), settings.property("title"), settings.property("opened"))
     assert settings.property("title") == "설정"
-    assert settings.property("categories").toVariant() == ["일반", "뷰어", "이미지", "분석", "AI / 모델", "보정", "성능", "내보내기", "단축키", "진단"]
+    assert settings.property("categories").toVariant() == ["일반", "뷰어", "단축키", "진단"]
     assert inspector.property("tabIndex") == 0
     for category in range(10):
         settings.setProperty("category", category)
