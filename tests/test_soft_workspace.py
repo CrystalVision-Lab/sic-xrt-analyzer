@@ -98,6 +98,34 @@ def test_comparison_navigation_reveals_selected_page(workbench):
     assert r.regions.state["reviewed"] == 0
 
 
+def test_cached_comparison_ignores_late_error_from_previous_page(workbench, monkeypatch):
+    from threading import Event
+
+    w = workbench
+    r = analyzed(w)
+    w.state.setProperty("resultViewMode", "compare")
+    spin(w.app, lambda: all(p["thumbnail"] for p in r.regions.state["compareRows"]))
+    source = r.display_result.request.source
+    entered, release = Event(), Event()
+
+    def fail_later(*args, **kwargs):
+        entered.set()
+        assert release.wait(5)
+        raise OSError("Synthetic previous-page read error")
+
+    monkeypatch.setattr(type(source), "read_region", fail_later)
+    try:
+        r.regions.setComparePage(1)
+        spin(w.app, entered.is_set)
+        r.regions.setComparePage(0)
+        assert all(p["thumbnail"] for p in r.regions.state["compareRows"])
+    finally:
+        release.set()
+    spin(w.app, lambda: r.regions.thumbnails.task is None)
+    assert not r.regions.state["thumbnailError"]
+    assert all(p["thumbnail"] for p in r.regions.state["compareRows"])
+
+
 def test_all_result_views_leave_export_content_unchanged(workbench, tmp_path):
     w = workbench
     r = analyzed(w)

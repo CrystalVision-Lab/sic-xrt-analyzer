@@ -205,6 +205,8 @@ class RegionReview(QObject):
         if not rows or key == self.thumb_key or not self.research.pixels_available:
             return
         self.thumb_key = key
+        # A cache hit must also supersede an in-flight read from the prior view.
+        self.thumbnails.invalidate()
         self.thumbnail_error = ""
         self.thumb_urls = {}
         if key in self.thumb_cache:
