@@ -384,6 +384,7 @@ def test_viewer_geometry_drag_original_coords_undo_cancel_and_roi_isolation(
     assert v.enter()
     v.edit()
     assert v.draft
+    render(w)  # Editing hides the result shelf; measure coordinates after layout polish.
     invoke(w.item("candidateFocusAnimation"), "stop")
     w.state.setProperty("displayPixelRatio", dpi)
     if zoom is None:
