@@ -32,6 +32,7 @@ def workbench(qt_app, tmp_path, bridge_factory):
     provider = TiffImageProvider()
     bridge = bridge_factory(provider=provider, settings=QSettings(str(tmp_path/'toolbar.ini'), QSettings.IniFormat))
     bridge.pipeline.adapter = ManyCandidates()
+    bridge.centralSync.dismissSetup()
     engine.addImageProvider('tiff', provider)
     engine.rootContext().setContextProperty('fileBridge', bridge)
     warnings = []

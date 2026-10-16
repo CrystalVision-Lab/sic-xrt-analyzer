@@ -233,6 +233,7 @@ def test_qml_mouse_roi_edit_numeric_apply_save_and_discard_guard(qt_app, tmp_pat
     provider = TiffImageProvider()
     bridge = FileBridge(provider, engine, QSettings(str(tmp_path / 'prefs.ini'), QSettings.IniFormat))
     engine.addImageProvider('tiff', provider)
+    bridge.centralSync.dismissSetup()  # Existing-user workflow; first run is covered separately.
     engine.rootContext().setContextProperty('fileBridge', bridge)
     warnings = []
     engine.warnings.connect(lambda items: warnings.extend(i.toString() for i in items))

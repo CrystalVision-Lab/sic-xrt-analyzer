@@ -131,6 +131,7 @@ public class Test_QML_Plugin implements PlugIn {
     engine=QQmlApplicationEngine()
     bridge=FileBridge(parent=engine,settings=QSettings(str(tmp_path/'prefs.ini'),QSettings.IniFormat))
     engine.addImageProvider('tiff',bridge.provider)
+    bridge.centralSync.dismissSetup()  # Existing-user workflow; first run is covered separately.
     engine.rootContext().setContextProperty('fileBridge',bridge)
     warnings=[]
     engine.warnings.connect(lambda items:warnings.extend(x.toString() for x in items))
@@ -197,6 +198,7 @@ def test_qml_processing_result_keeps_window_and_stack_context(qt_app,tmp_path):
     engine=QQmlApplicationEngine()
     bridge=FileBridge(parent=engine,settings=QSettings(str(tmp_path/'prefs.ini'),QSettings.IniFormat))
     engine.addImageProvider('tiff',bridge.provider)
+    bridge.centralSync.dismissSetup()  # Existing-user workflow; first run is covered separately.
     engine.rootContext().setContextProperty('fileBridge',bridge)
     engine.load(QUrl.fromLocalFile(str(Path(__file__).parents[1]/'src/sic_xrt_analyzer/ui/Main.qml')))
     window=engine.rootObjects()[0];state=window.findChild(QObject,'uiState')
@@ -289,6 +291,7 @@ def test_stack_only_menu_and_measurement_dialog_reset(qt_app,tmp_path):
     engine=QQmlApplicationEngine()
     bridge=FileBridge(parent=engine,settings=QSettings(str(tmp_path/'qml.ini'),QSettings.IniFormat))
     engine.addImageProvider('tiff',bridge.provider)
+    bridge.centralSync.dismissSetup()  # Existing-user workflow; first run is covered separately.
     engine.rootContext().setContextProperty('fileBridge',bridge)
     warnings=[]
     engine.warnings.connect(lambda items:warnings.extend(x.toString() for x in items))

@@ -250,6 +250,7 @@ def test_qml_pressed_drag_updates_each_page_before_release(qt_app, browse_file, 
     provider = TiffImageProvider()
     bridge = FileBridge(provider, engine, QSettings(str(tmp_path / "drag.ini"), QSettings.IniFormat))
     engine.addImageProvider("tiff", provider)
+    bridge.centralSync.dismissSetup()  # Existing-user workflow; first run is covered separately.
     engine.rootContext().setContextProperty("fileBridge", bridge)
     warnings = []
     engine.warnings.connect(lambda items: warnings.extend(item.toString() for item in items))
@@ -322,6 +323,7 @@ def test_qml_first_frame_usable_while_navigation_waits_for_whole_stack(qt_app, b
     provider = TiffImageProvider()
     bridge = FileBridge(provider, engine, QSettings(str(tmp_path / "loading.ini"), QSettings.IniFormat))
     engine.addImageProvider("tiff", provider)
+    bridge.centralSync.dismissSetup()  # Existing-user workflow; first run is covered separately.
     engine.rootContext().setContextProperty("fileBridge", bridge)
     warnings = []
     engine.warnings.connect(lambda items: warnings.extend(item.toString() for item in items))

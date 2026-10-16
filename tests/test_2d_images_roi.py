@@ -234,6 +234,7 @@ def test_qml_jpeg_imported_roi_overlay_pan_zoom_visibility_and_file_switch(qt_ap
     provider = TiffImageProvider()
     bridge = FileBridge(provider, engine, QSettings(str(tmp_path / 'ui.ini'), QSettings.IniFormat))
     engine.addImageProvider('tiff', provider)
+    bridge.centralSync.dismissSetup()  # Existing-user workflow; first run is covered separately.
     engine.rootContext().setContextProperty('fileBridge', bridge)
     warnings = []
     engine.warnings.connect(lambda items: warnings.extend(i.toString() for i in items))

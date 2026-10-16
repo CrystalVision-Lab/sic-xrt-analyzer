@@ -52,6 +52,13 @@ SurfaceDialog {
             Item { Layout.fillWidth: true }
             AppButton { objectName: "analysisInputInfo"; theme: root.theme; text: root.detailsExpanded ? "상세 접기 ▴" : "상세 정보 ▾"; quiet: true; compact: true; onClicked: root.detailsExpanded=!root.detailsExpanded }
         }
+        RowLayout {
+            Layout.fillWidth:true
+            Text { text:"탐색 강도";color:root.theme.text }
+            AppComboBox { theme:root.theme;model:["기본 · 대비 12", "약한 대비 포함 · 8"];currentIndex:root.uiState.proposalThreshold===8?1:0;Layout.fillWidth:true;onActivated:root.uiState.proposalThreshold=currentIndex===1?8:12 }
+            AppComboBox { theme:root.theme;model:["최대 3,000개", "최대 6,000개", "최대 10,000개"];currentIndex:[3000,6000,10000].indexOf(root.uiState.candidateBudget);onActivated:root.uiState.candidateBudget=[3000,6000,10000][currentIndex] }
+        }
+        Text { text:"약한 대비를 포함하면 후보와 오검출, 처리 시간이 함께 늘어날 수 있습니다. BPD 누락은 작은 ROI에서 원본과 비교하세요.";color:root.theme.muted;wrapMode:Text.Wrap;Layout.fillWidth:true;font.pixelSize:12 }
         Text {visible:root.detailsExpanded;text:root.uiState.inputPreflight.currentInputDetail+"\n표시 밝기·배율과 별개로 원본 픽셀을 사용합니다.";color:root.theme.muted;wrapMode:Text.Wrap;Layout.fillWidth:true}
         Text { visible: !root.uiState.canAnalyze; text: root.uiState.analysisReason; color: root.theme.warning; Layout.fillWidth: true; wrapMode: Text.Wrap }
         Rectangle { Layout.fillWidth: true; height: 1; color: root.theme.borderSubtle }

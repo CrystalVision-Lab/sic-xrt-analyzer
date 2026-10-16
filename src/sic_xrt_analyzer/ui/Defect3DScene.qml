@@ -19,7 +19,7 @@ Item {
    Model{visible:root.controller.state.visual;geometry:DefectLayer{sourceController:root.controller}
     materials:PrincipledMaterial{baseColor:"#399a96";lighting:PrincipledMaterial.NoLighting;cullMode:Material.NoCulling}}
    Model{objectName:"currentDefectLayer";visible:root.controller.state.visual;z:root.controller.state.phase===0?Math.min(70,root.controller.state.visualExtent*.3):0
-    Behavior on z{NumberAnimation{duration:400;easing.type:Easing.InOutCubic}}
+    Behavior on z{NumberAnimation{duration:400/root.controller.state.playbackSpeed;easing.type:Easing.InOutCubic}}
     geometry:DefectLayer{sourceController:root.controller;current:true}
     materials:PrincipledMaterial{baseColor:"#9affeb";lighting:PrincipledMaterial.NoLighting;cullMode:Material.NoCulling}}
   }

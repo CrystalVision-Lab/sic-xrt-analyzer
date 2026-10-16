@@ -43,6 +43,7 @@ MenuBar {
             AppMenuItem { text: "목록 비우기"; enabled: root.fileBridge.recentFiles.length > 0; onTriggered: root.fileBridge.clearRecentFiles() }
         }
         AppMenuItem { action: root.actions.demo }
+        AppMenuItem { text: "기기 등록 · 서버 연결…"; onTriggered: root.hostWindow.openDeviceSetup() }
         AppMenuItem { action: root.actions.importRois; iconName: "roi" }
         MenuSeparator {}
         AppMenuItem { objectName: "menuProjectNew"; action: root.actions.projectNew }

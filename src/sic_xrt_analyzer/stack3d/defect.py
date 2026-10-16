@@ -8,7 +8,7 @@ from scipy import ndimage as ndi
 from skimage.measure import marching_cubes
 from skimage.segmentation import watershed
 
-from .continuity import continue_line, line_shape
+from .continuity import continue_line, line_shape, translated_reference
 
 MAX_PACKED = 128 * 1024**2
 MAX_DENSE = 32 * 1024**2
@@ -265,7 +265,13 @@ def _trace(
                 connected = np.unique(labels[contact])
                 connected = connected[connected > 0]
                 if not len(connected):
-                    return None, threshold, "NO_CONTACT"
+                    aligned, reason = translated_reference(overlap, labels)
+                    if aligned is None:
+                        return None, threshold, reason
+                    overlap = aligned
+                    contact = ndi.binary_dilation(overlap, np.ones((3, 3), bool))
+                    connected = np.unique(labels[overlap])
+                    connected = connected[connected > 0]
                 # Several contacted components are a split, never a license to
                 # union independent defects into a plate. Choose only a clear winner.
                 counts = np.bincount(labels[overlap].ravel(), minlength=n + 1)

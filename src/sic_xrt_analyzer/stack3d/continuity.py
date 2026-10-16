@@ -10,6 +10,43 @@ from skimage.morphology import skeletonize
 from sic_xrt_analyzer.analysis.skeleton_graph import path_length, trace_skeleton
 
 
+def translated_reference(reference, labels, radius=6):
+    """Recover a small inter-slice translation only with unambiguous shape support.
+
+    Returns a shifted reference for matching, never foreground to add to a slice.
+    Empty slices, low overlap and equally plausible neighbours remain unlinked.
+    """
+    yy, xx = np.nonzero(reference)
+    if not len(xx):
+        return None, "NO_CONTACT"
+    sizes = np.bincount(labels.ravel())
+    best = {}
+    h, w = labels.shape
+    for dy in range(-radius, radius + 1):
+        for dx in range(-radius, radius + 1):
+            if dx * dx + dy * dy > radius * radius:
+                continue
+            y, x = yy + dy, xx + dx
+            valid = (y >= 0) & (y < h) & (x >= 0) & (x < w)
+            counts = np.bincount(labels[y[valid], x[valid]], minlength=len(sizes))
+            for label in np.flatnonzero(counts[1:]) + 1:
+                score = counts[label] / (len(xx) + sizes[label] - counts[label])
+                key = (score, -(dx * dx + dy * dy))
+                if label not in best or key > best[label][0]:
+                    best[label] = (key, dx, dy)
+    ranked = sorted(best.values(), reverse=True)
+    if not ranked or ranked[0][0][0] < 0.6:
+        return None, "NO_CONTACT"
+    if len(ranked) > 1 and ranked[1][0][0] >= ranked[0][0][0] * 0.85:
+        return None, "AMBIGUOUS_BRANCH"
+    _, dx, dy = ranked[0]
+    shifted = np.zeros_like(reference)
+    y, x = yy + dy, xx + dx
+    valid = (y >= 0) & (y < h) & (x >= 0) & (x < w)
+    shifted[y[valid], x[valid]] = True
+    return shifted, "ACCEPTED"
+
+
 def line_shape(mask):
     """Length/width evidence, independent of the initial slice's total area."""
     sk = skeletonize(mask)

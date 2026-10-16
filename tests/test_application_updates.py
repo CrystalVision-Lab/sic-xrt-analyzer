@@ -294,6 +294,7 @@ def test_qml_dirty_project_and_review_guard_cancel_do_not_arm(tmp_path, qt_app):
         provider, engine, QSettings(str(tmp_path / "prefs.ini"), QSettings.IniFormat)
     )
     engine.addImageProvider("tiff", provider)
+    bridge.centralSync.dismissSetup()  # Existing-user workflow; first run is covered separately.
     engine.rootContext().setContextProperty("fileBridge", bridge)
     warnings = []
     engine.warnings.connect(lambda items: warnings.extend(i.toString() for i in items))
@@ -422,6 +423,7 @@ def test_startup_automatically_opens_update_dialog_only_for_newer(
     engine = QQmlApplicationEngine()
     bridge = FileBridge(parent=engine, settings=settings)
     engine.addImageProvider("tiff", bridge.provider)
+    bridge.centralSync.dismissSetup()  # Existing-user workflow; first run is covered separately.
     engine.rootContext().setContextProperty("fileBridge", bridge)
     warnings = []
     engine.warnings.connect(lambda items: warnings.extend(i.toString() for i in items))

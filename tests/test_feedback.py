@@ -123,6 +123,7 @@ def test_actual_qml_click_moves_adds_and_does_not_reselect_old_candidate(qt_app,
     bridge=FileBridge(parent=engine,settings=QSettings(str(tmp_path/'ui.ini'),QSettings.IniFormat))
     bridge.pipeline.adapter=ManyCandidates()
     engine.addImageProvider('tiff',bridge.provider)
+    bridge.centralSync.dismissSetup()  # Existing-user workflow; first run is covered separately.
     engine.rootContext().setContextProperty('fileBridge',bridge)
     warnings=[]
     engine.warnings.connect(lambda items:warnings.extend(i.toString() for i in items))

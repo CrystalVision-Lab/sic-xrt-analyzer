@@ -60,6 +60,10 @@ QtObject {
     property var research: fileBridge.research.state
     // Share one QVariant snapshot across result views per notification.
     readonly property var regionReview: fileBridge.research.regions.state
+    property int proposalThreshold: 12
+    property int candidateBudget: 3000
+    property real resultOverlayOpacity: 0.95
+    property real densityOpacity: 0.12
     property string resultViewMode: "distribution"
     property string resultViewIdentity: ""
     onResultViewModeChanged: fileBridge.research.regions.setPresentation(resultViewMode.toUpperCase())

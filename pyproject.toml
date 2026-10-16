@@ -26,7 +26,7 @@ where = ["src"]
 target-version = "py311"
 
 [tool.setuptools.package-data]
-sic_xrt_analyzer = ["ui/*.qml", "ui/assets/*.png", "ui/assets/*.ico", "model_updates/*.json"]
+sic_xrt_analyzer = ["ui/*.qml", "ui/assets/*.png", "ui/assets/*.ico", "ui/assets/*.json", "model_updates/*.json"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -23,6 +23,7 @@ def picker(qt_app, bridge_factory, monkeypatch):
     bridge = bridge_factory()
     controller = bridge.native_dialogs
     engine = QQmlEngine()
+    bridge.centralSync.dismissSetup()  # Existing-user workflow; first run is covered separately.
     engine.rootContext().setContextProperty("fileBridge", bridge)
     path = Path(__file__).parents[1] / "src/sic_xrt_analyzer/ui/SafeFileDialog.qml"
     component = QQmlComponent(engine, QUrl.fromLocalFile(str(path)))

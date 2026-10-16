@@ -77,6 +77,7 @@ def test_qml_filter_click_animation_center_and_marker_hit(qt_app, tmp_path):
     provider = TiffImageProvider()
     bridge = FileBridge(provider, engine, QSettings(str(tmp_path/'ui.ini'), QSettings.IniFormat))
     bridge.pipeline.adapter = ManyCandidates()
+    bridge.centralSync.dismissSetup()
     engine.addImageProvider('tiff', provider)
     engine.rootContext().setContextProperty('fileBridge', bridge)
     warnings = []

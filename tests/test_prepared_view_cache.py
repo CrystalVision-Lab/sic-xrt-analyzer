@@ -147,6 +147,7 @@ def test_real_image_has_no_demo_canvas_and_demo_still_loads(qt_app, tmp_path):
     provider = TiffImageProvider()
     bridge = FileBridge(provider, engine, QSettings(str(tmp_path/'prefs.ini'), QSettings.IniFormat))
     engine.addImageProvider('tiff', provider)
+    bridge.centralSync.dismissSetup()  # Existing-user workflow; first run is covered separately.
     engine.rootContext().setContextProperty('fileBridge', bridge)
     warnings = []
     engine.warnings.connect(lambda items: warnings.extend(i.toString() for i in items))
