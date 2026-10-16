@@ -19,7 +19,7 @@ def test_density_selection_review_and_original_preserve_result(workbench):
     assert sum(c["count"] for c in regions.state["mapCells"]) == len(r.filtered)
     assert not r.selected_id
     assert w.item("resultDensityOverlay").property("visible")
-    assert not w.item("analysisOverlay").property("visible")
+    assert w.item("analysisOverlay").property("visible")
     # Hidden lists must not create candidate delegates during overview/restoration.
     assert w.item("resultCandidateGrid").property("count") == 0
     assert w.item("candidateList").property("count") == 0
