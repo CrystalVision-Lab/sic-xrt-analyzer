@@ -4,6 +4,7 @@ import sys
 from pathlib import Path
 from PyInstaller.utils.hooks import collect_data_files, collect_submodules, copy_metadata
 root=Path(SPECPATH).parent
+sys.path.insert(0, str(root/'src'))
 sys.path.insert(0, str(root/'tools'))
 from windows_build_environment import validate_binary_sources
 from windows_bundle_policy import slim_toc, validate_retained_imports, write_report
