@@ -22,6 +22,7 @@ Canvas {
         else if (name === "cube") { c.moveTo(8,1); c.lineTo(14,4); c.lineTo(14,12); c.lineTo(8,15); c.lineTo(2,12); c.lineTo(2,4); c.closePath(); line(2,4,8,7); line(14,4,8,7); line(8,7,8,15) }
         else if (name === "run") { c.moveTo(4,2); c.lineTo(13,8); c.lineTo(4,14); c.closePath() }
         else if (name === "settings") { c.arc(8,8,3,0,Math.PI*2); for(let i=0;i<8;i++){ const a=i*Math.PI/4; line(8+Math.cos(a)*5,8+Math.sin(a)*5,8+Math.cos(a)*7,8+Math.sin(a)*7) } }
+        else if (name === "download") { line(8,1,8,11); line(4,7,8,11); line(12,7,8,11); line(2,11,2,15); line(2,15,14,15); line(14,15,14,11) }
         else if (name === "export") { c.rect(2,8,12,6); line(8,11,8,1); line(5,4,8,1); line(11,4,8,1) }
         else { c.rect(2,2,12,12); line(4,11,7,8); line(7,8,10,11); line(10,11,13,6) }
         c.stroke()

@@ -102,6 +102,7 @@ def test_qml_filter_click_animation_center_and_marker_hit(qt_app, tmp_path):
         spin(qt_app, lambda: bridge.analysis['hasResult'])
         invoke(window, 'openInspectorTab', 2)
         bridge.research.regions.activate(False)  # Legacy individual-candidate centering mode.
+        state.setProperty('resultViewMode', 'area')
         invoke(item('resultFilterBPD'), 'clicked')
         assert bridge.research.state['filteredTotal'] == 77
         invoke(window.findChild(QObject, 'nextCandidate'), 'clicked')

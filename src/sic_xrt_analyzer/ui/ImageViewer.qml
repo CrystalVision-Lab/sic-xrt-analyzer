@@ -24,7 +24,8 @@ Rectangle {
         var candidate = uiState.research.selected || ({})
         var reviewed = uiState.feedback.selected || ({})
         if (!uiState.hasLoadedImage || uiState.loading || !((candidate.id && candidate.x === x && candidate.y === y) || (reviewed.id && reviewed.x === x && reviewed.y === y))) return
-        var area = fileBridge.research.regions.state
+        if (uiState.resultViewMode === "distribution") uiState.resultViewMode = "area"
+        var area = root.uiState.regionReview
         if (area.enabled && area.rect.length === 4) {
             var screenX = imageFrame.x + x * displayScale
             var screenY = imageFrame.y + y * displayScale
@@ -97,6 +98,7 @@ Rectangle {
     onDisplayScaleChanged: Qt.callLater(syncDetailView)
     Connections {
         target: root.uiState
+        function onResultViewModeChanged() { if (root.uiState.resultViewMode === "distribution") root.fitView() }
         function onImageSourceChanged() { root.focusedArea=""; root.previousView=[]; Qt.callLater(root.syncDetailView) }
         function onLoadingChanged() { Qt.callLater(root.syncDetailView) }
         function onActiveToolChanged() { root.cancelToolDrawing() }
@@ -158,6 +160,20 @@ Rectangle {
             Layout.fillWidth: true; Layout.preferredHeight: 52
             theme: root.theme; uiState: root.uiState
         }
+        RowLayout {
+            visible: root.uiState.hasResult && !root.uiState.projectReview.editing
+            Layout.fillWidth: true; Layout.leftMargin: 12; Layout.rightMargin: 12; Layout.topMargin: 8; Layout.bottomMargin: 8; spacing: 6
+            Repeater {
+                model: [{key:"distribution",label:"전체 분포"},{key:"area",label:"영역 검토"},{key:"compare",label:"후보 비교"},{key:"image",label:"검출 숨김"}]
+                AppButton {
+                    required property var modelData
+                    objectName: "resultView"+modelData.key
+                    theme: root.theme; text: modelData.label; compact: true; labelSize: 12; checked: root.uiState.resultViewMode===modelData.key
+                    onClicked: { root.uiState.resultViewMode=modelData.key; if(modelData.key==="area") {fileBridge.research.regions.activate(true);fileBridge.research.regions.stepArea(0)} }
+                }
+            }
+            Item { Layout.fillWidth: true }
+        }
         Rectangle {
             id: viewport
             objectName: "viewerViewport"
@@ -210,6 +226,12 @@ Rectangle {
                 bridge: fileBridge; viewTransform: [imageFrame.x, imageFrame.y, root.displayScale]
                 revision: uiState.stack.revision
             }
+            ResultDensityOverlay {
+                anchors.fill: parent; z: 6
+                theme: root.theme; uiState: root.uiState
+                visible: uiState.hasResult && uiState.resultViewMode==="distribution" && !uiState.projectReview.editing
+                imageX: imageFrame.x; imageY: imageFrame.y; imageScale: root.displayScale
+            }
             MouseArea {
                 id: viewerMouse
                 z: 2
@@ -226,7 +248,7 @@ Rectangle {
 
                     if (uiState.pageCount === 1 && uiState.hasResult && !uiState.roiEditMode && [Qt.Key_Left, Qt.Key_Right].indexOf(event.key) >= 0) {
                         var delta = event.key === Qt.Key_Right ? 1 : -1
-                        if (fileBridge.research.regions.state.enabled) fileBridge.research.regions.stepCandidate(delta)
+                        if (root.uiState.regionReview.enabled) fileBridge.research.regions.stepCandidate(delta)
                         else fileBridge.research.stepCandidate(delta)
                         event.accepted = true; return
                     }
@@ -423,7 +445,7 @@ Rectangle {
                 property real imageX: imageFrame.x
                 property real imageY: imageFrame.y
                 property real imageScale: root.displayScale
-                visible: (uiState.hasResult || uiState.analysisRunning) && (uiState.analysisLayerVisible || (uiState.selectedLayerVisible && !!selected.id)) && uiState.hasLoadedImage
+                visible: (uiState.hasResult || uiState.analysisRunning) && (!uiState.hasResult || (uiState.resultViewMode!=="distribution" && uiState.resultViewMode!=="image")) && (uiState.analysisLayerVisible || (uiState.selectedLayerVisible && !!selected.id)) && uiState.hasLoadedImage
                 onPointsChanged: requestPaint()
                 onSelectedChanged: requestPaint()
                 onReviewingChanged: requestPaint()
@@ -579,9 +601,11 @@ Rectangle {
             }
             DropArea { anchors.fill: parent; onDropped: function(drop) { if (drop.hasUrls && drop.urls.length > 0) root.fileDropped(drop.urls[0].toString()) } }
             OverviewMap {
-                coverage:fileBridge.research.regions.state.coverage
+                width: Math.min(190, Math.max(140, viewport.width * .23))
+                height: width * 160 / 190
+                coverage:root.uiState.regionReview.coverage
                 z: 7; anchors.right: parent.right; anchors.bottom: parent.bottom; anchors.margins: 12
-                visible: uiState.hasLoadedImage && !uiState.loading && viewport.width > 500
+                visible: uiState.hasLoadedImage && !uiState.loading && viewport.width > 300 && (!uiState.hasResult || uiState.resultViewMode!=="distribution")
                 theme: root.theme; imageSource: uiState.imageSource
                 imageWidth: uiState.contentWidth; imageHeight: uiState.contentHeight
                 viewRect: [-imageFrame.x/Math.max(.0001,root.displayScale),-imageFrame.y/Math.max(.0001,root.displayScale),viewport.width/Math.max(.0001,root.displayScale),viewport.height/Math.max(.0001,root.displayScale)]
@@ -601,6 +625,12 @@ Rectangle {
                 color: theme.panel; border.color: theme.border; radius: theme.radiusSm
                 Text { id: detailText; anchors.fill: parent; anchors.margins: 8; text: uiState.detail.error ? "정밀 영역 읽기 실패: " + uiState.detail.error : "정밀 영역 읽는 중…"; color: uiState.detail.error ? theme.warning : theme.muted; wrapMode: Text.Wrap; font.pixelSize: theme.smallSize }
             }
+        }
+        ResultCandidateShelf {
+            Layout.fillWidth: true; Layout.preferredHeight: implicitHeight; Layout.margins: 10
+            visible: uiState.hasResult && (uiState.resultViewMode==="area" || uiState.resultViewMode==="compare") && !uiState.projectReview.editing
+            theme: root.theme; uiState: root.uiState
+            onCandidateRequested: function(ident) { fileBridge.research.selectCandidate(ident) }
         }
         Rectangle {
             objectName: "loadingErrorNotice"; visible: uiState.loadFlow.hasError && uiState.loadFlow.hasViewableFrame

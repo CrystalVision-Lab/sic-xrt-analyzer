@@ -284,6 +284,8 @@ def test_real_gui_project_open_and_run_click(workbench,tmp_path,size):
     assert w.item('resultExplorer').isVisible()
     assert w.item('resultOrigin').property('text').startswith('저장된 이력')
     assert c.selected_run==run.run_id and w.bridge.pipeline.result is None
+    assert w.item('resultDensityOverlay').isVisible()
+    w.click('beginAreaReview')
     w.click('nextCandidate')
     spin(w.app,lambda:bool(w.bridge.research.thumbnail_source))
     assert w.item('analysisOverlay').isVisible()

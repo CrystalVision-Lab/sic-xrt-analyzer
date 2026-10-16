@@ -4,6 +4,7 @@ import QtQuick.Layouts
 
 ColumnLayout {
     id: root
+    Layout.minimumWidth: 0
     objectName: "resultContext"
     property QtObject theme
     property QtObject uiState

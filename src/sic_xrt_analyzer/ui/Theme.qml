@@ -1,18 +1,18 @@
 import QtQuick
 QtObject {
-    readonly property color window: "#14191f"
-    readonly property color panel: "#1b222b"
-    readonly property color toolbar: "#1b232c"
-    readonly property color surface: "#27323d"
-    readonly property color hover: "#33414f"
-    readonly property color border: "#3b4a59"
-    readonly property color text: "#f2f6fa"
-    readonly property color muted: "#b2bfcc"
+    readonly property color window: "#12191c"
+    readonly property color panel: "#1b2429"
+    readonly property color toolbar: "#1b2429"
+    readonly property color surface: "#263239"
+    readonly property color hover: "#35474c"
+    readonly property color border: "#3a484f"
+    readonly property color text: "#eaf0f2"
+    readonly property color muted: "#a9b9bf"
     readonly property color disabled: "#95a2b0"
     readonly property color borderSubtle: "#2a3643"
-    readonly property color accent: "#61d7cf"
+    readonly property color accent: "#7cdecd"
     readonly property color accentText: "#092a2a"
-    readonly property color accentPale: "#203e43"
+    readonly property color accentPale: "#263e3d"
     readonly property color success: "#68ba8b"
     readonly property color warning: "#d6ac64"
     readonly property color error: "#e68181"
@@ -28,9 +28,10 @@ QtObject {
     readonly property int spacingMd: 12
     readonly property int spacingLg: 16
     readonly property int spacingXl: 24
-    readonly property int radiusSm: 4
-    readonly property int radiusControl: 6
-    readonly property int radiusDialog: 12
+    readonly property int radiusSm: 8
+    readonly property int radiusControl: 9
+    readonly property int radiusDialog: 18
+    readonly property int radiusPanel: 12
     readonly property int compactHeight: 32
     readonly property int primaryHeight: 40
     readonly property int toolbarButtonHeight: 36
