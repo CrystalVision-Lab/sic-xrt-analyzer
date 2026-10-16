@@ -40,6 +40,12 @@ def website(tmp_path):
         httpx.MockTransport(upstream),
     )
     with TestClient(app, base_url="https://portal.test") as client:
+        token, device = app.state.devices.request(
+            {"name": "QA", "affiliation": "Synthetic", "device_name": "Test", "platform": "Test"},
+            "Synthetic browser", "test-fixture",
+        )
+        app.state.devices.decide(device["id"], "APPROVED", 0, "Synthetic fixture", "qa-admin")
+        client.cookies.set("xrt_site_device", token, domain="portal.test", path="/")
         yield client, app.state.store, state, tmp_path
 
 

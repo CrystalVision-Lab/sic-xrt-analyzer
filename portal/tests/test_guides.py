@@ -66,6 +66,12 @@ def guide_site(tmp_path):
         guides=private,
     )
     with TestClient(app, base_url="https://guide.test") as c:
+        token, device = app.state.devices.request(
+            {"name": "QA", "affiliation": "Synthetic", "device_name": "Test", "platform": "Test"},
+            "Synthetic browser", "test-fixture",
+        )
+        app.state.devices.decide(device["id"], "APPROVED", 0, "Synthetic fixture", "qa-admin")
+        c.cookies.set("xrt_site_device", token, domain="guide.test", path="/")
         yield c, authority, private, raw
 
 

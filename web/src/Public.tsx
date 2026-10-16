@@ -53,6 +53,7 @@ export function DownloadPage() {
           <p className="download-version"><Monitor size={14} /> Windows 10 / 11 · 64-bit <span>v{latest.manifest.version}</span></p>
         </> : <Empty title="설치 파일을 준비 중입니다" />}
       </div>
+      <p className="download-access-note">기존 프로그램의 자동 업데이트가 제한되면 이 페이지에서 새 설치 파일을 받아 실행하세요. 사이트 승인과 프로그램의 연구 데이터 동기화 등록은 별개입니다.</p>
     </section>
   </PublicShell>;
 }

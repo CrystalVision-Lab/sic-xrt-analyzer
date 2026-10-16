@@ -56,7 +56,11 @@ export function Loading() {
 }
 export function ErrorBox({ error }: { error: Error }) {
   const message =
-    error instanceof ApiError && error.status === 401
+    error instanceof ApiError && error.code === "DEVICE_APPROVAL_REQUIRED"
+      ? "이 브라우저의 사이트 승인이 필요합니다. 접속 요청 화면에서 승인 상태를 확인해 주세요."
+      : error instanceof ApiError && error.status === 409
+        ? "다른 관리자가 이미 변경했거나 요청이 만료됐습니다. 새로고침 후 확인해 주세요."
+      : error instanceof ApiError && error.status === 401
       ? "관리자 세션이 없거나 만료됐습니다. 다시 로그인해 주세요."
       : error instanceof ApiError && error.status === 429
         ? "요청이 많습니다. 잠시 후 다시 시도해 주세요."

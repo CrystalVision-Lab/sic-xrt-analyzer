@@ -16,6 +16,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse, Response
 from starlette.concurrency import run_in_threadpool
 
+from .devices import install_access
 from .guides import Guides
 from .passwords import username
 from .store import Store
@@ -150,6 +151,7 @@ def create_app(
         return {
             "status": "ONLINE",
             "application_release_contract": "xrt_app_release/v1",
+            "site_access_contract": "xrt_site_access/v1",
         }
 
     @app.post("/portal-api/login")
@@ -206,6 +208,7 @@ def create_app(
             store.session, credential, user, account["account"] if account else None
         )
         response = JSONResponse(payload)
+        response.delete_cookie(COOKIE, path="/portal-api")
         response.set_cookie(
             COOKIE,
             token,
@@ -213,7 +216,7 @@ def create_app(
             httponly=True,
             secure=secure,
             samesite="strict",
-            path="/portal-api",
+            path="/",
         )
         return response
 
@@ -258,6 +261,7 @@ def create_app(
         }
         token, payload = await run_in_threadpool(store.session, b["credential"], user)
         response = JSONResponse(payload)
+        response.delete_cookie(COOKIE, path="/portal-api")
         response.set_cookie(
             COOKIE,
             token,
@@ -265,7 +269,7 @@ def create_app(
             httponly=True,
             secure=secure,
             samesite="strict",
-            path="/portal-api",
+            path="/",
         )
         return response
 
@@ -338,6 +342,7 @@ def create_app(
         store.audit(row["user"]["id"], "LOGOUT")
         r = JSONResponse({"status": "SIGNED_OUT"})
         r.delete_cookie(COOKIE, path="/portal-api")
+        r.delete_cookie(COOKIE, path="/")
         return r
 
     @app.get("/portal-api/releases")
@@ -479,4 +484,5 @@ def create_app(
             result.content, status_code=result.status_code, media_type=media
         )
 
+    install_access(app, store, session, administrator, body, origin)
     return app
