@@ -36,6 +36,11 @@ def main():
         return json.loads(docker("inspect", name))[0]["NetworkSettings"]["Networks"][prefix]["IPAddress"]
 
     opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+    class NoRedirect(urllib.request.HTTPRedirectHandler):
+        def redirect_request(self, req, fp, code, msg, headers, newurl):
+            return None
+
+    no_redirect = urllib.request.build_opener(urllib.request.ProxyHandler({}), NoRedirect())
     paths = ("/portal-api/releases?channel=BETA", "/portal-api/guide/public", "/api/v1/health")
 
     def wait_for(origin, hostname):
@@ -49,6 +54,17 @@ def main():
                 request = urllib.request.Request(origin + "/api/v1/reports", data=b"{}", method="POST")
                 with opener.open(request, timeout=3) as response:
                     assert response.read().decode().strip() == f"{hostname}|POST|/api/v1/reports"
+                try:
+                    no_redirect.open(origin + "/guide", timeout=3)
+                    raise AssertionError("Unapproved document was not denied")
+                except urllib.error.HTTPError as denied:
+                    assert denied.code == 302
+                    assert denied.headers["Location"] == "/access"
+                with opener.open(origin + "/access", timeout=3) as entry:
+                    assert entry.status == 200
+                    assert entry.headers["X-Frame-Options"] == "DENY"
+                    assert "frame-ancestors 'none'" in entry.headers["Content-Security-Policy"]
+                    assert entry.headers["Cache-Control"] == "no-store"
                 return
             except (urllib.error.URLError, TimeoutError, AssertionError):
                 time.sleep(0.5)
@@ -57,7 +73,7 @@ def main():
     # TemporaryDirectory only removes this newly created private test directory.
     with tempfile.TemporaryDirectory(prefix=prefix) as temporary:
         backend = Path(temporary) / "backend.conf"
-        backend.write_text('server { listen 8000; listen 8001; location / { return 200 "$hostname|$request_method|$request_uri\\n"; } }\n', encoding="utf-8")
+        backend.write_text('server { listen 8000; listen 8001; location = /portal-api/access/check { return 403; } location / { return 200 "$hostname|$request_method|$request_uri\\n"; } }\n', encoding="utf-8")
         try:
             network_ids = docker("network", "ls", "-q").splitlines()
             existing = json.loads(docker("network", "inspect", *network_ids))
@@ -95,7 +111,7 @@ def main():
             assert proxy_before["State"]["StartedAt"] == proxy_after["State"]["StartedAt"]
             assert proxy_after["RestartCount"] == 0
             result = {"status": "PASS", "backend_ip_changed": True,
-                      "proxy_restarted": False, "uri_query_and_post_preserved": True,
+                      "proxy_restarted": False, "relative_access_redirect_and_security_headers": True, "uri_query_and_post_preserved": True,
                       "recovery_seconds": round(time.monotonic() - started, 3)}
             if args.output:
                 args.output.parent.mkdir(parents=True, exist_ok=True)
