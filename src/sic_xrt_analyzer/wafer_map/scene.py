@@ -45,6 +45,7 @@ class Scene:
         self.summary = {}
         self.index_ms = 0
         self.counts_by_source = {}
+        self.point_batches = {}
 
     def clear(self):
         self.previews.clear()
@@ -238,6 +239,14 @@ class Scene:
                     "CONFLICT" if conflict else e.existence.value,
                 )
         self.index = rows
+        batches = defaultdict(list)
+        for index, row in enumerate(rows):
+            if len(row["paths"]) == 1 and len(row["paths"][0]) == 1:
+                batches[row["source_id"]].append((index, row["paths"][0][0]))
+        self.point_batches = {
+            sid: (tuple(i for i, _ in batch), np.asarray([p for _, p in batch], float))
+            for sid, batch in batches.items()
+        }
         self.summary = dict(counts)
         self.counts_by_source = dict(by_source)
         self.index_key = key
@@ -327,16 +336,30 @@ class Scene:
         }
         displayed_points = 0
         omitted = 0
-        for row in self.index:
+        # One vectorized affine transform per visible source, rather than one
+        # array conversion and matrix multiply per point on every pan frame.
+        projected = {}
+        for sid, transform in shown.items():
+            indices, coordinates = self.point_batches.get(sid, ((), None))
+            if coordinates is not None:
+                values = coordinates @ transform[:2, :2].T + transform[:2, 2]
+                projected.update(zip(indices, values.tolist(), strict=True))
+        for row_index, row in enumerate(self.index):
             check(cancelled)
             sid = row["source_id"]
             if sid not in placements:
                 continue
             if sid not in shown or not asset["layers"].get(row["layer"], False):
                 continue
-            transformed = [points(shown[sid], p) for p in row["paths"]]
-            if not any(visible(p) for p in transformed):
-                continue
+            if row_index in projected:
+                x, y = projected[row_index]
+                if x < 0 or y < 0 or x > width or y > height:
+                    continue
+                transformed = [[projected[row_index]]]
+            else:
+                transformed = [points(shown[sid], p) for p in row["paths"]]
+                if not any(visible(p) for p in transformed):
+                    continue
             # Small zoom draws one point per 3px cell/class/source; totals use every observation.
             if (
                 row["layer"] in ("BPD", "TED", "TSD")
