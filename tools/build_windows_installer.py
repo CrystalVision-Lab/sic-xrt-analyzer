@@ -97,6 +97,7 @@ def main():
                 "installer/launcher.py",
                 "installer/SiCXrtAnalyzer.spec",
                 "tools/windows_build_environment.py",
+                "tools/windows_bundle_policy.py",
             ],
             cwd=ROOT,
             text=True,

@@ -53,6 +53,20 @@ Source: "{#UpdateHelper}"; DestName: "XrtUpdateHandoff.exe"; Flags: dontcopy
 Source: "{#BundleDir}\SiCXrtAnalyzer.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#BundleDir}\*"; DestDir: "{app}"; Excludes: "SiCXrtAnalyzer.exe"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "PYTHON-LICENSE.txt"; DestDir: "{app}\_internal"; Flags: ignoreversion
+[InstallDelete]
+; Only obsolete application-owned runtime payloads; never user images or settings.
+Type: filesandordirs; Name: "{app}\_internal\runtimes\fiji\jars\linux64"
+Type: filesandordirs; Name: "{app}\_internal\runtimes\fiji\jars\linux-arm64"
+Type: filesandordirs; Name: "{app}\_internal\runtimes\fiji\jars\macos64"
+Type: filesandordirs; Name: "{app}\_internal\runtimes\fiji\jars\macos-arm64"
+Type: filesandordirs; Name: "{app}\_internal\runtimes\fiji\jars\macosx"
+Type: filesandordirs; Name: "{app}\_internal\runtimes\openjdk\jmods"
+Type: filesandordirs; Name: "{app}\_internal\PySide6\qml\QtWebEngine"
+Type: filesandordirs; Name: "{app}\_internal\PySide6\qml\QtWebView"
+Type: filesandordirs; Name: "{app}\_internal\PySide6\plugins\webview"
+Type: files; Name: "{app}\_internal\runtimes\openjdk\lib\src.zip"
+Type: files; Name: "{app}\_internal\PySide6\Qt6WebEngine*.dll"
+Type: files; Name: "{app}\_internal\PySide6\Qt6WebView*.dll"
 [Icons]
 Name: "{group}\SiC XRT Analyzer"; Filename: "{app}\SiCXrtAnalyzer.exe"; WorkingDir: "{app}"
 Name: "{autodesktop}\SiC XRT Analyzer"; Filename: "{app}\SiCXrtAnalyzer.exe"; Tasks: desktopicon
