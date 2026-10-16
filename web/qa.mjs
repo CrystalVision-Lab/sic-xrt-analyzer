@@ -85,12 +85,12 @@ try {
     // Never print it, put it in a URL, record a trace or save authenticated screenshots to Git.
     if (!["localhost", "127.0.0.1"].includes(new URL(origin).hostname)) throw new Error("Authenticated QA is restricted to localhost; use XRT_QA_PUBLIC_ONLY=1 for public URLs");
     const credential = JSON.parse(
-      await readFile("../artifacts/sync106-private/admin.json", "utf8"),
+      await readFile(process.env.XRT_QA_LOGIN_FILE ?? "../artifacts/sync106-private/portal-login.json", "utf8"),
     );
     await page.setViewportSize({ width: 1440, height: 1000 });
     await page.goto(origin + "/admin");
-    await page.getByLabel("관리자 client ID").fill(credential.client_id);
-    await page.getByLabel("관리자 인증키").fill(credential.credential);
+    await page.getByLabel("아이디", { exact: true }).fill(credential.username);
+    await page.getByLabel("비밀번호", { exact: true }).fill(credential.password);
     await page.getByRole("button", { name: "관리자 콘솔 접속" }).click();
     await page
       .getByRole("heading", { name: "연구 운영 현황" })

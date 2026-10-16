@@ -17,21 +17,23 @@ from fastapi.responses import FileResponse, JSONResponse, Response
 from starlette.concurrency import run_in_threadpool
 
 from .guides import Guides
+from .passwords import username
 from .store import Store
 
 COOKIE = "xrt_portal_session"
 
 
 class Limit:
-    def __init__(self):
+    def __init__(self, attempts=8):
         self.lock = threading.Lock()
         self.rows = OrderedDict()
+        self.attempts = attempts
 
     def check(self, key):
         with self.lock:
             now = time.monotonic()
             values = [t for t in self.rows.get(key, []) if now - t < 600]
-            if len(values) >= 8:
+            if len(values) >= self.attempts:
                 raise HTTPException(429, "LOGIN_RATE_LIMITED")
             self.rows[key] = values + [now]
             self.rows.move_to_end(key)
@@ -79,6 +81,8 @@ def create_app(
     app.state.client = client
     library = Guides(guides or os.getenv("XRT_GUIDE_DIR", "/data/guides"))
     limiter = Limit()
+    password_limit = Limit(60)
+    password_capacity = threading.BoundedSemaphore(2)
     capacity = threading.BoundedSemaphore(4)
 
     @app.middleware("http")
@@ -151,30 +155,55 @@ def create_app(
     async def login(request: Request):
         secure = origin(request)
         b = await body(request, 8192)
-        if (
-            set(b) != {"client_id", "credential"}
-            or any(not isinstance(b[k], str) for k in b)
-            or not 1 <= len(b["client_id"]) <= 128
-            or not 1 <= len(b["credential"]) <= 200
-        ):
+        account = None
+        if any(not isinstance(value, str) for value in b.values()):
             raise HTTPException(422, "LOGIN_FIELDS")
-        limiter.check(b["client_id"])
-        h = await run_in_threadpool(fetch, b["credential"], "health")
-        a = await run_in_threadpool(fetch, b["credential"], "admin/statistics")
+        if set(b) == {"username", "password"}:
+            try:
+                name = username(b["username"])
+            except ValueError:
+                raise HTTPException(422, "LOGIN_FIELDS") from None
+            if not 1 <= len(b["password"]) <= 256:
+                raise HTTPException(422, "LOGIN_FIELDS")
+            # Bound both per-account guessing and cycling through arbitrary names.
+            password_limit.check("password")
+            limiter.check("password:" + name)
+            if not password_capacity.acquire(blocking=False):
+                raise HTTPException(429, "LOGIN_RATE_LIMITED")
+            try:
+                account = await run_in_threadpool(store.password_login, name, b["password"])
+            finally:
+                password_capacity.release()
+            if account is None:
+                store.audit(None, "LOGIN_REJECTED")
+                raise HTTPException(401, "INVALID_ADMIN_LOGIN")
+            credential, client_id = account["credential"], account["user"]["client_id"]
+        elif (set(b) == {"client_id", "credential"}
+              and 1 <= len(b["client_id"]) <= 128 and 1 <= len(b["credential"]) <= 200):
+            # Keep existing local operator tooling compatible with API credentials.
+            credential, client_id = b["credential"], b["client_id"]
+            limiter.check(client_id)
+        else:
+            raise HTTPException(422, "LOGIN_FIELDS")
+        h = await run_in_threadpool(fetch, credential, "health")
+        a = await run_in_threadpool(fetch, credential, "admin/statistics")
         if (
             h.status_code != 200
             or a.status_code != 200
-            or h.json().get("client_id") != b["client_id"]
+            or h.json().get("client_id") != client_id
+            or (account is not None and h.json().get("user_id") != account["user"]["id"])
         ):
             store.audit(None, "LOGIN_REJECTED")
             raise HTTPException(401, "INVALID_ADMIN_LOGIN")
         user = {
             "id": h.json()["user_id"],
-            "client_id": b["client_id"],
-            "name": b["client_id"],
+            "client_id": client_id,
+            "name": account["account"]["username"] if account else client_id,
             "role": "ADMIN",
         }
-        token, payload = await run_in_threadpool(store.session, b["credential"], user)
+        token, payload = await run_in_threadpool(
+            store.session, credential, user, account["account"] if account else None
+        )
         response = JSONResponse(payload)
         response.set_cookie(
             COOKIE,
