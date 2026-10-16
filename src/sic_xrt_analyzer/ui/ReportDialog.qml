@@ -8,7 +8,7 @@ SurfaceDialog {
  onOpened:{fileBridge.reports.resetNotice();note.text="";reason.currentIndex=missingDefect?5:0;attachCrops.checked=false}
  onClosed:missingDefect=false
  ColumnLayout { width:parent.width; spacing:14
-  Text { text:fileBridge.research.regions.state.checked.length ? "선택 후보 "+fileBridge.research.regions.state.checked.length+"개" : "후보 #"+(root.uiState.research.selected.number||"")+" · "+(root.uiState.research.selected.type||""); color:root.theme.text; font.pixelSize:16 }
+  Text { text:root.uiState.regionReview.checked.length ? "선택 후보 "+root.uiState.regionReview.checked.length+"개" : "후보 #"+(root.uiState.research.selected.number||"")+" · "+(root.uiState.research.selected.type||""); color:root.theme.text; font.pixelSize:16 }
   AppComboBox { id:reason; model:["결함 아님","종류가 다름","위치가 다름","영역이 다름","중복 후보","누락 결함","기타"]; theme:root.theme; Layout.fillWidth:true }
   AppComboBox { id:correction; theme:root.theme; model:["미확정","BPD","TED","TSD"]; visible:reason.currentText==="종류가 다름"; Layout.fillWidth:true }
   TextArea { id:note; Layout.fillWidth:true; Layout.preferredHeight:100; placeholderText:"메모 (선택)"; wrapMode:TextEdit.Wrap; color:root.theme.text }

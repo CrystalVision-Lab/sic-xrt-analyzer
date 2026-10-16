@@ -8,12 +8,14 @@ Rectangle {
     required property QtObject theme
     required property QtObject uiState
     readonly property var navigator: fileBridge.research.regions
-    readonly property var area: navigator.state
+    readonly property var area: uiState.regionReview
     readonly property bool comparing: uiState.resultViewMode === "compare"
     readonly property var rows: comparing ? area.compareRows : area.rows
     signal candidateRequested(string ident)
     onRowsChanged: Qt.callLater(root.revealSelection)
+    onVisibleChanged: if (visible) Qt.callLater(root.revealSelection)
     function revealSelection() {
+        if (!visible) return
         var index = rows.findIndex(function(p) { return p.id===root.uiState.research.selected.id })
         if (index>=0) grid.positionViewAtIndex(index, GridView.Contain)
     }
@@ -33,7 +35,7 @@ Rectangle {
             id: grid; objectName: "resultCandidateGrid"
             Layout.fillWidth: true; Layout.fillHeight: true; clip: true
             cellWidth: Math.max(115, width / Math.max(1,Math.floor(width/135))); cellHeight: 105
-            model: root.rows; ScrollBar.vertical: ScrollBar {}
+            model: root.visible ? root.rows : []; ScrollBar.vertical: ScrollBar {}
             delegate: Rectangle {
                 required property var modelData
                 width: grid.cellWidth-8; height: 99; radius: root.theme.radiusControl
