@@ -12,7 +12,14 @@ Button {
     property int labelWeight: Font.Normal
     property string iconName: ""
     property string tip: ""
-    readonly property color foreground: !enabled ? theme.disabled : (primary || checked) ? theme.accentText : theme.text
+    readonly property color foreground: !enabled ? theme.disabled : primary ? theme.accentText : checked ? theme.accent : theme.text
+    background: Rectangle {
+        radius: control.theme.radiusControl
+        color: !control.enabled ? control.theme.surface : control.primary ? (control.down ? Qt.darker(control.theme.accent, 1.12) : control.theme.accent) : control.checked ? control.theme.accentPale : control.hovered || control.down ? control.theme.hover : control.quiet ? "transparent" : control.theme.surface
+        opacity: control.enabled ? 1 : .55
+        border.width: control.activeFocus || control.checked ? 1 : 0
+        border.color: control.theme.accent
+    }
     flat: quiet && !checked && !primary
     highlighted: primary
     font.family: theme.fontFamily

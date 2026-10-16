@@ -51,6 +51,8 @@ def analyzed(w, adapter=None):
     spin(w.app, lambda: w.bridge.analysis['hasResult'])
     QTest.qWait(40)
     assert w.panel.property('requestedContext') == 'result'
+    # Existing per-candidate tests start in the explicit review view.
+    w.state.setProperty('resultViewMode', 'area')
     return w.bridge.research
 
 
@@ -68,7 +70,7 @@ def test_summary_filter_navigation_and_overlay_share_state(workbench, kind, tota
     original = w.bridge.pipeline.result
     assert w.item('resultTotal').property('text') == '2,946'
     assert r.state['counts'] == {'BPD': 245, 'TED': 1398, 'TSD': 1303}
-    for name, color in [('BPD', '#ffad42'), ('TED', '#50e0ee'), ('TSD', '#ff78c4')]:
+    for name, color in [('BPD', '#efbc70'), ('TED', '#85c9ed'), ('TSD', '#e7a2c7')]:
         assert evaluate(w, f'resultPresentation.colorFor("{name}")') == color
         assert w.item('resultFilter' + name).property('text') == name + ' ' + f'{r.state["counts"][name]:,}'
     assert not r.state['selected']  # Preserve explicit first selection.
@@ -144,7 +146,7 @@ def test_filter_retains_matching_selection_and_clears_excluded_selection(workben
     assert r.state['selected']['id'] == 'candidate_000240'
     assert r.state['selectedIndex'] == 240 and r.state['page'] == 2
     assert w.item('candidateIndex').property('text') == '후보 241 / 245'
-    assert w.item('candidateRow241').property('visible')
+    assert w.item('shelfCandidate241').property('visible')
     w.click('resultFilterTED')
     assert r.state['selected'] == {} and r.state['thumbnailSource'] == ''
     assert not w.state.property('candidateRoiId')
@@ -231,25 +233,25 @@ def test_result_fixed_information_and_list_bounds(workbench, size):
     r = analyzed(w)
     w.click('nextCandidate')
     for name in ('resultTotal', 'resultFilterBPD', 'candidateIndex', 'selectedCandidateHeader',
-                 'candidateConfidence', 'candidateList', 'analysisExportButton', 'candidateDetails'):
+                 'candidateConfidence', 'resultCandidateGrid', 'analysisExportButton', 'candidateDetails'):
         item = w.item(name)
         p = item.mapToScene(QPointF())
         assert item.property('visible'), name
         assert 0 <= p.y() and p.y() + item.property('height') <= size[1] - 28, (name, p)
         assert 0 <= p.x() and p.x() + item.property('width') <= size[0], (name, p)
-    assert w.item('candidateList').property('height') >= 80
+    assert w.item('resultCandidateGrid').property('height') >= 80
     header_y = w.item('resultTotal').mapToScene(QPointF()).y()
-    w.item('candidateList').setProperty('contentY', 1500)
+    w.item('resultCandidateGrid').setProperty('contentY', 1500)
     QTest.qWait(50)
     assert w.item('resultTotal').mapToScene(QPointF()).y() == header_y
     # Returning to a selected candidate reveals its list row.
     r.selectCandidate('candidate_000099')
     QTest.qWait(40)
-    row = w.item('candidateRow100')
-    assert row.mapToScene(QPointF()).y() >= w.item('candidateList').mapToScene(QPointF()).y() - 1
+    row = w.item('shelfCandidate100')
+    assert row.mapToScene(QPointF()).y() >= w.item('resultCandidateGrid').mapToScene(QPointF()).y() - 1
     w.click('nextCandidate')
     assert r.state['selected']['number'] == 101 and r.state['page'] == 1
-    assert w.item('candidateRow101').property('visible')
+    assert w.item('shelfCandidate101').property('visible')
 
 
 def test_empty_zero_new_run_and_new_file_discard_stale_selection(workbench):
@@ -257,7 +259,7 @@ def test_empty_zero_new_run_and_new_file_discard_stale_selection(workbench):
     w.open(create_source(w.path.parent).path)
     assert not invoke(w.window,'requestContext','result','MANUAL')
     assert not w.item('resultExplorer').isVisible()
-    assert not w.item('candidateList').isVisible()
+    assert not w.item('resultCandidateGrid').isVisible()
     r = analyzed(w)
     w.click('resultFilterBPD')
     w.click('nextCandidate')
@@ -279,7 +281,7 @@ def test_empty_zero_new_run_and_new_file_discard_stale_selection(workbench):
     assert r.state['runInfo']['analysisId'] != old_id
     assert r.state['filterKind'] == 'BPD'  # Existing filter persistence policy.
     assert w.item('resultLifecycleMessage').property('text') == '후보가 발견되지 않았습니다.'
-    assert not w.item('candidateList').property('visible')
+    assert not w.item('resultCandidateGrid').property('visible')
     assert not w.item('nextCandidate').property('visible')
     assert w.item('analysisExportButton').property('enabled')
     assert '0 / 0' not in w.item('candidateIndex').property('text')
@@ -324,7 +326,7 @@ def test_compact_results_keep_actions_visible_and_settings_separate(workbench):
     w.window.resize(1100, 700)
     r.selectCandidate(r.rows[0]['id'])
     QTest.qWait(100)
-    for name in ('candidateList', 'nextCandidate', 'reportCandidate', 'analysisExportButton'):
+    for name in ('resultCandidateGrid', 'nextCandidate', 'reportCandidate', 'analysisExportButton'):
         control = w.item(name)
         top = control.mapToScene(QPointF(0, 0))
         bottom = control.mapToScene(QPointF(control.width(), control.height()))

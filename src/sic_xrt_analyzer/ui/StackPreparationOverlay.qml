@@ -11,14 +11,14 @@ Rectangle {
     visible: loadFlow.isStackPreparing
     width: Math.min(360, parent.width - 40)
     height: contents.implicitHeight + 32
-    color: theme.panel; border.color: theme.border; radius: theme.radiusSm
+    color: theme.panel; border.color: theme.border; radius: theme.radiusPanel
     // This status card is nonmodal: the current image remains usable while preparing.
     ColumnLayout {
         id: contents; anchors.fill: parent; anchors.margins: 16; spacing: root.theme.spacingSm
         RowLayout {
             Layout.alignment: Qt.AlignHCenter; spacing: root.theme.spacingSm
             BusyIndicator { objectName: "stackPreparationSpinner"; implicitWidth: 24; implicitHeight: 24; running: root.visible }
-            Text { text: "TIFF 스택 준비 중…"; color: root.theme.text; font.pixelSize: root.theme.bodySize }
+            Text { text: "다음 페이지를 준비하고 있어요"; color: root.theme.text; font.pixelSize: root.theme.bodySize }
         }
         ProgressBar {
             id: progress; objectName: "stackPreparationProgress"; Layout.fillWidth: true
@@ -37,5 +37,6 @@ Rectangle {
             objectName: "cancelStackOverlay"; Layout.alignment: Qt.AlignHCenter
             theme: root.theme; action: root.closeAction; text: "준비 취소·닫기"; quiet: true
         }
+        Text { Layout.fillWidth:true; wrapMode:Text.Wrap; horizontalAlignment:Text.AlignHCenter; text:"현재 이미지는 확대하거나 이동할 수 있습니다."; color:root.theme.muted; font.pixelSize:12 }
     }
 }

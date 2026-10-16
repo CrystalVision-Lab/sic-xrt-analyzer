@@ -58,6 +58,9 @@ QtObject {
     property var centralSync: fileBridge.centralSync.state
     property var project: fileBridge.projects.state
     property var research: fileBridge.research.state
+    property string resultViewMode: "distribution"
+    property string resultViewIdentity: ""
+    onResultViewModeChanged: fileBridge.research.regions.setPresentation(resultViewMode.toUpperCase())
     property bool feedbackVisible: false
     onFeedbackVisibleChanged: { if (!feedbackVisible) fileBridge.feedback.setMode("") }
     property var feedback: fileBridge.feedback.state
@@ -86,6 +89,12 @@ QtObject {
     }
     onCandidateRoiSizeChanged: updateCandidateRoi()
     onResearchChanged: {
+        var identity = research.runInfo ? research.runInfo.analysisId : ""
+        if (identity !== resultViewIdentity) {
+            resultViewIdentity = identity
+            resultViewMode = "distribution"
+            fileBridge.research.regions.setPresentation("DISTRIBUTION")
+        }
         if (candidateRoiId && !(research.selected || ({})).id) {
             candidateRoiId = ""
             hasRoi = false

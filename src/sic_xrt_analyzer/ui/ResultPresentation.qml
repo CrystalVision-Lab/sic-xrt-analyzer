@@ -8,6 +8,6 @@ QtObject {
         return (Math.round(score * 1000) / 10).toFixed(1).replace(/\.0$/, "") + "%"
     }
     function count(value) { return Number(value || 0).toLocaleString(Qt.locale("en_US"), "f", 0) }
-    function colorFor(kind) { return kind === "BPD" ? "#ffad42" : kind === "TED" ? "#50e0ee" : "#ff78c4" }
+    function colorFor(kind) { return kind === "BPD" ? "#efbc70" : kind === "TED" ? "#85c9ed" : "#e7a2c7" }
     function raw(score) { return typeof score === "number" ? String(score) : "—" }
 }

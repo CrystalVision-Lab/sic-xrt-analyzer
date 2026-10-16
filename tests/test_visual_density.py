@@ -83,13 +83,13 @@ def test_result_summary_selection_and_export_in_bounds(workbench, size):
     w.window.resize(*size); QTest.qWait(50)
     analyzed(w)
     w.click('resultFilterBPD'); w.click('nextCandidate')
-    for name in ('resultTotal','resultFilterBPD','candidateIndex','selectedCandidateHeader','candidateConfidence','candidateList','analysisExportButton'):
+    for name in ('resultTotal','resultFilterBPD','candidateIndex','selectedCandidateHeader','candidateConfidence','resultCandidateGrid','analysisExportButton'):
         node = in_window(w, name)
         if node.inherits('QQuickText'):
             assert node.property('font').pixelSize() >= 11
-    assert w.panel.property('width') == 380
-    assert w.item('candidateList').property('height') >= 80
-    row = w.item('candidateRow1')
+    assert w.panel.property('width') == pytest.approx(min(360, max(320, size[0]*.27)), abs=1)
+    assert w.item('resultCandidateGrid').property('height') >= 80
+    row = w.item('shelfCandidate1')
     assert row.property('height') >= 36
     assert expression(w, row, 'Accessible.selected')
     assert w.bridge.research.state['selected']['type'] == 'BPD'

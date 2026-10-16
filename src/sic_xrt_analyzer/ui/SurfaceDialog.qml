@@ -7,7 +7,7 @@ Dialog {
     property QtObject visualTheme: Theme {}
     implicitWidth: 480
     onOpened: { if (footer && footer.standardButton) { var close=footer.standardButton(DialogButtonBox.Close);if(close)close.text="닫기" } }
-    padding: visualTheme.spacingLg
+    padding: visualTheme.spacingXl
     font.family: visualTheme.fontFamily
     font.pixelSize: visualTheme.bodySize
     background: Rectangle {

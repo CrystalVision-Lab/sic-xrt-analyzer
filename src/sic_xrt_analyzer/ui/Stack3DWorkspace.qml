@@ -5,6 +5,8 @@ ColumnLayout {
  id:root;objectName:"stack3dWorkspace";property QtObject theme;property QtObject uiState
  property var controller:fileBridge.defect3d;property var state:controller.state;signal projectRequested()
  property bool showFull:true;property bool excludeMode:false;property bool includeMode:false
+ readonly property bool needsConnection: state.frameReason==="AMBIGUOUS_BRANCH" || state.frameReason==="AMBIGUOUS_MERGE"
+ spacing: 12
  onVisibleChanged:controller.setPresented(visible)
  RowLayout{Layout.fillWidth:true
   AppButton{objectName:"stack3dBack";theme:root.theme;text:"← 이미지";onClicked:root.uiState.workspaceIndex=0}
@@ -14,7 +16,15 @@ ColumnLayout {
   AppButton{objectName:"defect3dReselect";theme:root.theme;text:"다시 선택";onClicked:{root.uiState.workspaceIndex=0;root.uiState.activeTool="Defect3D"}}
   AppButton{objectName:"stack3dReset";theme:root.theme;text:"화면 맞춤";onClicked:if(scene.item)scene.item.reset()}
  }
- RowLayout{Layout.fillWidth:true;Layout.fillHeight:true;spacing:10
+ Rectangle {
+  visible:root.state.visual && root.needsConnection; Layout.fillWidth:true; implicitHeight:connectionHint.implicitHeight+28
+  color:root.theme.panel; radius:root.theme.radiusPanel
+  ColumnLayout { id:connectionHint; anchors.fill:parent; anchors.margins:14; spacing:5
+   Text { text:"교차 지점의 연결을 확인해 주세요";color:root.theme.warning;font.pixelSize:16;font.weight:Font.DemiBold;Layout.fillWidth:true;wrapMode:Text.Wrap }
+   Text { text:"직전 경로와 같은 결함인지 원본에서 확인한 뒤 ‘같은 결함 지정’으로 이어가세요. 주변 결함은 제외하거나 이 페이지를 건너뛸 수 있습니다.";color:root.theme.muted;font.pixelSize:12;Layout.fillWidth:true;wrapMode:Text.Wrap }
+  }
+ }
+ RowLayout{Layout.fillWidth:true;Layout.fillHeight:true;spacing:14
   Rectangle{visible:root.state.visual;Layout.preferredWidth:root.width*.42;Layout.fillHeight:true;color:root.theme.viewer;clip:true
    ColumnLayout{anchors.fill:parent;anchors.margins:10
     RowLayout{Layout.fillWidth:true
@@ -23,7 +33,7 @@ ColumnLayout {
      AppButton{theme:root.theme;text:root.excludeMode?"제외 취소":"다른 결함 제외";onClicked:{root.excludeMode=!root.excludeMode;if(root.excludeMode&&!root.state.paused)root.controller.togglePause()}}
     }
     RowLayout{Layout.fillWidth:true
-     AppButton{theme:root.theme;text:root.includeMode?"연결 지정 취소":"같은 결함 지정";onClicked:{root.includeMode=!root.includeMode;root.excludeMode=false;if(root.includeMode&&!root.state.paused)root.controller.togglePause()}}
+     AppButton{theme:root.theme;primary:root.needsConnection;text:root.includeMode?"연결 지정 취소":"같은 결함 지정";onClicked:{root.includeMode=!root.includeMode;root.excludeMode=false;if(root.includeMode&&!root.state.paused)root.controller.togglePause()}}
      AppButton{theme:root.theme;text:"이 페이지 건너뛰기";onClicked:root.controller.skipCurrent()}
     }
     Item{Layout.fillWidth:true;Layout.fillHeight:true

@@ -80,8 +80,12 @@ class RegionReview(QObject):
         self.thumbnails.ready.connect(self._thumbnails_ready)
         self.thumb_key = None
         self.thumb_revision = 0
+        self.thumbnail_error = ""
         self.thumb_urls = {}
         self.thumb_cache = OrderedDict()
+        self.presentation = "DISTRIBUTION"
+        self.compare_page = 0
+        self.last_selected_id = ""
         research.changed.connect(self.refresh)
 
     def refresh(self):
@@ -92,6 +96,7 @@ class RegionReview(QObject):
         if identity != self.session:
             self.session = identity
             self.current = ""
+            self.compare_page = 0
             self.checked.clear()
             self.opened.clear()
             self.records = {}
@@ -100,6 +105,7 @@ class RegionReview(QObject):
             self.signature = None
             self.thumb_key = None
             self.thumb_urls = {}
+            self.thumbnail_error = ""
             self.thumb_cache.clear()
             self.thumbnails.invalidate()
             research_provider = self.research.bridge.provider
@@ -132,6 +138,7 @@ class RegionReview(QObject):
             source.identity if source else None,
         )
         if self.signature != signature:
+            self.compare_page = 0
             self.signature = signature
             self.full_groups = (
                 {
@@ -166,6 +173,9 @@ class RegionReview(QObject):
             if self.current not in {g["id"] for g in self.groups}:
                 self.current = self.groups[0]["id"] if self.groups else ""
         selected = next((p for p in r.rows if p["id"] == r.selected_id), None)
+        if self.presentation == "COMPARE" and r.selected_id != self.last_selected_id:
+            self._align_comparison_selection()
+        self.last_selected_id = r.selected_id
         if selected:
             key = f"{self.edge}:{int(selected['y']) // self.edge}:{int(selected['x']) // self.edge}"
             if key in {g["id"] for g in self.groups}:
@@ -175,24 +185,61 @@ class RegionReview(QObject):
         self.changed.emit()
 
     def _prepare_thumbnails(self):
+        if self.research.display_result is None:
+            return
         group = next((g for g in self.groups if g["id"] == self.current), None)
-        key = (self.session, self.current)
-        if not group or key == self.thumb_key or not self.research.pixels_available:
+        comparing = self.presentation == "COMPARE"
+        rows = (
+            self.research.filtered[
+                self.compare_page * 24 : (self.compare_page + 1) * 24
+            ]
+            if comparing
+            else (group or {}).get("rows", [])[:512]
+        )
+        key = (
+            self.session,
+            self.presentation,
+            self.compare_page if comparing else self.current,
+            tuple(p["id"] for p in rows),
+        )
+        if not rows or key == self.thumb_key or not self.research.pixels_available:
             return
         self.thumb_key = key
+        self.thumbnail_error = ""
         self.thumb_urls = {}
         if key in self.thumb_cache:
             self._thumbnails_ready((key, self.thumb_cache[key]), "")
             return
         source = self.research.display_result.request.source
-        rows = group["rows"][:512]
-        rect = group["rect"]
+        rect = group["rect"] if group else None
 
         def read():
             import numpy as np
             from PySide6.QtCore import Qt
             from PySide6.QtGui import QImage
 
+            # Comparison reads bounded equal-scale patches, never a bounding box
+            # spanning unrelated candidates across a multi-gigapixel source.
+            if comparing:
+                images = {}
+                for row in rows:
+                    w, h = (
+                        min(128, source.metadata.width),
+                        min(128, source.metadata.height),
+                    )
+                    x = max(0, min(round(row["x"]) - 64, source.metadata.width - w))
+                    y = max(0, min(round(row["y"]) - 64, source.metadata.height - h))
+                    pixels = np.ascontiguousarray(source.read_region(x, y, w, h))
+                    if (
+                        pixels.dtype == np.uint8
+                        and pixels.ndim == 3
+                        and pixels.shape[2] == 3
+                    ):
+                        images[row["id"]] = QImage(
+                            pixels.data, w, h, pixels.strides[0], QImage.Format_RGB888
+                        ).copy()
+                source.validate_identity()
+                return key, images
             x, y, w, h = rect
             left, top = max(0, x - 64), max(0, y - 64)
             right, bottom = (
@@ -215,7 +262,7 @@ class RegionReview(QObject):
                             patch.data, pw, ph, patch.strides[0], QImage.Format_RGB888
                         )
                         .copy()
-                        .scaled(48, 48, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+                        .scaled(96, 96, Qt.KeepAspectRatio, Qt.SmoothTransformation)
                     )
             source.validate_identity()
             return key, images
@@ -223,7 +270,11 @@ class RegionReview(QObject):
         self.thumbnails.submit(read)
 
     def _thumbnails_ready(self, value, error):
-        if error or not value or value[0] != self.thumb_key:
+        if error:
+            self.thumbnail_error = "미리보기를 읽지 못했습니다. 원본 연결을 확인하세요."
+            self.changed.emit()
+            return
+        if not value or value[0] != self.thumb_key:
             return
         key, images = value
         self.thumb_cache[key] = images
@@ -248,6 +299,73 @@ class RegionReview(QObject):
         self.changed.emit()
 
     @Slot(str)
+    def setPresentation(self, value):
+        if value not in ("DISTRIBUTION", "AREA", "COMPARE", "IMAGE"):
+            return
+        self.presentation = value
+        if value == "COMPARE":
+            self._align_comparison_selection()
+        self._prepare_thumbnails()
+        self.changed.emit()
+
+    def _align_comparison_selection(self):
+        index = next(
+            (
+                i
+                for i, p in enumerate(self.research.filtered)
+                if p["id"] == self.research.selected_id
+            ),
+            -1,
+        )
+        if index >= 0:
+            self.compare_page = index // 24
+
+    @Slot(int)
+    def setComparePage(self, page):
+        self.compare_page = max(
+            0, min(page, max(0, (len(self.research.filtered) - 1) // 24))
+        )
+        self._prepare_thumbnails()
+        self.changed.emit()
+
+    @Slot(str)
+    def selectArea(self, ident):
+        reviews = getattr(self.research.bridge, "review_controller", None)
+        if reviews and reviews.pending:
+            self.error = "작성 중인 검수를 먼저 기록하거나 취소하세요."
+            self.changed.emit()
+            return
+        group = next((g for g in self.groups if g["id"] == ident), None)
+        if not group:
+            return
+        self.current = ident
+        self.opened.add(ident)
+        if group["rows"]:
+            self.research.selectCandidate(group["rows"][0]["id"])
+        else:
+            self.research._clear_selection()
+            self.research.changed.emit()
+            self.focusRequested.emit(*group["rect"])
+        self.changed.emit()
+
+    @Slot()
+    def nextUnreviewed(self):
+        index = next(
+            (i for i, g in enumerate(self.groups) if g["id"] == self.current), -1
+        )
+        ordered = self.groups[index + 1 :] + self.groups[: index + 1]
+        group = next(
+            (
+                g
+                for g in ordered
+                if any(self.records.get(p["id"]) != "CONFIRMED" for p in g["rows"])
+            ),
+            None,
+        )
+        if group:
+            self.selectArea(group["id"])
+
+    @Slot(str)
     def setMode(self, mode):
         if mode in ("AREA", "PRIORITY", "SAMPLE", "SCAN"):
             self.mode = mode
@@ -267,15 +385,7 @@ class RegionReview(QObject):
             (i for i, g in enumerate(self.groups) if g["id"] == self.current), -1
         )
         group = self.groups[max(0, min(len(self.groups) - 1, index + delta))]
-        self.current = group["id"]
-        self.opened.add(self.current)
-        if group["rows"]:
-            self.research.selectCandidate(group["rows"][0]["id"])
-        else:
-            self.research._clear_selection()
-            self.research.changed.emit()
-            self.focusRequested.emit(*group["rect"])
-        self.changed.emit()
+        self.selectArea(group["id"])
 
     @Slot(int)
     def stepCandidate(self, delta):
@@ -301,6 +411,11 @@ class RegionReview(QObject):
         if ident in {p["id"] for p in self.research.rows}:
             self.checked.add(ident) if value else self.checked.discard(ident)
             self.changed.emit()
+
+    @Slot()
+    def clearChecked(self):
+        self.checked.clear()
+        self.changed.emit()
 
     @Slot(str)
     def mark(self, status):
@@ -330,6 +445,34 @@ class RegionReview(QObject):
         group = next((g for g in self.groups if g["id"] == self.current), {})
         rows = group.get("rows", [])
         return {
+            "thumbnailError": self.thumbnail_error,
+            "presentation": self.presentation,
+            "session": self.session,
+            "current": self.current,
+            "areaReviewed": sum(self.records.get(p["id"]) == "CONFIRMED" for p in rows),
+            "mapCells": [
+                {
+                    "id": g["id"],
+                    "rect": g["rect"],
+                    "count": len(g["rows"]),
+                    "label": g["label"],
+                    "counts": g["counts"],
+                }
+                for g in self.groups
+            ],
+            "comparePage": self.compare_page,
+            "comparePages": max(1, (len(self.research.filtered) + 23) // 24),
+            "compareRows": [
+                {
+                    **p,
+                    "thumbnail": self.thumb_urls.get(p["id"], ""),
+                    "checked": p["id"] in self.checked,
+                    "review": self.records.get(p["id"], "UNREVIEWED"),
+                }
+                for p in self.research.filtered[
+                    self.compare_page * 24 : (self.compare_page + 1) * 24
+                ]
+            ],
             "enabled": self.enabled,
             "mode": self.mode,
             "edge": self.edge,
@@ -366,9 +509,10 @@ class RegionReview(QObject):
                 {
                     **p,
                     "thumbnail": self.thumb_urls.get(p["id"], ""),
+                    "thumbnailOmitted": i >= 512,
                     "checked": p["id"] in self.checked,
                     "review": self.records.get(p["id"], "UNREVIEWED"),
                 }
-                for p in rows
+                for i, p in enumerate(rows)
             ],
         }
