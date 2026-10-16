@@ -155,7 +155,7 @@ class Stack3DController(QObject):
         self.raw_reader = None
         self.frame = {}
         self.hover_text = ""
-        self.bridge.provider.stack3d_images = {}
+        self.bridge.provider.stack3d_images = {k: v for k, v in self.bridge.provider.stack3d_images.items() if k.startswith("trace-")}
         self.renderChanged.emit()
         self.changed.emit()
 
@@ -407,7 +407,7 @@ class Stack3DController(QObject):
         self.changed.emit()
 
     @Slot(int, int, int, int, result=bool)
-    def openViewerSelection(self, x, y, width, height):
+    def openViewerSelection(self, x, y, width, height, focus=None):
         self._refresh_sources()
         original = self.bridge.original_source
         if original is None or original.metadata.page_count < 2:
@@ -420,13 +420,16 @@ class Stack3DController(QObject):
             self.selectSource(sid)
         if self.busy:
             if self.job == "restore":
-                self.pending_viewer_selection = (self.epoch, original.path, (x,y,width,height))
+                self.pending_viewer_selection = (self.epoch, original.path, (x,y,width,height,focus))
                 return True
             return False
         # Explicit display sampling keeps original XY/page mappings intact.
         # Never interpret ImageJ frames as physical Z distances.
         stride = max(1, math.ceil(math.sqrt(width*height*original.metadata.page_count*2/(64*1024**2))))
         if self.configure(x,y,width,height,0,original.metadata.page_count-1,1,stride):
+            if focus is not None:
+                page, source_y, source_x = focus
+                self.cursor = [page, (source_y-y)//stride, (source_x-x)//stride]
             self.generate()
             return True
         return False
@@ -589,7 +592,8 @@ class Stack3DController(QObject):
             for k in frame["images"]
         }
         self.bridge.provider.stack3d_images = {
-            f"{self.render_revision}-{k}": im for k, im in frame["images"].items()
+            **{k: v for k, v in self.bridge.provider.stack3d_images.items() if k.startswith("trace-")},
+            **{f"{self.render_revision}-{k}": im for k, im in frame["images"].items()},
         }
         self.frame = {**{k: v for k, v in frame.items() if k != "images"}, "urls": urls}
         for p in self.frame["planes"]:

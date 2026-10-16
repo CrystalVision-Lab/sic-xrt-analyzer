@@ -66,14 +66,15 @@ ColumnLayout {
         text: results.limited ? "일부 영역은 분석이 제한됐습니다 · 설정에서 확인" : "분류 제외 " + results.excluded + "개 · 설정에서 확인"
         color: theme.warning; font.pixelSize: 12; wrapMode: Text.Wrap; Layout.fillWidth: true
     }
+    Text { visible:results.excluded>0; text:"분류 제외 · "+results.exclusionSummary;color:root.theme.warning;font.pixelSize:12;wrapMode:Text.Wrap;Layout.fillWidth:true }
     Rectangle { Layout.fillWidth: true; implicitHeight: 1; color: root.theme.borderSubtle }
     ColumnLayout {
         visible: root.distribution; Layout.fillWidth: true; spacing: 14
-        Text { text: "분포부터 살펴보세요"; color: root.theme.text; font.pixelSize: 18; font.weight: Font.DemiBold }
+        Text { text: "원본 위에서 후보를 확인하세요"; color: root.theme.text; font.pixelSize: 18; font.weight: Font.DemiBold }
         Text { text: "이미지에서 영역을 선택하면 주변 결함을 함께 검토할 수 있습니다."; color: root.theme.muted; wrapMode: Text.Wrap; Layout.fillWidth: true; font.pixelSize: 14 }
         Text { text: "표시 후보 "+root.presentation.count(root.results.filteredTotal)+"개 · "+root.area.total+"개 영역"; color: root.theme.text; font.pixelSize: 13; wrapMode:Text.Wrap; Layout.fillWidth:true }
-        Text { text: "밝을수록 후보가 많습니다. 색의 밝기는 결함 위험도나 모델의 확신 정도가 아닙니다."; color: root.theme.muted; wrapMode: Text.Wrap; Layout.fillWidth: true; font.pixelSize: 12 }
-        AppButton { objectName:"beginAreaReview"; theme:root.theme; primary:true; text:"영역 검토 시작"; enabled:root.area.total>0; onClicked:{root.uiState.resultViewMode="area";root.navigator.activate(true);root.navigator.stepArea(0)} }
+        Text { text: "BPD는 금색 윤곽, TED는 파란 점, TSD는 분홍 점입니다. 영역을 누르면 확대되며 아래에 주변 후보가 표시됩니다."; color: root.theme.muted; wrapMode: Text.Wrap; Layout.fillWidth: true; font.pixelSize: 12 }
+        AppButton { objectName:"beginAreaReview"; theme:root.theme; primary:true; text:"첫 영역 확대"; enabled:root.area.total>0; onClicked:{root.uiState.resultViewMode="area";root.navigator.activate(true);root.navigator.stepArea(0)} }
         Text { text: root.results.limited ? "후보 한도에 도달하여 일부 후보가 제외됐습니다. 전체 결함 수로 해석하지 마세요." : "검출 후보는 모델의 제안입니다. 원본에서 확인한 뒤 검토 상태를 기록하세요."; color:root.results.limited?root.theme.warning:root.theme.muted; wrapMode:Text.Wrap; Layout.fillWidth:true; font.pixelSize:12 }
     }
     RowLayout {
@@ -172,6 +173,10 @@ ColumnLayout {
         x:(parent.width-width)/2; y:(parent.height-height)/2; standardButtons:Dialog.Close
     ColumnLayout {
         width:parent.width; spacing:10
+        Text { text: "후보 표시 강도"; color: root.theme.text }
+        Slider { objectName: "candidateOpacitySlider"; Layout.fillWidth: true; from: 0.2; to: 1; value: root.uiState.resultOverlayOpacity; onMoved: root.uiState.resultOverlayOpacity=value }
+        Text { text: "분포 색 농도 · 0이면 원본과 후보만 표시"; color: root.theme.text; wrapMode: Text.Wrap; Layout.fillWidth: true }
+        Slider { objectName: "densityOpacitySlider"; Layout.fillWidth: true; from: 0; to: 0.4; value: root.uiState.densityOpacity; onMoved: root.uiState.densityOpacity=value }
         Text { visible: results.limited; text: "후보 생성 한도에 도달했습니다. 작은 ROI로 나누어 다시 분석하세요."; color: root.theme.warning; wrapMode: Text.Wrap; Layout.fillWidth: true; font.pixelSize: 12 }
         Text { visible: results.excluded>0; text: "분류 제외 " + results.excluded + "개 · " + results.exclusionSummary; color: root.theme.muted; wrapMode: Text.Wrap; Layout.fillWidth: true; font.pixelSize: 12 }
         RowLayout {

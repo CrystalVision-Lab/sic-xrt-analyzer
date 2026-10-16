@@ -437,7 +437,8 @@ Rectangle {
                 property bool reviewing: uiState.feedbackVisible
                 property real paintMs: 0
                 property int paintCount: 0
-                readonly property real candidateOpacity: 0.75
+                readonly property real candidateOpacity: uiState.resultOverlayOpacity
+                onCandidateOpacityChanged: requestPaint()
                 readonly property real markerRadius: Math.max(6, Math.min(12, 6 + Math.log(Math.max(1,imageScale))/Math.LN2*2))
                 property var layers: [uiState.bpdLayerVisible, uiState.tedLayerVisible, uiState.tsdLayerVisible, uiState.selectedLayerVisible]
                 onLayersChanged: requestPaint()
@@ -445,7 +446,7 @@ Rectangle {
                 property real imageX: imageFrame.x
                 property real imageY: imageFrame.y
                 property real imageScale: root.displayScale
-                visible: (uiState.hasResult || uiState.analysisRunning) && (!uiState.hasResult || (uiState.resultViewMode!=="distribution" && uiState.resultViewMode!=="image")) && (uiState.analysisLayerVisible || (uiState.selectedLayerVisible && !!selected.id)) && uiState.hasLoadedImage
+                visible: (uiState.hasResult || uiState.analysisRunning) && (!uiState.hasResult || uiState.resultViewMode!=="image") && (uiState.analysisLayerVisible || (uiState.selectedLayerVisible && !!selected.id)) && uiState.hasLoadedImage
                 onPointsChanged: requestPaint()
                 onSelectedChanged: requestPaint()
                 onReviewingChanged: requestPaint()
@@ -472,8 +473,8 @@ Rectangle {
                         var hasRegion=p.type==="BPD" && p.region && p.region.length>=3
                         if (!hasRegion && (x<0 || y<0 || x>width || y>height)) continue
                         c.strokeStyle=uiState.resultPresentation.colorFor(p.type)
-                        c.fillStyle=c.strokeStyle; c.globalAlpha=candidateOpacity*(overviewMode?.65:1)
-                        c.lineWidth=overviewMode?1:1.5
+                        c.fillStyle=c.strokeStyle; c.globalAlpha=candidateOpacity
+                        c.lineWidth=overviewMode?1.6:2
                         if (hasRegion) {
                             outline(c,p.region)
                         } else if (p.type==="BPD") {
@@ -482,7 +483,7 @@ Rectangle {
                             c.beginPath(); c.moveTo(x-3,y); c.lineTo(x+3,y)
                             c.moveTo(x,y-3); c.lineTo(x,y+3); c.stroke()
                         } else {
-                            c.beginPath(); c.arc(x,y,overviewMode?1.8:3.5,0,Math.PI*2)
+                            c.beginPath(); c.arc(x,y,overviewMode?2.5:4.5,0,Math.PI*2)
                             if (overviewMode) c.fill(); else c.stroke()
                         }
                     }

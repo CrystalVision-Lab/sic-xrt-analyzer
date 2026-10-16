@@ -42,6 +42,7 @@ def test_workstation_flow(tmp_path):
     engine = QQmlApplicationEngine()
     provider = TiffImageProvider()
     bridge = FileBridge(provider, engine, QSettings(str(tmp_path / "ui.ini"), QSettings.IniFormat))
+    bridge.centralSync.dismissSetup()
     engine.addImageProvider("tiff", provider)
     engine.rootContext().setContextProperty("fileBridge", bridge)
     warnings = []

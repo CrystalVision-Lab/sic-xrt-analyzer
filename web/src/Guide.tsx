@@ -1,3 +1,4 @@
+import workflowGuide from "./workflow-guide.json";
 import { useEffect, useId, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { BookOpen, Check, ChevronRight, Expand } from "lucide-react";
@@ -27,5 +28,5 @@ export function GuideWorkspace({ data }: { data:GuideData }) {
 }
 export function GuideExplorer() {
  const {data,error,loading}=useData<GuideData>("guide/public");
- return <section className="guide-section site-width" id="research-guide"><div className="guide-heading"><div><p className="eyebrow">WORKSPACE GUIDE</p><h1>사용 가이드</h1></div></div>{loading?<Loading/>:error?<ErrorBox error={error}/>:data?<GuideWorkspace data={data}/>:null}</section>;
+ return <section className="guide-section site-width" id="research-guide"><div className="guide-heading"><div><p className="eyebrow">WORKSPACE GUIDE</p><h1>사용 가이드</h1></div></div>{loading?<Loading/>:error?<ErrorBox error={error}/>:data?<GuideWorkspace data={{...data, groups:[...workflowGuide.groups, ...data.groups]}}/>:null}</section>;
 }

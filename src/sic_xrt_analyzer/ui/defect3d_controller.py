@@ -26,6 +26,7 @@ class Defect3DController(QObject):
         self.visual = False
         self.paused = False
         self.phase = 0
+        self.playback_speed = 1.0
         self.frame_revision = 0
         self.frame_page = 0
         self.frame_reason = ""
@@ -195,6 +196,7 @@ class Defect3DController(QObject):
 
     def _display_packet(self, packet):
         self.bridge.provider.stack3d_images = {
+            **{k: v for k, v in self.bridge.provider.stack3d_images.items() if not k.startswith("trace-")},
             "trace-full": packet["full"],
             "trace-crop": packet["crop"],
         }
@@ -214,18 +216,43 @@ class Defect3DController(QObject):
         self.layersChanged.emit()
         self.changed.emit()
         if not self.paused:
-            self.timer.start(300)
+            self.timer.start(round(300 / self.playback_speed))
 
     def _advance_frame(self):
         if self.phase == 0:
             self.phase = 1
             self.changed.emit()
             if not self.paused:
-                self.timer.start(450)
+                self.timer.start(round(450 / self.playback_speed))
         elif self.replaying:
             self._next_replay()
         else:
             self.ack.set()
+
+    @Slot(float)
+    def setPlaybackSpeed(self, speed):
+        if speed not in (0.5, 1.0, 2.0):
+            return
+        previous = self.playback_speed
+        self.playback_speed = speed
+        if self.timer.isActive():
+            self.timer.start(max(1, round(self.timer.remainingTime() * previous / speed)))
+        self.changed.emit()
+
+    @Slot(result=bool)
+    def openComparison(self):
+        if self.busy or self.mesh is None:
+            return False
+        x0, y0, _, x1, y1, _ = self.mesh.bounds
+        source = self.bridge.original_source
+        if source is None or source.metadata.dtype != "uint16":
+            self.error = "직교 비교는 uint16 흑백 TIFF에서 사용할 수 있습니다"
+            self.changed.emit()
+            return False
+        x0, y0 = max(0, x0-32), max(0, y0-32)
+        x1, y1 = min(source.metadata.width, x1+32), min(source.metadata.height, y1+32)
+        sx, sy, page = self.mesh.seed
+        return self.bridge.stack3d.openViewerSelection(x0, y0, x1-x0, y1-y0, focus=(page, sy, sx))
 
     @Slot()
     def togglePause(self):
@@ -428,6 +455,7 @@ class Defect3DController(QObject):
             if m and self.bridge.original_source
             else 200,
             "visualExtent": self.visual_extent,
+            "playbackSpeed": self.playback_speed,
             "junctionPages": [p + 1 for p in m.junction_pages] if m else [],
             "manualAnchors": len(self.anchors),
             "skippedPages": sorted(k + 1 for k in self.skipped),

@@ -26,7 +26,7 @@ Item {
                 if (x+w<0 || y+h<0 || x>width || y>height) continue
                 // Equal-area cells: density of current filtered proposals, not severity.
                 c.fillStyle = "#dfc78d"
-                c.globalAlpha = .08 + .47*Math.sqrt(cell.count/maxCount)
+                c.globalAlpha = root.uiState.densityOpacity*Math.sqrt(cell.count/maxCount)
                 c.fillRect(x, y, w, h)
                 if (cell.id === root.uiState.regionReview.current) {
                     c.globalAlpha = 1; c.strokeStyle = root.theme.accent; c.lineWidth = 2
@@ -35,6 +35,7 @@ Item {
             }
         }
     }
+    Connections { target: root.uiState; function onDensityOpacityChanged() { density.requestPaint() } }
     onCellsChanged: density.requestPaint()
     onImageXChanged: density.requestPaint()
     onImageYChanged: density.requestPaint()
@@ -62,7 +63,7 @@ Item {
         width: Math.min(parent.width-32, legend.implicitWidth+28); height: legend.implicitHeight+22
         radius: root.theme.radiusPanel; color: root.theme.panel
         Text { id: legend; anchors.fill: parent; anchors.margins: 11; wrapMode: Text.Wrap; color: root.theme.text; font.pixelSize: 12
-            text: root.hoveredLabel || "후보 분포 · 영역을 눌러 검토\n밝을수록 후보가 많음 · 위험도 아님"
+            text: root.hoveredLabel || "후보 분포 · 영역을 눌러 검토\n점·윤곽은 후보 위치 · 색 농도는 설정에서 조절"
         }
     }
 }

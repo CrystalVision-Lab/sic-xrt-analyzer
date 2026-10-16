@@ -1,4 +1,5 @@
 """Local desktop integration and persisted, applicable UI preferences."""
+import json
 import os
 import platform
 from pathlib import Path
@@ -187,6 +188,10 @@ class FileBridge(QObject):
     @Property("QStringList", notify=recentFilesChanged)
     def recentFiles(self):
         return self._recent_files
+
+    @Property("QVariantMap", constant=True)
+    def workflowGuide(self):
+        return json.loads((Path(__file__).parent / "assets" / "workflow-guide.json").read_text(encoding="utf-8"))
 
     @Property(QObject, constant=True)
     def folderMap(self):

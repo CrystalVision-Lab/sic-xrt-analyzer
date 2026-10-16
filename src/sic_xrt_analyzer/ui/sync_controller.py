@@ -90,6 +90,12 @@ class SyncController(QObject):
     def token(self):
         return self.vault.get(self.endpoint, self.outbox.client_id)
 
+    @Slot()
+    def dismissSetup(self):
+        self.settings.setValue("deviceSetupSeen", True)
+        self.settings.sync()
+        self.changed.emit()
+
     @Slot(str, str, str, result=bool)
     def configure(self, endpoint, client_id, credential):
         if self.busy:
@@ -388,6 +394,7 @@ class SyncController(QObject):
     def state(self):
         c = self.bridge.project_controller
         return {
+            "setupNeeded": not self.endpoint and not self.settings.value("deviceSetupSeen", False, type=bool),
             "endpoint": self.endpoint,
             "clientId": self.client_id,
             "status": self.status,
