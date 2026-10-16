@@ -22,7 +22,7 @@ a.binaries, removed_binaries = slim_toc(a.binaries)
 a.datas, removed_datas = slim_toc(a.datas)
 removed = removed_binaries + removed_datas
 validate_retained_imports(a.binaries, removed)
-selection_report = Path(WORKPATH) / 'bundle-selection.json'
+selection_report = Path(workpath) / 'bundle-selection.json'
 write_report(selection_report, removed)
 a.datas += [('bundle-selection.json', str(selection_report), 'DATA')]
 pyz=PYZ(a.pure)
