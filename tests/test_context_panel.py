@@ -85,7 +85,8 @@ def test_manual_navigation_keyboard_focus_and_panel_bounds(workbench, size):
     spin(w.app, lambda: w.state.property('hasResult'))
     for key in ('image','result','viewer','roi'):
         choose(w,key)
-        assert w.panel.property('width') == (380 if key == 'result' else 282)
+        expected = min(360, max(320, size[0] * .27)) if key == 'result' else 282
+        assert w.panel.property('width') == pytest.approx(expected, abs=1)
         assert w.item('centralWorkspace').property('width') >= 536
         for name in ('contextHeader','contextSwitcher'):
             item=w.item(name); point=item.mapToScene(QPointF())

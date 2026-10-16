@@ -148,6 +148,11 @@ def test_real_qml_run_button_results_overlay_and_export(qt_app, tmp_path, suffix
         assert bridge.research.state["total"] == 1
         assert bridge.analysis["modelAvailable"] and not state.property("analysisRunning")
         overlay = window.findChild(QObject, "analysisOverlay")
+        assert state.property("resultViewMode") == "distribution"
+        assert window.findChild(QObject, "resultDensityOverlay").property("visible")
+        assert not overlay.property("visible")
+        state.setProperty("resultViewMode", "area")
+        qt_app.processEvents()
         assert overlay.property("visible")
         assert window.findChild(QObject, "analysisExportButton").property("enabled")
         assert bridge.research.exportResult(str(tmp_path))
