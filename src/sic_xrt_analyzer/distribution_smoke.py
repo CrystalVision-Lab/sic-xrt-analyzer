@@ -96,6 +96,15 @@ def main(output, image_paths=(), verify_updates=False):
                     time.sleep(0.01)
 
             spin(lambda: bridge.original_source is not None)
+            setup = window.findChild(QObject, "deviceSetupDialog")
+            spin(lambda: setup.property("visible"))
+            QMetaObject.invokeMethod(setup, "close")
+            spin(lambda: not setup.property("visible"))
+            assert not bridge.centralSync.state["setupNeeded"]
+            assert len(bridge.workflowGuide["groups"]) >= 5
+            bridge.defect3d.setPlaybackSpeed(2)
+            assert bridge.defect3d.state["playbackSpeed"] == 2
+            report["tests"].append("first-run local choice, packaged guide and 2x pacing")
             from sic_xrt_analyzer.imaging.imagej_commands import command_form
             native_cases = {
                 "Gaussian Blur...": "sigma=2 slice",
