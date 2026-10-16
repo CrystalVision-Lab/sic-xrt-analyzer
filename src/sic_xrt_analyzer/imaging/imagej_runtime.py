@@ -37,7 +37,7 @@ def initialize():
     if not jpype.isJVMStarted():
         flags = subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0
         result = subprocess.run(['java', '-XshowSettings:properties', '-version'], capture_output=True, text=True,
-                                creationflags=flags, timeout=10, check=True)
+                                creationflags=flags, timeout=30, check=True)
         home = next((line.split('=', 1)[1].strip() for line in result.stderr.splitlines() if 'java.home =' in line), '')
         if not home:
             raise RuntimeError('Java 17 이상 설치 및 PATH/JAVA_HOME 설정이 필요합니다')

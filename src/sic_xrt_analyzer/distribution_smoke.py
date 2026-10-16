@@ -233,12 +233,22 @@ def main(output, image_paths=(), verify_updates=False):
                 assert result
                 report["tests"].append("ImageJ working copy")
                 original_bytes = source.read_bytes()
-                for command, options in native_cases.items():
-                    expected = client.run(frame, command=command, options=options)
-                    expected_pixels = tifffile.imread(expected["path"])
-                    actual = client.run(frame, native=command,
-                        parameters=command_form(command)["values"])
-                    np.testing.assert_array_equal(tifffile.imread(actual["path"]), expected_pixels)
+                for index, (command, options) in enumerate(native_cases.items()):
+                    # A new source identity prevents the direct ImageJ session
+                    # from reusing the previous command's modified working copy.
+                    case_source = folder / f"native-command-{index}.tif"
+                    shutil.copyfile(source, case_source)
+                    case_stack = open_stack(case_source)
+                    try:
+                        case_frame = case_stack.frame(0)
+                        expected = client.run(case_frame, command=command, options=options)
+                        expected_pixels = tifffile.imread(expected["path"])
+                        actual = client.run(case_frame, native=command,
+                            parameters=command_form(command)["values"])
+                        np.testing.assert_array_equal(tifffile.imread(actual["path"]), expected_pixels)
+                    finally:
+                        case_stack.close()
+                    assert case_source.read_bytes() == original_bytes
                 assert source.read_bytes() == original_bytes
                 report["tests"].append("nine native ImageJ operations match direct engine; original preserved")
             finally:
