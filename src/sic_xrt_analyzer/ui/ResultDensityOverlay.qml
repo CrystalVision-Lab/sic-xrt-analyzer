@@ -9,7 +9,7 @@ Item {
     property real imageY: 0
     property real imageScale: 1
     readonly property var navigator: fileBridge.research.regions
-    readonly property var cells: navigator.state.mapCells || []
+    readonly property var cells: uiState.regionReview.mapCells || []
     property string hoveredLabel: ""
     Canvas {
         id: density; anchors.fill: parent
@@ -28,7 +28,7 @@ Item {
                 c.fillStyle = "#dfc78d"
                 c.globalAlpha = .08 + .47*Math.sqrt(cell.count/maxCount)
                 c.fillRect(x, y, w, h)
-                if (cell.id === root.navigator.state.current) {
+                if (cell.id === root.uiState.regionReview.current) {
                     c.globalAlpha = 1; c.strokeStyle = root.theme.accent; c.lineWidth = 2
                     c.strokeRect(x+1, y+1, Math.max(0,w-2), Math.max(0,h-2))
                 }

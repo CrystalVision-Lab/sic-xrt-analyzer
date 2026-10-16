@@ -20,10 +20,14 @@ def test_density_selection_review_and_original_preserve_result(workbench):
     assert not r.selected_id
     assert w.item("resultDensityOverlay").property("visible")
     assert not w.item("analysisOverlay").property("visible")
+    # Hidden lists must not create candidate delegates during overview/restoration.
+    assert w.item("resultCandidateGrid").property("count") == 0
+    assert w.item("candidateList").property("count") == 0
     cell = regions.state["mapCells"][-1]
     regions.selectArea(cell["id"])
     spin(w.app, lambda: w.state.property("resultViewMode") == "area")
     assert regions.state["current"] == cell["id"]
+    spin(w.app, lambda: w.item("resultCandidateGrid").property("count") == len(regions.state["rows"]))
     assert regions.state["reviewed"] == 0
     QTest.qWait(500)
     viewer = w.item("imageViewer")

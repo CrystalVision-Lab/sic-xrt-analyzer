@@ -9,7 +9,7 @@ ColumnLayout {
     property QtObject uiState
     readonly property var results: uiState.research
     readonly property var navigator: fileBridge.research.regions
-    readonly property var area: navigator.state
+    readonly property var area: uiState.regionReview
     readonly property var visibleRows: area.enabled ? area.rows : results.displayRows
     readonly property bool spatialNavigation: area.enabled && uiState.resultViewMode !== "compare"
     readonly property int navigationIndex: spatialNavigation ? area.candidateIndex : results.selectedIndex
@@ -28,7 +28,7 @@ ColumnLayout {
     Component.onCompleted: navigator.activate(true)
     Connections {
         target: fileBridge.research
-        function onChanged() { Qt.callLater(function() { if (root.results.selectedIndex >= 0) candidates.positionViewAtIndex(root.visibleRows.findIndex(function(p){return p.id===root.selected.id}), ListView.Contain) }) }
+        function onChanged() { Qt.callLater(function() { if (candidates.visible && root.results.selectedIndex >= 0) candidates.positionViewAtIndex(root.visibleRows.findIndex(function(p){return p.id===root.selected.id}), ListView.Contain) }) }
     }
     Text { objectName: "resultOrigin"; visible: results.savedActive; text: "저장된 이력"; color: theme.muted; font.pixelSize: theme.smallSize }
     RowLayout {
@@ -97,7 +97,7 @@ ColumnLayout {
         id: candidates; objectName: "candidateList"
         visible: results.filteredTotal>0 && !root.distribution && !root.shelfVisible
         Layout.fillWidth: true; Layout.fillHeight: true; Layout.minimumHeight: 100
-        clip: true; spacing: 6; model: root.visibleRows
+        clip: true; spacing: 6; model: visible ? root.visibleRows : []
         ScrollBar.vertical: ScrollBar {}
         delegate: ItemDelegate {
             required property var modelData

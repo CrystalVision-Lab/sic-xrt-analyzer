@@ -25,7 +25,7 @@ Rectangle {
         var reviewed = uiState.feedback.selected || ({})
         if (!uiState.hasLoadedImage || uiState.loading || !((candidate.id && candidate.x === x && candidate.y === y) || (reviewed.id && reviewed.x === x && reviewed.y === y))) return
         if (uiState.resultViewMode === "distribution") uiState.resultViewMode = "area"
-        var area = fileBridge.research.regions.state
+        var area = root.uiState.regionReview
         if (area.enabled && area.rect.length === 4) {
             var screenX = imageFrame.x + x * displayScale
             var screenY = imageFrame.y + y * displayScale
@@ -248,7 +248,7 @@ Rectangle {
 
                     if (uiState.pageCount === 1 && uiState.hasResult && !uiState.roiEditMode && [Qt.Key_Left, Qt.Key_Right].indexOf(event.key) >= 0) {
                         var delta = event.key === Qt.Key_Right ? 1 : -1
-                        if (fileBridge.research.regions.state.enabled) fileBridge.research.regions.stepCandidate(delta)
+                        if (root.uiState.regionReview.enabled) fileBridge.research.regions.stepCandidate(delta)
                         else fileBridge.research.stepCandidate(delta)
                         event.accepted = true; return
                     }
@@ -603,7 +603,7 @@ Rectangle {
             OverviewMap {
                 width: Math.min(190, Math.max(140, viewport.width * .23))
                 height: width * 160 / 190
-                coverage:fileBridge.research.regions.state.coverage
+                coverage:root.uiState.regionReview.coverage
                 z: 7; anchors.right: parent.right; anchors.bottom: parent.bottom; anchors.margins: 12
                 visible: uiState.hasLoadedImage && !uiState.loading && viewport.width > 300 && (!uiState.hasResult || uiState.resultViewMode!=="distribution")
                 theme: root.theme; imageSource: uiState.imageSource

@@ -58,6 +58,8 @@ QtObject {
     property var centralSync: fileBridge.centralSync.state
     property var project: fileBridge.projects.state
     property var research: fileBridge.research.state
+    // Share one QVariant snapshot across result views per notification.
+    readonly property var regionReview: fileBridge.research.regions.state
     property string resultViewMode: "distribution"
     property string resultViewIdentity: ""
     onResultViewModeChanged: fileBridge.research.regions.setPresentation(resultViewMode.toUpperCase())
