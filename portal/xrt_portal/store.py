@@ -13,6 +13,8 @@ from uuid import uuid4
 from cryptography.fernet import Fernet
 from packaging.version import Version
 
+from .passwords import hash_password, username, verify_password
+
 MAX_FILE = 3 * 1024**3
 
 
@@ -43,6 +45,7 @@ class Store:
             db.executescript("""
             PRAGMA journal_mode=WAL;
             CREATE TABLE IF NOT EXISTS sessions (digest TEXT PRIMARY KEY, cipher BLOB NOT NULL, csrf TEXT NOT NULL, expires REAL NOT NULL);
+            CREATE TABLE IF NOT EXISTS admin_logins (username TEXT PRIMARY KEY, password_hash TEXT NOT NULL, cipher BLOB NOT NULL, revision TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS releases (id TEXT PRIMARY KEY, version TEXT UNIQUE NOT NULL, payload TEXT NOT NULL, actor TEXT NOT NULL, created REAL NOT NULL);
             CREATE TABLE IF NOT EXISTS events (id TEXT PRIMARY KEY, release_id TEXT NOT NULL REFERENCES releases(id), revision INTEGER NOT NULL, payload TEXT NOT NULL, actor TEXT NOT NULL, created REAL NOT NULL, UNIQUE(release_id,revision));
             CREATE TABLE IF NOT EXISTS downloads (id INTEGER PRIMARY KEY, release_id TEXT NOT NULL, created REAL NOT NULL);
@@ -71,12 +74,35 @@ class Store:
                 (actor, action, json.dumps(detail or {}), time.time()),
             )
 
-    def session(self, credential, user):
+    def set_admin_login(self, name, password, credential, user):
+        name = username(name)
+        if user.get("role") != "ADMIN":
+            raise ValueError("ADMIN_REQUIRED")
+        encoded = hash_password(password)
+        cipher = self.key.encrypt(json.dumps({"credential": credential, "user": user}).encode())
+        with self.connect() as db:
+            db.execute(
+                "INSERT INTO admin_logins VALUES(?,?,?,?) ON CONFLICT(username) DO UPDATE SET "
+                "password_hash=excluded.password_hash,cipher=excluded.cipher,revision=excluded.revision",
+                (name, encoded, cipher, secrets.token_hex(16)),
+            )
+        self.audit(user["id"], "ADMIN_LOGIN_SET", {"username": name})
+
+    def password_login(self, name, password):
+        with self.connect() as db:
+            row = db.execute("SELECT * FROM admin_logins WHERE username=?", (username(name),)).fetchone()
+        valid = verify_password(password, row["password_hash"] if row else None)
+        if not row or not valid:
+            return None
+        payload = json.loads(self.key.decrypt(row["cipher"]))
+        return {**payload, "account": {"username": row["username"], "revision": row["revision"]}}
+
+    def session(self, credential, user, account=None):
         token = secrets.token_urlsafe(48)
         csrf = secrets.token_urlsafe(32)
         expires = time.time() + 7200
         cipher = self.key.encrypt(
-            json.dumps({"credential": credential, "user": user}).encode()
+            json.dumps({"credential": credential, "user": user, "account": account}).encode()
         )
         with self.connect() as db:
             db.execute("DELETE FROM sessions WHERE expires<?", (time.time(),))
@@ -98,6 +124,11 @@ class Store:
         if not row:
             return None
         payload = json.loads(self.key.decrypt(row["cipher"]))
+        if account := payload.get("account"):
+            with self.connect() as db:
+                current = db.execute("SELECT revision FROM admin_logins WHERE username=?", (account["username"],)).fetchone()
+            if current is None or current["revision"] != account["revision"]:
+                return None
         return {**payload, "csrf": row["csrf"], "expires_at": row["expires"]}
 
     def logout(self, token):

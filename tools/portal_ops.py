@@ -1,6 +1,7 @@
 """Operate only the XRT portal overlay. Secrets stay private; research volumes are never removed."""
 
 import argparse
+import getpass
 import json
 import os
 import subprocess
@@ -75,10 +76,12 @@ def main():
             "register",
             "backup",
             "tunnel",
+            "set-admin-login",
         ],
     )
     p.add_argument("--bundle", type=Path)
     p.add_argument("--output", type=Path)
+    p.add_argument("--username")
     args = p.parse_args()
     if args.action == "init":
         init()
@@ -123,6 +126,17 @@ def main():
                 "/operation/input/" + m["source_archive"]["filename"],
             ]
         )
+    elif args.action == "set-admin-login":
+        if not args.username:
+            p.error("--username required")
+        password = getpass.getpass("New administrator password: ")
+        compose([
+            "run", "--rm", "--no-deps", "-T",
+            "-v", str(PRIVATE / "admin.json") + ":/operation/admin.json:ro",
+            "release-admin", "python", "-m", "xrt_portal.admin_login",
+            "--username", args.username, "--credential", "/operation/admin.json",
+            "--password-stdin",
+        ], input=password + "\n", text=True)
     elif args.action == "backup":
         if not args.output:
             raise ValueError("--output required")

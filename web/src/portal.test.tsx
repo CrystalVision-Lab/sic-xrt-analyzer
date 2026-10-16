@@ -10,7 +10,7 @@ import {
   within,
 } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
-import { ReleaseHistory } from "./Admin";
+import { Login, ReleaseHistory } from "./Admin";
 import { releaseHighlights } from "./releaseNotes";
 import { DownloadPage, NotesPage } from "./Public";
 import { GuideWorkspace } from "./Guide";
@@ -45,6 +45,38 @@ const release = (id: string, channel: string) => ({
     source_revision: "b".repeat(40),
   },
 });
+it("submits the administrator password without storing it and clears it on success", async () => {
+  const session = { user: { id: "qa", name: "qa-admin", role: "ADMIN" }, csrf: "synthetic", expires_at: 123 };
+  const fetcher = vi.fn(() => Promise.resolve(json(session)));
+  vi.stubGlobal("fetch", fetcher);
+  const onLogin = vi.fn();
+  render(<MemoryRouter><Login onLogin={onLogin} /></MemoryRouter>);
+  const password = screen.getByLabelText("비밀번호") as HTMLInputElement;
+  expect(password.type).toBe("password");
+  expect(password.autocomplete).toBe("current-password");
+  fireEvent.change(screen.getByLabelText("아이디"), { target: { value: " qa-admin " } });
+  fireEvent.change(password, { target: { value: "SYNTHETIC-test-password!" } });
+  fireEvent.click(screen.getByRole("button", { name: "관리자 콘솔 접속" }));
+  await waitFor(() => expect(onLogin).toHaveBeenCalledWith(session));
+  const options = (fetcher.mock.calls as unknown as [string, RequestInit][])[0][1];
+  expect(JSON.parse(options.body as string)).toEqual({ username: "qa-admin", password: "SYNTHETIC-test-password!" });
+  expect(password.value).toBe("");
+  expect(JSON.stringify(localStorage)).not.toContain("SYNTHETIC-test-password!");
+  expect(JSON.stringify(sessionStorage)).not.toContain("SYNTHETIC-test-password!");
+});
+
+it("shows a generic password failure and permits retry", async () => {
+  vi.stubGlobal("fetch", vi.fn(() => Promise.resolve({ ok: false, status: 401, json: async () => ({ detail: "INVALID_ADMIN_LOGIN" }) })));
+  const onLogin = vi.fn();
+  render(<MemoryRouter><Login onLogin={onLogin} /></MemoryRouter>);
+  fireEvent.change(screen.getByLabelText("아이디"), { target: { value: "qa-admin" } });
+  fireEvent.change(screen.getByLabelText("비밀번호"), { target: { value: "SYNTHETIC-wrong!" } });
+  fireEvent.click(screen.getByRole("button", { name: "관리자 콘솔 접속" }));
+  expect((await screen.findByRole("alert")).textContent).toContain("아이디와 비밀번호를 확인");
+  expect(onLogin).not.toHaveBeenCalled();
+  expect((screen.getByRole("button", { name: "관리자 콘솔 접속" }) as HTMLButtonElement).disabled).toBe(false);
+});
+
 describe("download and administrator safeguards", () => {
   it("uses the posted stable release and keeps admin data off the public page", async () => {
     vi.stubGlobal(

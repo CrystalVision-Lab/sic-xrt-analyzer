@@ -55,7 +55,7 @@ const menu = [
   { to: "/admin/users", label: "연구원 · 기기", icon: Users },
   { to: "/admin/audit", label: "감사 기록", icon: ScrollText },
 ];
-function Login({ onLogin }: { onLogin: (s: Session) => void }) {
+export function Login({ onLogin }: { onLogin: (s: Session) => void }) {
   const [id, setId] = useState("");
   const [key, setKey] = useState("");
   const [busy, setBusy] = useState(false);
@@ -71,7 +71,7 @@ function Login({ onLogin }: { onLogin: (s: Session) => void }) {
           <ShieldCheck size={30} />
         </span>
         <h1>연구 관리자 로그인</h1>
-        <p>중앙 서버에서 발급한 관리자 기기 계정으로 접속합니다.</p>
+        <p>관리자 아이디와 비밀번호로 접속합니다.</p>
         <form
           onSubmit={async (e) => {
             e.preventDefault();
@@ -80,7 +80,7 @@ function Login({ onLogin }: { onLogin: (s: Session) => void }) {
             try {
               const s = await request<Session>("login", {
                 method: "POST",
-                body: JSON.stringify({ client_id: id.trim(), credential: key }),
+                body: JSON.stringify({ username: id.trim(), password: key }),
               });
               setKey("");
               onLogin(s);
@@ -88,35 +88,35 @@ function Login({ onLogin }: { onLogin: (s: Session) => void }) {
               setError(
                 e instanceof ApiError && e.status === 429
                   ? "로그인 시도 제한에 도달했습니다. 잠시 후 다시 시도하세요."
-                  : "관리자 계정과 인증키를 확인해 주세요. 서버 연결 상태도 확인할 수 있습니다.",
+                  : "아이디와 비밀번호를 확인해 주세요. 서버 연결 상태도 확인할 수 있습니다.",
               );
             } finally {
               setBusy(false);
             }
           }}
         >
-          <label htmlFor="client-id">관리자 client ID</label>
+          <label htmlFor="client-id">아이디</label>
           <input
             id="client-id"
             name="username"
             autoComplete="username"
             required
-            maxLength={128}
+            maxLength={64}
             value={id}
             onChange={(e) => setId(e.target.value)}
-            placeholder="발급된 관리자 기기 ID"
+            placeholder="관리자 아이디"
           />
-          <label htmlFor="admin-key">관리자 인증키</label>
+          <label htmlFor="admin-key">비밀번호</label>
           <input
             id="admin-key"
             type="password"
             name="password"
             autoComplete="current-password"
             required
-            maxLength={200}
+            maxLength={256}
             value={key}
             onChange={(e) => setKey(e.target.value)}
-            placeholder="발급된 관리자 인증값"
+            placeholder="비밀번호"
           />
           {error && (
             <p role="alert" className="form-error">
@@ -128,7 +128,7 @@ function Login({ onLogin }: { onLogin: (s: Session) => void }) {
           </button>
         </form>
         <p className="login-security">
-          로그인은 2시간 유지됩니다. 인증키는 브라우저 저장소에 보관하지
+          로그인은 2시간 유지됩니다. 비밀번호는 브라우저 저장소에 보관하지
           않습니다.
         </p>
       </div>
