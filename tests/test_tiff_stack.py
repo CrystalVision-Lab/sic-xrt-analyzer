@@ -388,6 +388,7 @@ def test_qml_stack_navigation_contrast_pixel_and_view(qt_app, stack_file, tmp_pa
     provider = TiffImageProvider()
     bridge = FileBridge(provider, engine, QSettings(str(tmp_path / "ui.ini"), QSettings.IniFormat))
     engine.addImageProvider("tiff", provider)
+    bridge.centralSync.dismissSetup()  # Existing-user workflow; first run is covered separately.
     engine.rootContext().setContextProperty("fileBridge", bridge)
     errors = []
     engine.warnings.connect(lambda items: errors.extend(item.toString() for item in items))

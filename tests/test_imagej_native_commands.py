@@ -155,6 +155,7 @@ def test_qml_native_form_edits_parameters_and_runs_imagej(qt_app, tmp_path):
     engine = QQmlApplicationEngine()
     bridge = FileBridge(parent=engine, settings=QSettings(str(tmp_path / 'settings.ini'), QSettings.IniFormat))
     engine.addImageProvider('tiff', bridge.provider)
+    bridge.centralSync.dismissSetup()  # Existing-user workflow; first run is covered separately.
     engine.rootContext().setContextProperty('fileBridge', bridge)
     engine.load(QUrl.fromLocalFile(str(Path(__file__).parents[1] / 'src/sic_xrt_analyzer/ui/Main.qml')))
     assert engine.rootObjects()

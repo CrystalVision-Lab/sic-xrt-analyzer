@@ -21,6 +21,7 @@ def test_shell_context_layout_and_shared_analysis_command(qt_app, tmp_path, brid
     bridge = bridge_factory(provider=provider, settings=QSettings(str(tmp_path/'ia.ini'), QSettings.IniFormat))
     bridge.pipeline.adapter = ManyCandidates()
     engine.addImageProvider('tiff', provider)
+    bridge.centralSync.dismissSetup()  # Existing-user workflow; first run is covered separately.
     engine.rootContext().setContextProperty('fileBridge', bridge)
     warnings = []
     engine.warnings.connect(lambda items: warnings.extend(i.toString() for i in items))

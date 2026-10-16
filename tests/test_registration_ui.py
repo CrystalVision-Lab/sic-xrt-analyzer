@@ -33,6 +33,7 @@ def workspace(qt_app, tmp_path, pair):
         settings=QSettings(str(tmp_path / "prefs.ini"), QSettings.IniFormat),
     )
     engine.addImageProvider("tiff", bridge.provider)
+    bridge.centralSync.dismissSetup()  # Existing-user workflow; first run is covered separately.
     engine.rootContext().setContextProperty("fileBridge", bridge)
     warnings = []
     engine.warnings.connect(lambda es: warnings.extend(e.toString() for e in es))

@@ -230,6 +230,7 @@ def test_qml_toolbar_rectangle_oval_and_polygon_mouse(qt_app, tmp_path):
     provider = TiffImageProvider()
     bridge = FileBridge(provider, engine, QSettings(str(tmp_path / 'prefs.ini'), QSettings.IniFormat))
     engine.addImageProvider('tiff',provider)
+    bridge.centralSync.dismissSetup()  # Existing-user workflow; first run is covered separately.
     engine.rootContext().setContextProperty('fileBridge',bridge)
     warnings=[]
     engine.warnings.connect(lambda items: warnings.extend(x.toString() for x in items))

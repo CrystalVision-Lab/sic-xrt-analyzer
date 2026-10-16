@@ -36,6 +36,7 @@ class Viewer:
         provider = TiffImageProvider()
         self.bridge = FileBridge(provider, self.engine, QSettings(str(tmp_path / "prefs.ini"), QSettings.IniFormat))
         self.engine.addImageProvider("tiff", provider)
+        self.bridge.centralSync.dismissSetup()  # Existing-user workflow; first run is covered separately.
         self.engine.rootContext().setContextProperty("fileBridge", self.bridge)
         self.warnings = []
         self.engine.warnings.connect(lambda items: self.warnings.extend(i.toString() for i in items))

@@ -113,6 +113,7 @@ def test_real_qml_run_button_results_overlay_and_export(qt_app, tmp_path, suffix
     bridge.pipeline.adapter = DesktopResearchAdapter(None, Classifier())
     bridge.pipeline.invalidate()
     engine.addImageProvider("tiff", provider)
+    bridge.centralSync.dismissSetup()  # Existing-user workflow; first run is covered separately.
     engine.rootContext().setContextProperty("fileBridge", bridge)
     warnings = []
     engine.warnings.connect(lambda items: warnings.extend(i.toString() for i in items))

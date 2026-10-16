@@ -377,6 +377,7 @@ def test_qml_update_buttons_install_activate_restart_rollback(
     monkeypatch.setattr(c, "trust", lambda: release[2])
     monkeypatch.setattr(c, "_client", lambda cancel: client(release, cancel))
     engine.addImageProvider("tiff", provider)
+    bridge.centralSync.dismissSetup()  # Existing-user workflow; first run is covered separately.
     engine.rootContext().setContextProperty("fileBridge", bridge)
     warnings = []
     engine.warnings.connect(lambda items: warnings.extend(i.toString() for i in items))

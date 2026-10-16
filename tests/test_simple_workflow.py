@@ -171,6 +171,7 @@ def test_empty_viewer_has_no_analysis_panel_and_3d_navigation(qt_app, tmp_path):
         provider, engine, QSettings(str(tmp_path / "ui.ini"), QSettings.IniFormat)
     )
     engine.addImageProvider("tiff", provider)
+    bridge.centralSync.dismissSetup()  # Existing-user workflow; first run is covered separately.
     engine.rootContext().setContextProperty("fileBridge", bridge)
     warnings = []
     engine.warnings.connect(lambda rows: warnings.extend(r.toString() for r in rows))
