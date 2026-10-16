@@ -29,6 +29,9 @@ def test_continuous_analysis_result_roi_export_and_file_switch(workbench, size):
         w.click('confirmAnalysis')
         spin(w.app,lambda:w.bridge.analysis['hasResult'])
         assert w.panel.property('requestedContext') == 'result'
+        assert w.state.property('resultViewMode') == 'distribution'
+        QTest.qWait(50)  # Polish the newly opened distribution layout before a mouse click.
+        w.click('beginAreaReview')
         original = w.bridge.pipeline.result
         assert w.bridge.research.exportResult(str(w.path.parent))
         first = json.loads((Path(w.bridge.research.export_path)/'result.json').read_text(encoding='utf8'))

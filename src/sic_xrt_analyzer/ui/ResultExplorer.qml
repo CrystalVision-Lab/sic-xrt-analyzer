@@ -81,8 +81,8 @@ ColumnLayout {
         AppButton { objectName: "previousReviewArea"; theme: root.theme; text: "‹"; tip: "이전 영역"; compact: true; enabled: root.area.index>0; onClicked: root.navigator.stepArea(-1) }
         ColumnLayout {
             Layout.fillWidth: true; Layout.minimumWidth: 0; spacing: 2
-            Text { text: "현재 영역 · " + root.area.rows.length + "개 후보"; color: root.theme.text; font.pixelSize: 15; font.weight: Font.DemiBold }
-            Text { text: (root.area.index+1)+" / "+root.area.total+"   ·   "+root.area.label; color: root.theme.muted; font.pixelSize: 11 }
+            Text { text: "현재 영역 · " + root.area.rows.length + "개 후보"; color: root.theme.text; font.pixelSize: 15; font.weight: Font.DemiBold; Layout.fillWidth:true; Layout.minimumWidth:0; elide:Text.ElideRight }
+            Text { text: (root.area.index+1)+" / "+root.area.total+"   ·   "+root.area.label; color: root.theme.muted; font.pixelSize: 11; Layout.fillWidth:true; Layout.minimumWidth:0; elide:Text.ElideRight }
         }
         AppButton { objectName: "nextReviewArea"; theme: root.theme; text: "›"; tip: "다음 영역"; compact: true; enabled: root.area.index+1<root.area.total; onClicked: root.navigator.stepArea(1) }
     }
@@ -148,9 +148,9 @@ ColumnLayout {
     }
     RowLayout {
         visible:!root.distribution; Layout.fillWidth:true
-        AppButton { theme:root.theme; text:root.area.checked.length ? root.area.checked.length+"개 확인" : "확인"; primary:true; compact:true; Layout.fillWidth:true; enabled:!!root.selected.id || root.area.checked.length>0; onClicked:root.navigator.mark("CONFIRMED") }
+        AppButton { theme:root.theme; text:root.area.checked.length ? root.area.checked.length+"개 확인" : "확인"; primary:true; compact:true; Layout.fillWidth:true; Layout.minimumWidth:0; enabled:!!root.selected.id || root.area.checked.length>0; onClicked:root.navigator.mark("CONFIRMED") }
         AppButton { theme:root.theme; text:"보류"; compact:true; enabled:!!root.selected.id || root.area.checked.length>0; onClicked:root.navigator.mark("HOLD") }
-        AppButton { objectName:"reportCandidate"; theme:root.theme; text:root.area.checked.length ? root.area.checked.length+"개 신고 대기" : "신고 대기"; compact:true; enabled:root.results.pixelsAvailable && (!!root.selected.id || root.area.checked.length>0); onClicked:report.open() }
+        AppButton { objectName:"reportCandidate"; theme:root.theme; text:"신고 대기"; tip:root.area.checked.length ? root.area.checked.length+"개 선택한 후보 신고 작성" : "선택한 후보 신고 작성"; compact:true; enabled:root.results.pixelsAvailable && (!!root.selected.id || root.area.checked.length>0); onClicked:report.open() }
     }
     Text { visible:!root.distribution; text:"모델 점수는 정답 확률이 아닙니다."; color:theme.muted; font.pixelSize:12; Layout.fillWidth:true; wrapMode:Text.Wrap }
     ProgressBar { visible:!root.distribution && root.area.rows.length>0; Layout.fillWidth:true; from:0; to:Math.max(1,root.area.rows.length); value:root.area.areaReviewed }

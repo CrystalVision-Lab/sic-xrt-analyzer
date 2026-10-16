@@ -240,6 +240,12 @@ def test_result_fixed_information_and_list_bounds(workbench, size):
         assert 0 <= p.y() and p.y() + item.property('height') <= size[1] - 28, (name, p)
         assert 0 <= p.x() and p.x() + item.property('width') <= size[0], (name, p)
     assert w.item('resultCandidateGrid').property('height') >= 80
+    r.regions.checkArea(True)
+    QTest.qWait(40)
+    for name in ('reportCandidate', 'analysisExportButton'):
+        item = w.item(name)
+        assert item.mapToScene(QPointF()).x() + item.property('width') <= size[0]
+    r.regions.clearChecked()
     header_y = w.item('resultTotal').mapToScene(QPointF()).y()
     w.item('resultCandidateGrid').setProperty('contentY', 1500)
     QTest.qWait(50)

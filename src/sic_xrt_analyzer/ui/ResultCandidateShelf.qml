@@ -52,7 +52,7 @@ Rectangle {
                             Text { anchors.centerIn:parent; visible:!modelData.thumbnail; text:root.area.thumbnailError?"읽기 실패":modelData.thumbnailOmitted?"선택하여 원본 보기":"미리보기 준비 중"; color:root.theme.muted; font.pixelSize:11 }
                         }
                         Text { text:"#"+modelData.number+" · "+modelData.type; color:root.uiState.resultPresentation.colorFor(modelData.type); font.pixelSize:12; Layout.fillWidth:true; elide:Text.ElideRight }
-                        Text { text:modelData.review==="CONFIRMED"?"확인됨":modelData.review==="HOLD"?"보류":"미검토"; color:root.theme.muted; font.pixelSize:11 }
+                        Text { text:modelData.review==="CONFIRMED"?"확인됨":modelData.review==="HOLD"?"보류":modelData.review==="NEEDS_CHANGE"?"수정 필요":"미검토"; color:root.theme.muted; font.pixelSize:11 }
                     }
                 }
                 AppCheckBox { visible:root.comparing; anchors.right:parent.right; anchors.top:parent.top; theme:root.theme; checked:modelData.checked; Accessible.name:"후보 "+modelData.number+" 선택"; onClicked:root.navigator.check(modelData.id,checked) }

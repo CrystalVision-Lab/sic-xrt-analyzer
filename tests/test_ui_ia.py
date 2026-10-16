@@ -95,7 +95,7 @@ def test_shell_context_layout_and_shared_analysis_command(qt_app, tmp_path, brid
             QTest.qWait(35)
             nav, center = item('workspaceNavigation'), item('centralWorkspace')
             assert center.property('width') >= 500
-            assert panel.property('width') == pytest.approx(380 if index == 2 else 282)
+            assert panel.property('width') == pytest.approx(320 if index == 2 else 282)
             assert center.property('x') == pytest.approx(nav.property('width'))
             assert panel.property('x') == pytest.approx(center.property('x') + center.property('width'))
         previous_width = item('centralWorkspace').property('width')
