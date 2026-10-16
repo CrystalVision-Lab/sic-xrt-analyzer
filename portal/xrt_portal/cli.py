@@ -41,7 +41,7 @@ def main():
         )
         h.raise_for_status()
         r = client.get(
-            "/api/v1/admin/statistics",
+            "/api/v1/admin/openapi",
             headers={"Authorization": "Bearer " + credential},
         )
         r.raise_for_status()

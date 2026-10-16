@@ -20,6 +20,21 @@ def login(c, name="qa-admin", password=PASSWORD, origin="https://portal.test"):
                   json={"username": name, "password": password})
 
 
+def test_login_and_session_do_not_compute_unavailable_project_statistics(website):
+    c, store, state, _path = website
+    state['statistics_unavailable'] = True
+    setup(c, store)
+    assert login(c).status_code == 200
+    assert c.get('/portal-api/session').status_code == 200
+    assert c.get('/portal-api/admin/releases').status_code == 200
+    assert ('GET', '/api/v1/admin/openapi') in state['calls']
+    assert ('GET', '/api/v1/admin/statistics') not in state['calls']
+    # The statistics page still requests statistics and receives its actual error.
+    assert c.get('/portal-api/research/admin/statistics').status_code == 503
+    state['revoked'] = True
+    assert c.get('/portal-api/session').status_code == 401
+
+
 def test_password_login_cookie_authority_logout_and_secret_storage(website):
     c, store, state, path = website
     setup(c, store)

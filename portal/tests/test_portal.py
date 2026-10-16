@@ -28,6 +28,8 @@ def website(tmp_path):
             )
         if credential != "Bearer SYNTHETIC_ADMIN_TOKEN":
             return httpx.Response(403, json={"detail": "ADMIN_REQUIRED"})
+        if req.url.path.endswith('/admin/statistics') and state.get('statistics_unavailable'):
+            return httpx.Response(503, json={"detail": "STATISTICS_BUSY"})
         return httpx.Response(200, json={"projects": 0, "items": []})
 
     app = create_app(

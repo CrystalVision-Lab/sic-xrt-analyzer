@@ -138,7 +138,8 @@ def create_app(
         )
 
     def administrator(row):
-        response = fetch(row["credential"], "admin/statistics")
+        # The same upstream ADMIN guard, without aggregating every project.
+        response = fetch(row["credential"], "admin/openapi")
         if response.status_code in (401, 403):
             raise HTTPException(401, "ADMIN_SESSION_UNAVAILABLE")
         response.raise_for_status()
@@ -186,7 +187,7 @@ def create_app(
         else:
             raise HTTPException(422, "LOGIN_FIELDS")
         h = await run_in_threadpool(fetch, credential, "health")
-        a = await run_in_threadpool(fetch, credential, "admin/statistics")
+        a = await run_in_threadpool(fetch, credential, "admin/openapi")
         if (
             h.status_code != 200
             or a.status_code != 200

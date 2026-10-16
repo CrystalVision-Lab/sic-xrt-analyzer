@@ -18,7 +18,7 @@ def provision(store, client, name, password, config):
     credential = config["credential"]
     headers = {"Authorization": "Bearer " + credential}
     health = client.get("/api/v1/health", headers=headers)
-    admin = client.get("/api/v1/admin/statistics", headers=headers)
+    admin = client.get("/api/v1/admin/openapi", headers=headers)
     if health.status_code != 200 or admin.status_code != 200:
         raise ValueError("ACTIVE_ADMIN_CREDENTIAL_REQUIRED")
     identity = health.json()
