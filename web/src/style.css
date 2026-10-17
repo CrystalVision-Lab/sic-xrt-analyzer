@@ -1549,3 +1549,18 @@ html { min-height: 100dvh; }
 .device-review textarea{width:100%;min-height:80px;margin-block:12px;}.device-review dl{display:grid;grid-template-columns:100px minmax(0,1fr);gap:10px;font-size:13px;}.device-review dd{margin:0;overflow-wrap:anywhere;}
 
 .download-access-note{max-width:600px;margin:24px auto 0;font-size:12px;line-height:1.8;color:var(--muted);}
+
+/* Label dashboard (#179) */
+.label-bar { display: grid; grid-template-columns: 7.5rem 1fr 4rem 2.5rem; align-items: center; gap: 10px; margin: 10px 0; }
+.label-bar span { font-weight: 600; font-size: 13px; }
+.label-bar strong { text-align: right; font-variant-numeric: tabular-nums; }
+.label-bar-track { height: 10px; border-radius: 5px; background: var(--line); overflow: hidden; }
+.label-bar-fill { height: 100%; border-radius: 5px; }
+.label-warn { color: #b9771b; font-weight: 600; }
+.label-note { color: var(--muted); font-size: 12px; line-height: 1.7; margin: 12px 0 0; }
+.week-chart { display: flex; align-items: flex-end; gap: 8px; height: 180px; padding-top: 8px; overflow-x: auto; }
+.week-col { flex: 1 0 34px; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; gap: 3px; }
+.week-stack { width: 100%; max-width: 40px; min-height: 2px; display: flex; flex-direction: column-reverse; border-radius: 4px 4px 0 0; overflow: hidden; }
+.week-col small { color: var(--muted); font-size: 11px; }
+.week-col strong { font-size: 11px; font-variant-numeric: tabular-nums; }
+@media (max-width: 640px) { .label-bar { grid-template-columns: 6rem 1fr 3.5rem; } .label-bar .label-warn { display: none; } }
