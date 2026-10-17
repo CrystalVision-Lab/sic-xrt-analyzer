@@ -489,13 +489,13 @@ Rectangle {
                     }
                     if (selected.id && uiState.selectedLayerVisible && !reviewing) {
                         var sx=imageX+selected.x*imageScale, sy=imageY+selected.y*imageScale
-                        c.globalAlpha=selectedOpacity; c.strokeStyle="#fff04a"; c.lineWidth=2
+                        c.globalAlpha=selectedOpacity; c.strokeStyle=String(root.theme.selection); c.lineWidth=2
                         if (selected.type==="BPD" && selected.region && selected.region.length>=3) outline(c,selected.region)
                         c.beginPath(); c.moveTo(sx-12,sy); c.lineTo(sx-5,sy); c.moveTo(sx+5,sy); c.lineTo(sx+12,sy)
                         c.moveTo(sx,sy-12); c.lineTo(sx,sy-5); c.moveTo(sx,sy+5); c.lineTo(sx,sy+12); c.stroke()
                         var lx=Math.max(0,Math.min(width-110,sx+15)), ly=Math.max(0,Math.min(height-22,sy-28))
                         c.fillStyle="#14191e"; c.fillRect(lx,ly,110,22)
-                        c.fillStyle="#fff04a"; c.font="12px sans-serif"; c.fillText("#"+selected.number+"  "+selected.type,lx+5,ly+15)
+                        c.fillStyle=String(root.theme.selection); c.font="12px sans-serif"; c.fillText("#"+selected.number+"  "+selected.type,lx+5,ly+15)
                     }
                     paintMs=Date.now()-started; paintCount+=1
                 }
@@ -548,7 +548,7 @@ Rectangle {
                         var ox=imageX+selected.original.x*imageScale, oy=imageY+selected.original.y*imageScale
                         c.strokeStyle="#ffffff"; c.lineWidth=1
                         c.beginPath(); c.arc(ox,oy,5,0,Math.PI*2); c.moveTo(ox,oy); c.lineTo(sx,sy); c.stroke()
-                        c.strokeStyle="#fff04a"; c.lineWidth=2
+                        c.strokeStyle=String(root.theme.selection); c.lineWidth=2
                         c.beginPath(); c.moveTo(sx-18,sy); c.lineTo(sx+18,sy); c.moveTo(sx,sy-18); c.lineTo(sx,sy+18); c.stroke()
                     }
                 }

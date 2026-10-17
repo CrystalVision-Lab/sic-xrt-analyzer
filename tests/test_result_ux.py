@@ -70,7 +70,7 @@ def test_summary_filter_navigation_and_overlay_share_state(workbench, kind, tota
     original = w.bridge.pipeline.result
     assert w.item('resultTotal').property('text') == '2,946'
     assert r.state['counts'] == {'BPD': 245, 'TED': 1398, 'TSD': 1303}
-    for name, color in [('BPD', '#efbc70'), ('TED', '#85c9ed'), ('TSD', '#e7a2c7')]:
+    for name, color in [('BPD', '#e69f00'), ('TED', '#56b4e9'), ('TSD', '#cc79a7')]:
         assert evaluate(w, f'resultPresentation.colorFor("{name}")') == color
         assert w.item('resultFilter' + name).property('text') == name + ' ' + f'{r.state["counts"][name]:,}'
     assert not r.state['selected']  # Preserve explicit first selection.

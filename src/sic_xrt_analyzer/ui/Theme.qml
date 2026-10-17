@@ -1,6 +1,13 @@
 import QtQuick
 QtObject {
     readonly property color window: "#12191c"
+    // Defect classes: Okabe-Ito colours, always paired with a shape (BPD ◆/outline, TED ▲, TSD ■).
+    readonly property color classBpd: "#e69f00"
+    readonly property color classTed: "#56b4e9"
+    readonly property color classTsd: "#cc79a7"
+    readonly property color classOther: "#bbbbbb"
+    // Selected candidate on the image; yellow stays visible on bright XRT backgrounds.
+    readonly property color selection: "#fff04a"
     readonly property color panel: "#1b2429"
     readonly property color toolbar: "#1b2429"
     readonly property color surface: "#263239"
