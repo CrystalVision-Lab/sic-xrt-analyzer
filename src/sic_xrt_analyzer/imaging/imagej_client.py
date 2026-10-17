@@ -26,6 +26,7 @@ class ImageJClient:
         self.responses = Queue()
         self.listener = None
         self.directory = TemporaryDirectory(prefix='sic-xrt-engine-')
+        self.log_file = None
 
     def call(self, method, frame=None, **args):
         with self.lock:
@@ -33,6 +34,9 @@ class ImageJClient:
                 if self.process is not None:
                     self.process.stdin.close()
                     self.process.stdout.close()
+                self.close_log()
+                # Diagnostics (Java stack traces, headless tables) never share the protocol pipe.
+                self.log_file = (Path(self.directory.name) / 'engine.log').open('ab')
                 flags = subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0
                 extra = list(self.classpaths)
                 if self.fiji_home:
@@ -42,7 +46,7 @@ class ImageJClient:
                               if not p.name.startswith(excluded)]
                     extra += [str(home/'plugins')]
                 self.process = subprocess.Popen(worker_command('sic_xrt_analyzer.imaging.imagej_service', unbuffered=True),
-                                                stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                                stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=self.log_file,
                                                 text=True, encoding='utf-8', errors='replace', creationflags=flags,
                                                 env={**os.environ, 'SIC_XRT_IMAGEJ_TMP': self.directory.name,
                                                      'SIC_XRT_IMAGEJ_GUI': '1' if self.gui else '0',
@@ -143,7 +147,13 @@ class ImageJClient:
                 if self.listener:
                     self.listener.join(timeout=2)
                 self.process = None
+            self.close_log()
             self.directory.cleanup()
+
+    def close_log(self):
+        if self.log_file is not None:
+            self.log_file.close()
+            self.log_file = None
 
     def abort(self):
         process = self.process

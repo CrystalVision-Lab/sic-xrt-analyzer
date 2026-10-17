@@ -1,5 +1,6 @@
 """Private embedded ImageJ engine; optional plugin windows, no external executable."""
 import json
+import os
 import sys
 from threading import Lock
 from types import SimpleNamespace
@@ -14,12 +15,27 @@ from .original_source import OriginalImageSource
 PREFIX = 'SIC_XRT_RESULT:'
 WINDOW_PREFIX = 'SIC_XRT_WINDOW:'
 OUTPUT_LOCK = Lock()
+PROTOCOL = None
+
+
+def isolate_protocol():
+    """Keep a private copy of stdout for replies; route all other stdout (Java, natives) to stderr."""
+    global PROTOCOL
+    try:
+        sys.stdout.flush()
+        protocol = os.fdopen(os.dup(sys.stdout.fileno()), 'w', encoding='utf-8', newline='\n')
+        os.dup2(sys.stderr.fileno(), sys.stdout.fileno())
+    except (AttributeError, OSError, ValueError):
+        return  # No separate stderr handle: keep the shared stdout channel.
+    PROTOCOL = protocol
+    sys.stdout = sys.stderr
 
 
 def reply(prefix, value):
     with OUTPUT_LOCK:
-        sys.stdout.write(prefix + json.dumps(value, ensure_ascii=True) + '\n')
-        sys.stdout.flush()
+        stream = PROTOCOL or sys.stdout
+        stream.write(prefix + json.dumps(value, ensure_ascii=True) + '\n')
+        stream.flush()
 
 
 class SharedPreparedPixels:
@@ -35,6 +51,7 @@ class SharedPreparedPixels:
 
 
 def serve():
+    isolate_protocol()
     runtime = ImageJRuntime(lambda value: reply(WINDOW_PREFIX, value))
     session = None
     try:

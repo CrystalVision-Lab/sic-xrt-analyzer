@@ -23,8 +23,48 @@ JARS = {
 }
 
 
+# Whole stacks up to this size become in-memory working copies; ImageJ filters
+# write through getPixels(), which a VirtualStack silently discards.
+STACK_MEMORY_BUDGET = 512 * 1024**2
+# Commands verified not to rely on writing pixels back into a VirtualStack.
+VIRTUAL_SAFE_COMMANDS = {'Z Project...', 'Measure', 'Set Scale...', 'Set Measurements...', 'Properties...',
+                         'Reverse', 'Statistics'}
+AREA_ROI_COMMANDS = {'Crop', 'Clear', 'Clear Outside'}
+ANY_ROI_COMMANDS = {'Fill', 'Draw'}
+BINARY_COMMANDS = {'Erode', 'Dilate', 'Open', 'Close-', 'Outline', 'Skeletonize', 'Fill Holes', 'Watershed',
+                   'Distance Map', 'Ultimate Points', 'Voronoi'}
+
+
+def stack_memory_budget():
+    # Environment override exists for deployment tuning and over-budget tests.
+    return int(os.environ.get('SIC_XRT_IMAGEJ_STACK_BUDGET', STACK_MEMORY_BUDGET))
+
+
 def runtime_directory():
-    return Path(os.environ.get('SIC_XRT_IMAGEJ_HOME', str(Path.cwd() / 'artifacts/imagej-runtime'))).resolve()
+    configured = os.environ.get('SIC_XRT_IMAGEJ_HOME')
+    if configured:
+        return Path(configured).resolve()
+    # Source checkouts: prefer the working directory, then the repository root.
+    candidates = [Path.cwd() / 'artifacts/imagej-runtime', Path(__file__).resolve().parents[3] / 'artifacts/imagej-runtime']
+    return next((p.resolve() for p in candidates if (p / 'ij-1.54p.jar').is_file()), candidates[0].resolve())
+
+
+def java_executable():
+    home = os.environ.get('JAVA_HOME')
+    if home:
+        candidate = Path(home) / 'bin' / ('java.exe' if os.name == 'nt' else 'java')
+        if candidate.is_file():
+            return str(candidate)
+    return 'java'
+
+
+def java_major(version):
+    """'1.8' -> 8, '24' -> 24, '21.0.2' -> 21."""
+    parts = str(version).strip().split('.')
+    try:
+        return int(parts[1] if parts[0] == '1' and len(parts) > 1 else parts[0])
+    except ValueError:
+        return 0
 
 
 def initialize():
@@ -36,21 +76,26 @@ def initialize():
             raise RuntimeError('ImageJ 실행 파일이 없습니다. tools/setup_imagej.py를 실행하세요: ' + str(path))
     if not jpype.isJVMStarted():
         flags = subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0
-        result = subprocess.run(['java', '-XshowSettings:properties', '-version'], capture_output=True, text=True,
-                                creationflags=flags, timeout=30, check=True)
+        try:
+            result = subprocess.run([java_executable(), '-XshowSettings:properties', '-version'], capture_output=True,
+                                    text=True, creationflags=flags, timeout=30, check=True)
+        except (OSError, subprocess.SubprocessError) as exc:
+            raise RuntimeError('Java 17 이상 설치 및 PATH/JAVA_HOME 설정이 필요합니다') from exc
         home = next((line.split('=', 1)[1].strip() for line in result.stderr.splitlines() if 'java.home =' in line), '')
         if not home:
             raise RuntimeError('Java 17 이상 설치 및 PATH/JAVA_HOME 설정이 필요합니다')
-        if os.environ.get('SIC_XRT_FIJI_HOME'):
-            version = next((line.split('=', 1)[1].strip() for line in result.stderr.splitlines() if 'java.specification.version =' in line), '0')
-            if int(version) < 21:
-                raise RuntimeError('이 Fiji 라이브러리에는 Java 21 이상이 필요합니다')
+        major = java_major(next((line.split('=', 1)[1].strip() for line in result.stderr.splitlines()
+                                 if 'java.specification.version =' in line), '0'))
+        if os.environ.get('SIC_XRT_FIJI_HOME') and major < 21:
+            raise RuntimeError('이 Fiji 라이브러리에는 Java 21 이상이 필요합니다')
         candidates = [Path(home) / 'bin/server/jvm.dll', Path(home) / 'lib/server/libjvm.so', Path(home) / 'lib/server/libjvm.dylib']
         jvm = next((p for p in candidates if p.is_file()), None)
         extra = json.loads(os.environ.get('SIC_XRT_IMAGEJ_EXTRA_PATHS', '[]'))
         gui = os.environ.get('SIC_XRT_IMAGEJ_GUI') == '1'
+        # JNA/JPype use native access; Java 22+ warns (and later denies) without this flag.
+        native_access = ['--enable-native-access=ALL-UNNAMED'] if major >= 22 else []
         jpype.startJVM('-Xmx3g', f'-Djava.awt.headless={str(not gui).lower()}', '--add-opens=java.base/java.lang=ALL-UNNAMED',
-                      '-Dimagej.updater.disableAutocheck=true',
+                      '-Dimagej.updater.disableAutocheck=true', *native_access,
                       jvmpath=str(jvm) if jvm else None, classpath=[str(p) for p in files] + extra, convertStrings=True)
         jpype.JClass('net.imagej.patcher.LegacyInjector').preinit()
     return jpype
@@ -79,6 +124,9 @@ class ImageJRuntime:
             self.IJ = self.jp.JClass('ij.IJ')
             self.WM = self.jp.JClass('ij.WindowManager')
             self.Interpreter = self.jp.JClass('ij.macro.Interpreter')
+            # Headless tables print to System.out; keep stdout for the worker protocol.
+            system = self.jp.JClass('java.lang.System')
+            system.setOut(system.err)
             self.IJ.runMacro('setBatchMode(true);')
             if self.gui and self.window_sink:
                 self.window_thread = Thread(target=self.watch_windows, daemon=True)
@@ -113,7 +161,8 @@ class ImageJRuntime:
         jp = self.start()
         source = frame.source
         if (self.image is not None and (source.identity == self.identity or source.path == self.active_output)
-                and (not whole_stack or self.image.getStackSize() == source.metadata.page_count)):
+                and (not whole_stack or self.image.getStackSize() == source.metadata.page_count)
+                and (whole_stack or not self.image.getStack().isVirtual())):
             if self.image.getStackSize() == source.metadata.page_count:
                 self.image.setSlice(source.page_index + 1)
             self.WM.setTempCurrentImage(self.image)
@@ -128,10 +177,11 @@ class ImageJRuntime:
         if whole_stack:
             if meta.format != 'TIFF' or meta.page_count <= 1:
                 raise ValueError('전체 스택은 다중 페이지 TIFF에서 사용하세요')
-            self.image = self.IJ.openVirtual(self.virtual_path(source))
-            if (self.image is None or self.image.getStackSize() != meta.page_count
-                    or self.image.getProcessor() is None):
+            virtual = self.IJ.openVirtual(self.virtual_path(source))
+            if (virtual is None or virtual.getStackSize() != meta.page_count
+                    or virtual.getProcessor() is None):
                 raise ValueError('ImageJ 가상 스택 읽기 실패')
+            self.image = self.materialize(virtual)
             self.image.setSlice(source.page_index + 1)
         else:
             if meta.width * meta.height > 200_000_000:
@@ -168,6 +218,43 @@ class ImageJRuntime:
         self.identity = source.identity
         self.apply_calibration(frame)
         source.validate_identity()
+
+    def stack_bytes(self, image):
+        bytes_per_pixel = 4 if image.getBitDepth() == 24 else max(1, image.getBitDepth() // 8)
+        return image.getWidth() * image.getHeight() * image.getStackSize() * bytes_per_pixel
+
+    def materialize(self, virtual):
+        """Copy a bounded VirtualStack into memory so pixel edits persist; keep larger stacks virtual."""
+        size = self.stack_bytes(virtual)
+        memory = self.jp.JClass('java.lang.Runtime').getRuntime()
+        available = memory.maxMemory() - (memory.totalMemory() - memory.freeMemory())
+        if size > stack_memory_budget() or 2 * size > available:
+            return virtual
+        stack = virtual.getStack()
+        copy = self.jp.JClass('ij.ImageStack')(virtual.getWidth(), virtual.getHeight(), stack.getColorModel())
+        for index in range(1, stack.getSize() + 1):
+            # VirtualStack.getProcessor decodes a fresh page for every call.
+            copy.addSlice(stack.getSliceLabel(index), stack.getProcessor(index).getPixels())
+        image = self.jp.JClass('ij.ImagePlus')(virtual.getTitle(), copy)
+        image.setCalibration(virtual.getCalibration())
+        return image
+
+    def check_command(self, command):
+        """Explain ImageJ preconditions instead of surfacing 'Macro canceled'."""
+        roi = self.image.getRoi()
+        if command in AREA_ROI_COMMANDS and (roi is None or not roi.isArea()):
+            raise ValueError(f'"{command}" 명령에는 면적 ROI(사각형·타원·다각형 등)를 먼저 선택하세요')
+        if command in ANY_ROI_COMMANDS and roi is None:
+            raise ValueError(f'"{command}" 명령에는 선택 ROI가 필요합니다. ROI를 먼저 선택하세요')
+        if command == 'Plot Profile' and (roi is None or not (roi.isLine() or roi.getType() == roi.RECTANGLE)):
+            raise ValueError('"Plot Profile"에는 직선·분할선 또는 사각형 ROI가 필요합니다')
+        if command in BINARY_COMMANDS and not self.image.getProcessor().isBinary():
+            raise ValueError(f'"{command}" 명령은 이진(0/255 8-bit) 영상에서만 실행됩니다. 먼저 임계값 · 이진화를 실행하세요')
+
+    def require_persistent(self, *, command='', macro='', plugin=''):
+        if self.image.getStack().isVirtual() and (macro or plugin or (command and command not in VIRTUAL_SAFE_COMMANDS)):
+            raise ValueError(f'{stack_memory_budget() // 1024**2} MiB를 넘는 전체 스택은 메모리 작업 복사본을 만들 수 없어 '
+                             '픽셀 변경 결과를 보존할 수 없습니다. 현재 페이지 처리 또는 페이지 축 투영(Z Project)을 사용하세요')
 
     def apply_calibration(self, frame):
         calibration = getattr(frame, 'calibration', {})
@@ -230,6 +317,13 @@ class ImageJRuntime:
                 command = native
             self.load(frame, whole_stack)
             self.roi(record)
+            if not modern and not edit:
+                self.require_persistent(command=command, macro=macro, plugin=plugin)
+            if command:
+                self.check_command(command)
+            input_image = self.image
+            # Results belong to this run only.
+            self.jp.JClass('ij.measure.ResultsTable').getResultsTable().reset()
             before_images = set(self.Interpreter.getBatchModeImageIDs())
             before_log = self.IJ.getLog() or ''
             modern_outputs = {}
@@ -252,17 +346,24 @@ class ImageJRuntime:
                     self.image = wrapper
                     self.Interpreter.addBatchModeImage(wrapper)
                     self.WM.setTempCurrentImage(wrapper)
-                if self.gui and not options:
-                    self.IJ.run(self.image, command, None)
-                else:
-                    self.IJ.run(self.image, command, options)
+                try:
+                    self.IJ.run(self.image, command, None if self.gui and not options else options)
+                except self.jp.JException as exc:
+                    if 'Macro canceled' in str(exc):
+                        raise RuntimeError(f'ImageJ가 "{command}" 실행을 취소했습니다. '
+                                           '필요한 선택 ROI·영상 형식·옵션을 확인하세요') from exc
+                    raise
             else:
                 interpreter = self.Interpreter()
                 self.WM.setTempCurrentImage(None)
                 try:
                     result_image = interpreter.runBatchMacro(macro, self.image)
                 except self.jp.JException as exc:
-                    raise RuntimeError(interpreter.getErrorMessage() or str(exc)) from exc
+                    message = interpreter.getErrorMessage() or str(exc)
+                    if 'Macro canceled' in message:
+                        message = ('ImageJ가 매크로 명령을 취소했습니다. 필요한 선택 ROI·이진 영상·옵션을 확인하세요 ('
+                                   + message + ')')
+                    raise RuntimeError(message) from exc
                 if interpreter.wasError():
                     raise RuntimeError(interpreter.getErrorMessage() or 'ImageJ 매크로 실행 실패')
                 if result_image is not None:
@@ -272,6 +373,11 @@ class ImageJRuntime:
                 if created:
                     self.image = created[-1]
             self.WM.setTempCurrentImage(self.image)
+            if (self.image.getStack().isVirtual() and self.image.equals(input_image) and not edit
+                    and command not in VIRTUAL_SAFE_COMMANDS):
+                # A VirtualStack re-reads its source pages; pixel writes would be lost.
+                raise RuntimeError('가상 스택에서는 처리 결과가 보존되지 않아 결과를 만들지 않았습니다. '
+                                   '현재 페이지 처리를 사용하세요')
             rt = self.jp.JClass('ij.measure.ResultsTable').getResultsTable()
             rows = [rt.getRowAsString(i) for i in range(rt.size())]
             log = self.IJ.getLog() or ''
