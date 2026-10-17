@@ -3,6 +3,7 @@ from PySide6.QtCore import Property, QPointF, QRect, Qt, QTimer, Signal, Slot
 from PySide6.QtGui import QGuiApplication, QWindow
 from PySide6.QtQml import QQmlEngine, qmlRegisterType
 from PySide6.QtQuick import QQuickItem
+from shiboken6 import isValid
 
 
 def native_windows_supported():
@@ -23,6 +24,27 @@ class NativePluginWindow(QQuickItem):
         for signal in (self.windowChanged, self.xChanged, self.yChanged,
                        self.widthChanged, self.heightChanged, self.visibleChanged):
             signal.connect(self.sync_geometry)
+        self.ancestors = []
+        self.parentChanged.connect(self.track_ancestors)
+        self.track_ancestors()
+
+    @Slot()
+    def track_ancestors(self):
+        """Ancestor moves change our scene position without notifying us; follow each ancestor."""
+        for item in self.ancestors:
+            if isValid(item):
+                for signal in (item.xChanged, item.yChanged, item.visibleChanged):
+                    signal.disconnect(self.sync_geometry)
+                item.parentChanged.disconnect(self.track_ancestors)
+        self.ancestors = []
+        item = self.parentItem()
+        while item is not None:
+            for signal in (item.xChanged, item.yChanged, item.visibleChanged):
+                signal.connect(self.sync_geometry)
+            item.parentChanged.connect(self.track_ancestors)
+            self.ancestors.append(item)
+            item = item.parentItem()
+        self.sync_geometry()
 
     @Property(str, notify=changed)
     def nativeId(self):

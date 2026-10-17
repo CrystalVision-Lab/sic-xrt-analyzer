@@ -39,6 +39,7 @@ jobs:
         env:
           QT_QPA_PLATFORM: offscreen
           SIC_XRT_FIJI_HOME: artifacts/fiji-runtime
+          SIC_XRT_REQUIRE_IMAGEJ: "1"
       - name: Verify real plugin windows on Linux X11
         if: success() || failure()
         run: xvfb-run -a pytest -q tests/test_stack_compatibility.py -k gui_plugin

@@ -1,4 +1,5 @@
 """Asynchronous Qt controller for native tools and the embedded ImageJ session."""
+import json
 import math
 import shutil
 from pathlib import Path
@@ -50,6 +51,7 @@ class ImageJWorkbench(QObject):
         self.source_key = None
         self.recording = False
         self.recorded = ''
+        self.pending_history = ''
         self.canceled = False
 
     @Property('QVariantMap', notify=changed)
@@ -148,10 +150,12 @@ class ImageJWorkbench(QObject):
                 return ImportedRoi('selection', 'Rectangle', 'polygon', (((x,y),(x+w,y),(x+w,y+h),(x,y+h)),), self.color, roi, None, 'Rectangle')
             return None
 
-    def submit(self, operation, key=None):
+    def submit(self, operation, key=None, history=''):
         self.canceled = False
         self.busy, self.error = True, ''
         self.source_key = key
+        # Recorded macro lines are appended only after the engine reports success.
+        self.pending_history = history
         self.reader.submit(operation)
         self.changed.emit()
 
@@ -168,10 +172,8 @@ class ImageJWorkbench(QObject):
             kwargs = {kind: content, 'options': options, 'record': record, 'whole_stack': whole_stack}
             if kind not in ('command', 'macro', 'plugin', 'modern'):
                 raise ValueError('알 수 없는 실행 형식')
-            if self.recording and kind == 'command':
-                import json
-                self.recorded += f'run({json.dumps(content)}, {json.dumps(options)});\n'
-            self.submit(lambda: self.runtime.run(frame, **kwargs), frame.source.identity)
+            history = f'run({json.dumps(content)}, {json.dumps(options)});\n' if self.recording and kind == 'command' else ''
+            self.submit(lambda: self.runtime.run(frame, **kwargs), frame.source.identity, history)
         except Exception as exc:  # noqa: BLE001 (Qt boundary reports user/Java errors)
             self.error = str(exc)
             self.changed.emit()
@@ -205,10 +207,9 @@ class ImageJWorkbench(QObject):
             parameters = validate_values(command, parameters)
             record = self.selected(frame)
             validate_selection(command, record)
-            if self.recording:
-                import json
-                self.recorded += f'run({json.dumps(command)}, {json.dumps(command_options(command, parameters))});\n'
-            self.submit(lambda: self.runtime.run(frame, native=command, parameters=parameters, record=record), frame.source.identity)
+            history = f'run({json.dumps(command)}, {json.dumps(command_options(command, parameters))});\n' if self.recording else ''
+            self.submit(lambda: self.runtime.run(frame, native=command, parameters=parameters, record=record),
+                        frame.source.identity, history)
         except Exception as exc:  # noqa: BLE001 (Qt boundary reports user/Java errors)
             self.error = str(exc)
             self.changed.emit()
@@ -306,6 +307,7 @@ class ImageJWorkbench(QObject):
     def _ready(self, result, error):
         self.busy = False
         self.error = error
+        history, self.pending_history = self.pending_history, ''
         if self.canceled:
             self.error = 'ImageJ 작업을 취소했습니다. 다음 실행에서 엔진이 다시 시작됩니다'
             self.changed.emit()
@@ -341,6 +343,7 @@ class ImageJWorkbench(QObject):
             else:
                 self.rows, self.headings = result['rows'], result['headings']
                 self.log += result['log']
+                self.recorded += history
                 if result.get('publish', True):
                     self.resultReady.emit(result['path'])
         self.changed.emit()
@@ -378,6 +381,8 @@ class ImageJWorkbench(QObject):
     @Slot(str)
     def saveResults(self, url):
         try:
+            if self.busy:
+                raise ValueError('현재 ImageJ 작업이 끝난 뒤 결과를 저장하세요')
             path = Path(self.bridge.localPath(url))
             if path.suffix.lower() != '.tsv' or not self.rows:
                 raise ValueError('측정 결과가 있는 상태에서 새 .tsv 파일명을 지정하세요')
