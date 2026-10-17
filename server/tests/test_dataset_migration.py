@@ -39,6 +39,7 @@ def test_populated_0001_upgrade_and_verified_registry_restore(database):
         first, sessions = connect(first_url)
         engines.append(first)
         assert "dataset_events" not in inspect(first).get_table_names()
+        assert "label_dataset_versions" not in inspect(first).get_table_names()
         with sessions.begin() as s:
             s.add(
                 User(
