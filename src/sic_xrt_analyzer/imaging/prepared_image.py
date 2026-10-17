@@ -1,14 +1,50 @@
 """Viewer-owned temporary JPEG decode cache; originals are always read-only."""
+import atexit
+import logging
 import shutil
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from threading import RLock
+from threading import Lock, RLock
 
 import imagecodecs
 import numpy as np
 import tifffile
 
 from .original_source import SourceError
+
+_log = logging.getLogger(__name__)
+_deferred_lock = Lock()
+_deferred_paths = set()
+
+
+def _remove_tree(path):
+    shutil.rmtree(path, ignore_errors=True)
+    return not Path(path).exists()
+
+
+def defer_cleanup(path):
+    """Queue a cache directory another process still maps (Windows WinError 32/1224)."""
+    with _deferred_lock:
+        _deferred_paths.add(str(path))
+
+
+def retry_deferred_cleanup():
+    """Best-effort removal of previously locked cache directories; never raises."""
+    with _deferred_lock:
+        pending = list(_deferred_paths)
+    for path in pending:
+        try:
+            removed = _remove_tree(path)
+        except OSError:
+            removed = False
+        if removed:
+            with _deferred_lock:
+                _deferred_paths.discard(path)
+    with _deferred_lock:
+        return len(_deferred_paths)
+
+
+atexit.register(retry_deferred_cleanup)
 
 
 class PreparedPixels:
@@ -20,7 +56,8 @@ class PreparedPixels:
     def jpeg(self, source, canceled, progress):
         meta = source.metadata
         size = meta.width * meta.height * 3
-        self.directory = TemporaryDirectory(prefix='sic-xrt-viewer-')
+        retry_deferred_cleanup()
+        self.directory = TemporaryDirectory(prefix='sic-xrt-viewer-', ignore_cleanup_errors=True)
         try:
             if size > 2 * 1024**3 or shutil.disk_usage(self.directory.name).free < size + 64 * 1024**2:
                 raise SourceError('READ_LIMIT_EXCEEDED', '정밀 표시 임시 캐시 공간이 부족하거나 2 GiB 한도를 넘습니다')
@@ -61,13 +98,24 @@ class PreparedPixels:
             return result
 
     def close(self):
+        """Release the cache; never raises so callers can finish resetting state."""
         with self.lock:
-            if self.pixels is not None:
-                self.pixels._mmap.close()
-                self.pixels = None
-            if self.directory:
-                self.directory.cleanup()
-                self.directory = None
+            pixels, self.pixels = self.pixels, None
+            directory, self.directory = self.directory, None
+            if pixels is not None:
+                try:
+                    pixels._mmap.close()
+                except (OSError, ValueError, BufferError) as exc:
+                    _log.warning("Failed to unmap prepared cache: %s", exc)
+            if directory:
+                path = directory.name
+                try:
+                    directory.cleanup()
+                except OSError as exc:
+                    _log.info("Prepared cache still in use, deferring removal: %s", exc)
+                # The ImageJ worker may still map decoded.rgb; retry later.
+                if Path(path).exists():
+                    defer_cleanup(path)
 
 
 def warm_tiff(source, canceled, progress):

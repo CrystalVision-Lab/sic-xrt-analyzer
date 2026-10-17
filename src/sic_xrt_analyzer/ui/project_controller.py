@@ -71,13 +71,15 @@ class ProjectController(QObject):
             self.done,self.total=done,total
             self.changed.emit()
 
-    def _begin(self, job, function, callback, token=None):
+    def _begin(self, job, function, callback, token=None, keep_error=False):
         if self.busy:
             self.error='프로젝트 작업이 끝나거나 취소된 뒤 다시 시도하세요.'
             self.changed.emit();return False
         self.epoch+=1
         self.token=token or Event()
-        self.busy,self.job,self.error,self.done,self.total=True,job,'',0,0
+        # Background deferred captures must not hide an error the user has not seen.
+        self.busy,self.job,self.done,self.total=True,job,0,0
+        if not keep_error:self.error=''
         self.callback=callback
         self.changed.emit()
         self.reader.submit(function)
@@ -92,15 +94,19 @@ class ProjectController(QObject):
     def _ready(self, value, error):
         job,callback=self.job,self.callback
         self.busy=False;self.job='';self.callback=None
+        carried,self.error=self.error,''
         if error:
             self.error=error
             if job=='save' and '[Errno 13]' in error:self.read_only=True
         else:
             try:callback(value)
             except (OSError,ValueError,KeyError) as exc:self.error=str(exc)
+        ok=not self.error
+        if ok and carried:self.error=carried
         self.changed.emit()
-        if not self.error:self.resume_deferred()
-        self.operationFinished.emit(job,not bool(self.error))
+        # Drain queued captures after failures too; each failure pops one entry.
+        self.resume_deferred()
+        self.operationFinished.emit(job,ok)
 
     def saving(self):
         """Name the write that currently owns the project file, or ''."""
@@ -127,7 +133,7 @@ class ProjectController(QObject):
     def resume_deferred(self):
         if self.deferred and not self.busy and not self.saving():
             result,manifest=self.deferred.pop(0)
-            self._capture(result,manifest)
+            self._capture(result,manifest,keep_error=True)
 
     @Slot()
     def cancel(self):
@@ -183,14 +189,14 @@ class ProjectController(QObject):
         if self.busy:self.deferred.append((r,manifest));self.changed.emit()
         else:self._capture(r,manifest)
 
-    def _capture(self, result, manifest=None):
+    def _capture(self, result, manifest=None, keep_error=False):
         if self.saving():
             self.deferred.append((result,manifest))
             self.message='저장이 끝나면 분석 결과를 프로젝트에 추가합니다.'
             self.changed.emit();return
         snapshot=self.project
         def publish(p):self._replace(p)
-        self._begin('capture',lambda:capture_live(snapshot,result,manifest),publish)
+        self._begin('capture',lambda:capture_live(snapshot,result,manifest),publish,keep_error=keep_error)
 
     @Slot()
     def captureCurrent(self):
