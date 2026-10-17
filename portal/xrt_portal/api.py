@@ -441,6 +441,7 @@ def create_app(
             path
             in (
                 "admin/statistics",
+                "admin/labels/summary",
                 "admin/models/candidates",
                 "admin/models/statistics",
                 "admin/models/audit",

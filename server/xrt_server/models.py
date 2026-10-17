@@ -194,3 +194,25 @@ class ModelRelease(Base):
     payload: Mapped[dict] = mapped_column(JSONB)
     actor_id: Mapped[str] = mapped_column(ForeignKey("server_users.id"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+
+
+class ReviewLabel(Base):
+    """One human decision on a candidate (review_label/v1). Append-only."""
+
+    __tablename__ = "review_labels"
+    event_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    digest: Mapped[str] = mapped_column(String(64), nullable=False)
+    actor_id: Mapped[str] = mapped_column(ForeignKey("server_users.id"), index=True)
+    device_id: Mapped[str] = mapped_column(ForeignKey("devices.id"))
+    source_sha256: Mapped[str] = mapped_column(String(64), index=True)
+    candidate_id: Mapped[str] = mapped_column(String(256), index=True)
+    parent_event_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    decision: Mapped[str] = mapped_column(String(16), index=True)
+    predicted: Mapped[str] = mapped_column(String(8))
+    queue_kind: Mapped[str] = mapped_column(String(16))
+    has_crop: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    received_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=now, index=True
+    )
+    payload: Mapped[dict] = mapped_column(JSONB)
