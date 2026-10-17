@@ -99,10 +99,35 @@ class ProjectController(QObject):
             try:callback(value)
             except (OSError,ValueError,KeyError) as exc:self.error=str(exc)
         self.changed.emit()
-        if self.deferred and not self.error:
+        if not self.error:self.resume_deferred()
+        self.operationFinished.emit(job,not bool(self.error))
+
+    def saving(self):
+        """Name the write that currently owns the project file, or ''."""
+        if self.job=='save':return '프로젝트 저장'
+        for name,job,label in (('wafer_map_controller','save','Wafer Map 배치 저장'),
+                               ('stack3d_controller','save','3D 세션 저장'),
+                               ('registration_controller','approve-save','정합 승인 저장')):
+            controller=getattr(self.bridge,name,None)
+            if controller and controller.job==job:return label
+        return ''
+
+    def refuse_while_saving(self):
+        # Saved history is append-only, so edits made during a write cannot be merged afterwards.
+        label=self.saving()
+        if label:
+            self.error=f'{label}이 끝난 뒤 다시 시도하세요. 저장 중에는 프로젝트를 변경할 수 없습니다.'
+            self.changed.emit()
+        return bool(label)
+
+    def registration_busy(self):
+        registration=getattr(self.bridge,'registration_controller',None)
+        return bool(registration and registration.busy)
+
+    def resume_deferred(self):
+        if self.deferred and not self.busy and not self.saving():
             result,manifest=self.deferred.pop(0)
             self._capture(result,manifest)
-        self.operationFinished.emit(job,not bool(self.error))
 
     @Slot()
     def cancel(self):
@@ -141,8 +166,10 @@ class ProjectController(QObject):
 
     def _replace(self, project):
         if project is not self.project:
+            if self.refuse_while_saving():return False
             self.project=project;self.dirty=True
         self.changed.emit()
+        return True
 
     def _pipeline_changed(self):
         r=self.bridge.pipeline.result
@@ -157,6 +184,10 @@ class ProjectController(QObject):
         else:self._capture(r,manifest)
 
     def _capture(self, result, manifest=None):
+        if self.saving():
+            self.deferred.append((result,manifest))
+            self.message='저장이 끝나면 분석 결과를 프로젝트에 추가합니다.'
+            self.changed.emit();return
         snapshot=self.project
         def publish(p):self._replace(p)
         self._begin('capture',lambda:capture_live(snapshot,result,manifest),publish)
@@ -173,7 +204,7 @@ class ProjectController(QObject):
 
     @Slot()
     def registerCurrent(self):
-        if self.busy:return
+        if self.busy or self.refuse_while_saving():return
         source=self.bridge.original_source
         if source is None:self.error='등록할 원본 이미지를 먼저 여세요.';self.changed.emit();return
         if self.project is None:
@@ -205,10 +236,10 @@ class ProjectController(QObject):
 
     @Slot(str, str)
     def save(self, filename='', name=''):
-        stack3d=getattr(self.bridge,'stack3d_controller',None)
-        if stack3d and stack3d.job=='save':self.error='3D 세션 저장 중입니다.';self.changed.emit();return
-        wafer=getattr(self.bridge,'wafer_map_controller',None)
-        if wafer and wafer.job=='save':self.error='배치 저장 중입니다.';self.changed.emit();return
+        if self.refuse_while_saving():return
+        if self.registration_busy():
+            # Its result would land on the snapshot being written and be dropped by this save.
+            self.error='정합 작업이 끝난 뒤 프로젝트를 저장하세요.';self.changed.emit();return
         review=getattr(self.bridge,'review_controller',None)
         if review and review.pending:
             self.error='작성 중인 판정·도형을 검수 기록으로 확정한 뒤 프로젝트를 저장하세요.';self.changed.emit();return
@@ -240,6 +271,11 @@ class ProjectController(QObject):
             ProjectStore().save(path,p,expected_revision=expected)
             return p
         def publish(p):
+            if self.project is not snapshot:
+                # Never replace newer in-memory edits with the written snapshot.
+                self.saved_snapshot=p;self.path=str(path);self.read_only=False
+                self.error='저장 중 프로젝트가 변경되어 최신 내용은 저장되지 않았습니다. 프로젝트를 다시 여세요.'
+                return
             self.project=self.saved_snapshot=p;self.path=str(path);self.dirty=False;self.read_only=False
             self.dependencies=[];self.message='저장됨 · 원본 이미지는 포함하지 않습니다.'
             self._remember(p,path)
@@ -406,7 +442,7 @@ class ProjectController(QObject):
         self._source_change(source_id,'relink',filename)
 
     def _source_change(self, source_id, job, filename):
-        if self.project is None:return
+        if self.project is None or self.refuse_while_saving():return
         snapshot=self.project
         source=next((s for s in snapshot.image_sources if s.source_id==source_id),None)
         if source is None:return
@@ -422,7 +458,7 @@ class ProjectController(QObject):
 
     @Slot()
     def importCurrentExperiment(self):
-        if self.busy:return
+        if self.busy or self.refuse_while_saving():return
         e=self.bridge.research_controller.experiments
         if e.project is None or not e.manifest or e.saved_origin:
             self.error='먼저 단일 페이지 2D 이미지의 TD02 실험 번들을 불러오세요.';self.changed.emit();return
