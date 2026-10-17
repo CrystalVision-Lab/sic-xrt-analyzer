@@ -313,7 +313,8 @@ class TiffStack:
         else:
             sample = pixels[::max(1, pixels.shape[0] // 512), ::max(1, pixels.shape[1] // 512)]
             finite = sample[np.isfinite(sample)]
-            range_min, range_max = float(finite.min()), float(finite.max())
+            # An all-NaN/Inf page has no data range; use the display window.
+            range_min, range_max = (float(finite.min()), float(finite.max())) if finite.size else (low, high)
         range_min, range_max = min(range_min, low), max(range_max, high)
         if range_max <= range_min:
             range_max = range_min + 1

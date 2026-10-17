@@ -179,7 +179,7 @@ class SampledImageStack:
             minimum, maximum = 0.0, 1.0
         else:
             finite = self.samples[np.isfinite(self.samples)]
-            minimum, maximum = float(finite.min()), float(finite.max())
+            minimum, maximum = (float(finite.min()), float(finite.max())) if finite.size else (low, high)
             if minimum >= maximum:
                 maximum = minimum + 1
         raw = self.samples if self.samples.shape[:2] == (self.first_source.metadata.height, self.first_source.metadata.width) else None
