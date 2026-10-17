@@ -4,7 +4,7 @@ Issue: [#181](https://github.com/CrystalVision-Lab/sic-xrt-analyzer/issues/181)
 
 ## 상태
 
-**ENGINE_AND_SYNTHETIC_BENCHMARK**. 새 엔진 `sic_xrt_analyzer.stack3d.tracking`과 GT id가 있는 합성 벤치마크를 추가했다. UI는 아직 기존 `stack3d/defect.trace`를 사용하며, 기존 엔진은 삭제하지 않았다. 전환은 후속 PR에서 한다.
+**ENGINE_AND_SYNTHETIC_BENCHMARK**. 새 엔진 `sic_xrt_analyzer.stack3d.tracking`과 GT id가 있는 합성 벤치마크를 추가했다. UI 전환은 #188([XRT-TRACK-188](XRT-TRACK-188-REVIEW-UI.md))에서 했다. 기존 엔진 `stack3d/defect.py`는 벤치마크 기준선으로만 남아 있다.
 
 - 페이지는 section topography 스캔 순서(프레임)다. 물리 Z 간격은 검증되지 않았으므로 깊이·길이·부피를 주장하지 않는다.
 - 결과는 모두 `source=AUTO`, `status=PROPOSED`인 제안이다. 확정된 결함이나 학습 정답이 아니다.
@@ -151,9 +151,11 @@ seed.track.pages, seed.detection, seed.result
 - 상관 질감에서 SNR 2 이하인 약한 선은 검출하지 못한다.
 - 실제 데이터에서는 검출 모양(BLOB↔SEGMENT)이 페이지마다 바뀌고, 이웃 구조와 합쳐지는 경우가 남은 병목이다. 이 경우 합류·분기 후보와 검토 링크로 넘긴다.
 - 처리 시간은 Python skeleton 그래프 처리에 많이 쓰인다. 전체 페이지(수천 px)를 처리하려면 ROI·타일링 또는 최적화가 필요하다.
-- 결과 JSON은 아직 프로젝트 세션에 저장하지 않는다.
+- 결과 JSON과 보정 이벤트는 #188부터 세션 `xrt_stack_3d_session/v2`의 `page_track_review`로 저장한다.
 
 ## 다음 단계 (후속 PR)
+
+1–5는 #188에서 구현했다. 범위와 차이는 [XRT-TRACK-188](XRT-TRACK-188-REVIEW-UI.md)을 참고한다.
 
 1. UI 진입점을 `track_from_seed`로 전환한다. ROI 볼륨은 기존 `stack3d/volume`으로 읽는다.
 2. 트랙 표(페이지 범위, 최소 신뢰도, 검토 링크 수)
