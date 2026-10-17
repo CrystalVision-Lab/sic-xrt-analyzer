@@ -6,7 +6,7 @@ import pytest
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
 from test_portal import artifact, login, website
-from xrt_portal.devices import DEVICE_COOKIE, Devices
+from xrt_portal.devices import DEVICE_COOKIE, LIFETIME, Devices
 
 __all__ = ["website"]
 ORIGIN = {"Origin": "https://portal.test"}
@@ -53,7 +53,6 @@ def test_anonymous_pending_and_rejected_cannot_bypass_gate(website):
         assert token not in str(listing) and "digest" not in str(listing)
         assert decide(admin, csrf, ident, "REJECTED").status_code == 200
     assert c.get("/portal-api/access").json()["device"]["status"] == "REJECTED"
-    assert request_device(c).json()["status"] == "REJECTED"
     assert c.get("/portal-api/releases").status_code == 403
     for file in store.state.glob("*"):
         if file.is_file():
@@ -108,3 +107,47 @@ def test_requests_need_origin_valid_fields_and_persistent_rate_limit(website):
     with pytest.raises(HTTPException) as error:
         Devices(store).request(FIELDS, "Browser", "testclient")
     assert error.value.status_code == 429
+
+
+def test_rejected_or_revoked_browser_can_request_again(website):
+    c, store, _, _ = website
+    c.cookies.clear()
+    first = request_device(c).json()
+    old_token = c.cookies.get(DEVICE_COOKIE)
+    with TestClient(c.app, base_url="https://portal.test") as admin:
+        csrf = login(admin).json()["csrf"]
+        assert decide(admin, csrf, first["id"], "REJECTED").status_code == 200
+        r = request_device(c)
+        assert r.status_code == 201 and r.json()["status"] == "PENDING"
+        second = r.json()["id"]
+        assert second != first["id"] and c.cookies.get(DEVICE_COOKIE) != old_token
+        # A pending request is not duplicated by repeated clicks.
+        assert request_device(c).json()["id"] == second
+        assert decide(admin, csrf, second, "APPROVED").status_code == 200
+        assert decide(admin, csrf, second, "REVOKED", 1).status_code == 200
+        third = request_device(c)
+        assert third.status_code == 201 and third.json()["id"] not in (first["id"], second)
+        statuses = {d["id"]: d["status"] for d in admin.get("/portal-api/admin/site-devices").json()}
+    # Earlier decisions stay on record for the audit trail.
+    assert statuses[first["id"]] == "REJECTED" and statuses[second] == "REVOKED"
+    assert Devices(store).get(old_token)["status"] == "REJECTED"
+
+
+def test_approval_starts_lifetime_and_refreshes_cookie(website):
+    c, store, _, _ = website
+    c.cookies.clear()
+    device = request_device(c).json()
+    with store.connect() as db:  # Pretend the request waited 100 days for a decision.
+        db.execute("UPDATE site_devices SET created=created-?, expires=expires-? WHERE id=?",
+                   (100 * 86400, 100 * 86400, device["id"]))
+    with TestClient(c.app, base_url="https://portal.test") as admin:
+        csrf = login(admin).json()["csrf"]
+        assert decide(admin, csrf, device["id"], "APPROVED").status_code == 200
+    r = c.get("/portal-api/access")
+    assert r.json()["allowed"]
+    expires = r.json()["device"]["expires"]
+    assert abs(expires - (time.time() + LIFETIME)) < 60
+    cookie = r.headers["set-cookie"].lower()
+    assert "max-age=" in cookie and "httponly" in cookie and "samesite=strict" in cookie
+    max_age = int(cookie.split("max-age=")[1].split(";")[0])
+    assert LIFETIME - 120 < max_age <= LIFETIME

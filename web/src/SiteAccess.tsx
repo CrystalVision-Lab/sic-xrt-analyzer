@@ -9,11 +9,19 @@ type Device = { id: string; status: string; created: number; expires: number; re
 type Access = { allowed: boolean; device: Device | null };
 type ManagedDevice = Device & { name: string; affiliation: string; device_name: string; user_agent: string; platform: string; revision: number; decided_at: number | null };
 const labels: Record<string, string> = { PENDING: "승인 대기", APPROVED: "승인됨", REJECTED: "요청 거절", REVOKED: "권한 철회" };
+// A rejected or revoked browser can send a new request (the server keeps the old record).
+const finalStates = new Set(["REJECTED", "REVOKED"]);
+
+function platformName() {
+  const hints = (navigator as Navigator & { userAgentData?: { platform?: string } }).userAgentData;
+  return hints?.platform || navigator.platform || "알 수 없음";
+}
 
 export function SiteGate() {
   const location = useLocation();
   const [data, setData] = useState<Access>();
   const [error, setError] = useState<Error>();
+  const [attempt, setAttempt] = useState(0);
   useEffect(() => {
     const controller = new AbortController();
     const refresh = () => {
@@ -25,8 +33,11 @@ export function SiteGate() {
     const timer = window.setInterval(refresh, 60000);
     window.addEventListener("focus", refresh);
     return () => { controller.abort(); clearInterval(timer); window.removeEventListener("focus", refresh); };
-  }, []);
-  if (error) return <ErrorBox error={error} />;
+  }, [attempt]);
+  if (error) return <main className="access-page"><section className="access-card">
+    <Brand /><h1>접속 상태를 확인하지 못했습니다</h1><ErrorBox error={error} />
+    <div className="access-actions"><button className="primary-button" onClick={() => { setError(undefined); setAttempt(v => v + 1); }}><RefreshCw size={15} /> 다시 시도</button></div>
+  </section></main>;
   if (!data) return <Loading />;
   if (!data.allowed) return <Navigate to="/access" replace state={{ from: location.pathname }} />;
   return <Outlet />;
@@ -39,6 +50,7 @@ export function AccessPage() {
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<Error>();
   const device = data?.device ?? submitted;
+  const canRequest = !device || finalStates.has(device.status);
   useEffect(() => {
     if (device?.status !== "PENDING") return;
     const timer = window.setInterval(() => setRev(v => v + 1), 15000);
@@ -53,28 +65,28 @@ export function AccessPage() {
     </> : <>
       <h1><LockKeyhole size={25} /> 기기 승인이 필요합니다</h1>
       <p>연구 자료와 프로그램은 승인된 기기에서만 이용할 수 있습니다. 아래 정보를 보내면 관리자가 확인 후 접속 권한을 부여합니다.</p>
-      {loading && !data && !submitted ? <Loading /> : error ? <ErrorBox error={error} /> : device ? <div className="access-status" role="status">
+      {loading && !data && !submitted ? <Loading /> : error ? <ErrorBox error={error} /> : <>{device && <div className="access-status" role="status">
         <strong>{labels[device.status] ?? device.status}</strong>
         <p>요청 번호: {device.id}<br />요청일: {date(device.created)}</p>
         {device.reason && <p>관리자 안내: {device.reason}</p>}
-        <p>{device.status === "PENDING" ? "승인 상태는 15초마다 확인합니다. 이 브라우저에서 다시 방문해도 요청이 유지됩니다." : "추가 확인이 필요하면 요청 번호와 함께 관리자에게 문의해 주세요."}</p>
-      </div> : <form onSubmit={async e => {
+        <p>{device.status === "PENDING" ? "승인 상태는 15초마다 확인합니다. 이 브라우저에서 다시 방문해도 요청이 유지됩니다." : "정보를 확인한 뒤 아래에서 다시 요청할 수 있습니다. 궁금한 점은 요청 번호와 함께 관리자에게 문의해 주세요."}</p>
+      </div>}{canRequest && <form onSubmit={async e => {
         e.preventDefault(); setBusy(true); setFailure(undefined);
         const fields = new FormData(e.currentTarget);
         try {
-          const result = await request<Device>("access/request", { method: "POST", body: JSON.stringify({ name: fields.get("name"), affiliation: fields.get("affiliation"), device_name: fields.get("device_name"), platform: navigator.platform || "알 수 없음" }) });
+          const result = await request<Device>("access/request", { method: "POST", body: JSON.stringify({ name: fields.get("name"), affiliation: fields.get("affiliation"), device_name: fields.get("device_name"), platform: platformName() }) });
           setSubmitted(result); setRev(v => v + 1);
         } catch (err) { setFailure(err as Error); } finally { setBusy(false); }
       }}>
         <label>이름<input name="name" autoComplete="name" maxLength={120} required placeholder="홍길동" /></label>
         <label>소속 · 연락처<input name="affiliation" maxLength={120} required placeholder="연구실 / 관리자에게 알려진 연락처" /></label>
         <label>기기 이름<input name="device_name" maxLength={120} required placeholder="연구실 PC / 개인 노트북" /></label>
-        <p>입력한 정보와 브라우저·운영체제 정보를 관리자에게 전달합니다. 승인은 이 브라우저에 저장된 기기 키에 연결됩니다. 쿠키 삭제, 다른 브라우저 또는 새 기기는 다시 승인이 필요합니다. 승인 유효기간은 요청일부터 180일입니다.</p>
-        <button className="primary-button" disabled={busy}>{busy ? "요청 중…" : "접속 승인 요청"}</button>
-      </form>}
+        <p>입력한 정보와 브라우저·운영체제 정보를 관리자에게 전달합니다. 승인은 이 브라우저에 저장된 기기 키에 연결됩니다. 쿠키 삭제, 다른 브라우저 또는 새 기기는 다시 승인이 필요합니다. 승인 유효기간은 승인일부터 180일입니다.</p>
+        <button className="primary-button" disabled={busy}>{busy ? "요청 중…" : device ? "다시 승인 요청" : "접속 승인 요청"}</button>
+      </form>}</>}
       {failure && <ErrorBox error={failure} />}
     </>}
-    <div className="access-actions"><button className="outline-button" disabled={loading || busy} onClick={() => setRev(v => v + 1)}><RefreshCw size={15} /> 승인 상태 확인</button><Link to="/admin/site-devices">관리자 로그인</Link></div>
+    <div className="access-actions"><button className="outline-button" disabled={loading || busy} onClick={() => setRev(v => v + 1)}><RefreshCw size={15} /> 승인 상태 확인</button><Link className="outline-button" to="/admin/site-devices">관리자 로그인</Link></div>
   </section></main>;
 }
 

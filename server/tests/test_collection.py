@@ -518,3 +518,38 @@ def test_project_metadata_and_per_device_source_version(api, project):
     )
     assert summary["source_version"][0]["project_revision"] == project.revision
     assert summary["server_received_at"]
+
+
+def test_admin_statistics_reflect_each_new_sync(api, project):
+    # The database is shared across tests, so compare increments, not totals.
+    http, _app, _s, _u, client, token, admin, _c = api
+    base = http.get("/api/v1/admin/statistics", headers=headers(admin)).json()
+    _value, ack = upload(api, project)
+    first = http.get("/api/v1/admin/statistics", headers=headers(admin)).json()
+    assert first["reviewed_targets"] == base["reviewed_targets"] + 1
+    assert first["conflict_targets"] == base["conflict_targets"]
+    # A repeated read is served from the per-project summary cache unchanged.
+    assert http.get("/api/v1/admin/statistics", headers=headers(admin)).json() == first
+    p, _ = append_review(
+        project,
+        ReviewTarget.OBSERVATION,
+        project.observations[0].observation_id,
+        "second-reviewer",
+        "PRESENT",
+        "BPD",
+        "ACCEPTED",
+        "second opinion",
+        source_id=project.image_sources[0].source_id,
+        run_id=project.analysis_runs[0].run_id,
+    )
+    delta = make_batch(p, client, known=ack["inventory"])
+    assert (
+        http.post("/api/v1/sync/batches", json=delta, headers=headers(token)).status_code
+        == 200
+    )
+    second = http.get("/api/v1/admin/statistics", headers=headers(admin)).json()
+    assert second["counts"]["review_events"] == first["counts"]["review_events"] + 1
+    assert second["conflict_targets"] == first["conflict_targets"] + 1
+    assert second["reviewer_events"]["second-reviewer"] == (
+        first["reviewer_events"].get("second-reviewer", 0) + 1
+    )

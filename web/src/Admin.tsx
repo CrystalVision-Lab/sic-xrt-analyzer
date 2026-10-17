@@ -1,6 +1,6 @@
 import { SiteDevices } from "./SiteAccess";
 import { ThemeToggle } from "./Theme";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, NavLink, Route, Routes, useLocation } from "react-router-dom";
 import {
   Activity,
@@ -232,6 +232,15 @@ export default function Admin() {
             <Route path="batches" element={<Feed kind="batches" />} />
             <Route path="users" element={<UsersPage />} />
             <Route path="audit" element={<Feed kind="audit" />} />
+            <Route
+              path="*"
+              element={
+                <Empty title="없는 관리자 화면입니다">
+                  주소를 확인하거나 <Link to="/admin">운영 개요</Link>로
+                  돌아가세요.
+                </Empty>
+              }
+            />
           </Routes>
         </main>
       </div>
@@ -357,14 +366,21 @@ function Overview() {
           <div className="summary-line">
             <span>게시된 프로그램</span>
             <strong>
-              {releases.data?.filter((r) => r.state.status === "PUBLISHED")
-                .length ?? "—"}
+              {releases.error
+                ? "조회 실패"
+                : releases.data?.filter((r) => r.state.status === "PUBLISHED")
+                    .length ?? "—"}
             </strong>
           </div>
           <div className="summary-line">
             <span>등록된 모델 후보</span>
-            <strong>{models.data?.length ?? "—"}</strong>
+            <strong>
+              {models.error ? "조회 실패" : models.data?.length ?? "—"}
+            </strong>
           </div>
+          {(releases.error || models.error) && (
+            <ErrorBox error={(releases.error ?? models.error) as Error} />
+          )}
           <div className="summary-line">
             <span>최근 서버 수신</span>
             <span>{date(s.data?.recent_received_at)}</span>
@@ -905,8 +921,19 @@ function ProjectDetail({ id }: { id: string }) {
     `research/admin/datasets/eligibility?project_id=${id}`,
   );
   const crops = useData<Json[]>(`research/admin/portal/projects/${id}/crops`);
+  const panel = useRef<HTMLElement>(null);
+  useEffect(() => {
+    // The detail opens below the table; bring it into view so the click visibly responds.
+    panel.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    panel.current?.focus({ preventScroll: true });
+  }, [id]);
   return (
-    <section className="panel">
+    <section
+      className="panel"
+      ref={panel}
+      tabIndex={-1}
+      aria-label="선택한 프로젝트 자료"
+    >
       <div className="panel-title">
         <h2>프로젝트 자료</h2>
         <Pill>읽기 전용</Pill>

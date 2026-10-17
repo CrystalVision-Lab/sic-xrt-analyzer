@@ -43,3 +43,29 @@ it("requires a reason and submits a CSRF-protected versioned approval", async ()
   expect(call[1]?.headers).toMatchObject({ "X-Xrt-Csrf": "synthetic-csrf" });
   expect(JSON.parse(call[1]!.body as string)).toEqual({ status: "APPROVED", revision: 0, reason: "Identity verified" });
 });
+
+it("lets a rejected browser send a new request", async () => {
+  const rejected = { ...device, status: "REJECTED", reason: "Unknown affiliation" };
+  const fetcher = vi.fn((_url: string, options?: RequestInit) => json(options?.method === "POST" ? { ...device, id: "second-request" } : { allowed: false, device: fetcher.mock.calls.some(c => c[1]?.method === "POST") ? { ...device, id: "second-request" } : rejected }));
+  vi.stubGlobal("fetch", fetcher);
+  render(<MemoryRouter><AccessPage /></MemoryRouter>);
+  expect(await screen.findByText("요청 거절")).toBeTruthy();
+  expect(screen.getByText("관리자 안내: Unknown affiliation")).toBeTruthy();
+  fireEvent.change(screen.getByLabelText("이름"), { target: { value: "QA" } });
+  fireEvent.change(screen.getByLabelText("소속 · 연락처"), { target: { value: "Synthetic lab" } });
+  fireEvent.change(screen.getByLabelText("기기 이름"), { target: { value: "QA PC" } });
+  fireEvent.click(screen.getByRole("button", { name: "다시 승인 요청" }));
+  expect(await screen.findByText("승인 대기")).toBeTruthy();
+  expect(screen.queryByRole("button", { name: "다시 승인 요청" })).toBeNull();
+});
+
+it("offers a retry when the access status cannot be read", async () => {
+  let failing = true;
+  const fetcher = vi.fn(() => failing ? Promise.reject(new Error("offline")) : json({ allowed: true, device: null }));
+  vi.stubGlobal("fetch", fetcher);
+  render(<MemoryRouter><Routes><Route element={<SiteGate />}><Route path="/" element={<p>Protected content</p>} /></Route></Routes></MemoryRouter>);
+  const retry = await screen.findByRole("button", { name: "다시 시도" });
+  failing = false;
+  fireEvent.click(retry);
+  expect(await screen.findByText("Protected content")).toBeTruthy();
+});

@@ -255,6 +255,10 @@ def create_app(url=None, asset_dir=None):
                 s, *pair, p, request.scope["xrt_body"], app.state.asset_dir
             )
 
+    # Entity rows are append-only (immutable triggers) and a project payload only changes
+    # with its schema version, so (schema, row count) identifies a project's review state.
+    summary_cache = {}
+
     @app.get("/api/v1/admin/statistics")
     def statistics(pair: Annotated[tuple, Depends(admin)]):
         from .models import Project
@@ -264,9 +268,20 @@ def create_app(url=None, asset_dir=None):
                 k: s.scalar(select(func.count()).select_from(cls))
                 for k, cls in ENTITIES.items()
             }
-            details = [
-                review_summary(p, rows_for(s, p.id)) for p in s.scalars(select(Project))
-            ]
+            sizes = Counter()
+            for cls in ENTITIES.values():
+                for project_id, n in s.execute(
+                    select(cls.project_id, func.count()).group_by(cls.project_id)
+                ):
+                    sizes[project_id] += n
+            details = []
+            for p in s.scalars(select(Project)):
+                key = (p.payload["schema_version"] if p.payload else None, sizes[p.id])
+                cached = summary_cache.get(p.id)
+                if cached is None or cached[0] != key:
+                    cached = (key, review_summary(p, rows_for(s, p.id)))
+                    summary_cache[p.id] = cached
+                details.append(cached[1])
             return {
                 "projects": s.scalar(select(func.count()).select_from(Project)),
                 "users": s.scalar(select(func.count()).select_from(User)),
