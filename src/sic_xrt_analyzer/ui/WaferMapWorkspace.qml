@@ -19,7 +19,7 @@ Rectangle{
  SafeFolderDialog{id:folder;objectName:"waferFolderDialog";title:"같은 촬영의 사진 폴더 선택";onAccepted:root.controller.open(selectedFolder.toString())}
  ColumnLayout{anchors.fill:parent;anchors.margins:14;spacing:12
   RowLayout{Layout.fillWidth:true
-   Text{text:"Wafer Map";color:root.theme.text;font.pixelSize:20}
+   Text{text:"웨이퍼맵";color:root.theme.text;font.pixelSize:20}
    ComboBox{objectName:"waferCaptureGroup";visible:root.state.groups.length>1;model:root.state.groups;textRole:"label";currentIndex:root.state.group;Layout.fillWidth:true;onActivated:function(index){root.controller.selectGroup(index)}}
    Item{Layout.fillWidth:true;visible:root.state.groups.length<=1}
    Text{text:root.state.ready?"배치 "+root.state.aligned+"장 · 읽기 성공 "+root.state.count+"장 · 실패 "+root.state.failed+"건":"";color:root.state.failed?root.theme.warning:root.theme.muted;font.pixelSize:12}

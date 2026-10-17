@@ -18,7 +18,6 @@ Qt UI와 기존 Pan/Zoom/FIT/ROI를 유지하고 아래 구성 요소를 추가�
 | `imaging/tiff_stack.py` | raw/정밀 표시 LRU, 전체 BrowseCache, uint16 표시 변환, ImageJ 범위 |
 | `ui/stack_controller.py` | 전체 페이지 준비, 진행률/재시도, 드래그 즉시 게시, 마지막 페이지 정밀 읽기 |
 | `ui/StackControls.qml` | 오른쪽 뷰어 탭의 페이지 탐색, 표시 범위, 준비 상태 |
-| `ui/InspectorPanel.qml` | 이미지/분석/결과/뷰어/ROI 탭과 세로 스크롤 |
 | `tools/validate_tiff_stack.py` | 실제 파일 first/middle/last 원본·표시·한도 검증, 읽기 전용 |
 | `tools/benchmark_tiff_scroll.py` | 생성 영상 또는 읽기 전용 실제 TIFF의 변환·캐시·게시 시간 측정 |
 

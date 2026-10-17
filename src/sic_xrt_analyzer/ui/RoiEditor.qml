@@ -19,7 +19,7 @@ ColumnLayout {
         AppButton { objectName: "roiRedoButton"; theme: root.theme; text: "다시"; enabled: uiState.importedRois.canRedo && !uiState.loading && !uiState.importedRois.busy; onClicked: fileBridge.roiHistory(true) }
     }
     AppCheckBox { objectName: "roiEditModeCheck"; theme: root.theme; text: "점 / 꼭짓점 편집 모드"; action: root.actions.advanced.editRoi }
-    Text { text: "점을 드래그하여 이동 · 빈 곳 드래그는 Pan\n더블클릭으로 점 추가 · Delete로 선택 점 삭제\nCtrl+Z / Ctrl+Shift+Z로 취소 / 다시 실행"; Layout.fillWidth: true; wrapMode: Text.Wrap; color: theme.muted; font.pixelSize: theme.smallSize }
+    Text { text: "점을 드래그하여 이동 · 빈 곳 드래그는 화면 이동\n더블클릭으로 점 추가 · Delete로 선택 점 삭제\nCtrl+Z / Ctrl+Shift+Z로 취소 / 다시 실행"; Layout.fillWidth: true; wrapMode: Text.Wrap; color: theme.muted; font.pixelSize: theme.smallSize }
     ColumnLayout {
         visible: root.editable; Layout.fillWidth: true; spacing: theme.spacingXs
         AppTextField {

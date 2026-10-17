@@ -59,14 +59,14 @@ def test_workstation_flow(tmp_path):
     assert menu.property("count") == 8
     assert [window.findChild(QObject, name + "Menu").property("title") for name in
             ("file", "edit", "view", "process", "analysis", "tools", "settings", "help")] == [
-                "파일", "편집", "이미지 (Image)", "처리 (Process)", "분석 (Analyze)", "플러그인 (Plugins)", "창 (Window)", "도움말"]
+                "파일(F)", "편집(E)", "이미지(I)", "처리(P)", "분석(A)", "플러그인(G)", "창(W)", "도움말(H)"]
     assert not state.property("hasImage")
     assert inspector.property("activeContext") == "idle"
     assert inspector.property("lastReason") == "STARTUP"
     assert window.findChild(QObject, "contextSubtitle").property("text") == ""
     assert not inspector.property("visible")
     assert not window.findChild(QObject, "runAction").property("enabled")
-    assert window.findChild(QObject, "settingsMenu").property("count") == 3
+    assert window.findChild(QObject, "settingsMenu").property("count") == 2
     assert window.findChild(QObject, "menuOpenItem").property("text") == window.findChild(QObject, "openAction").property("text")
 
     QTest.keyClick(window, Qt.Key_F, Qt.AltModifier)
