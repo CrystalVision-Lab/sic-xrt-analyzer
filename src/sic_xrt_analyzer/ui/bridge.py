@@ -142,6 +142,8 @@ class FileBridge(QObject):
         self.wafer_map_controller = WaferMapController(self)
         from .stack3d_controller import Stack3DController
         self.stack3d_controller = Stack3DController(self)
+        from .track_review_controller import TrackReviewController
+        self.track_review = TrackReviewController(self)
         self.feedback_controller = FeedbackController(self)
         self.feedback_controller.changed.connect(self.research_controller.changed)
         from .review_controller import ReviewController
@@ -157,8 +159,6 @@ class FileBridge(QObject):
         self.display_layers = DisplayLayers(self)
         from .folder_map import FolderMap
         self.folder_map = FolderMap(self)
-        from .defect3d_controller import Defect3DController
-        self.defect3d_controller = Defect3DController(self)
         self.issue_reports = IssueReports(self)
         stored = self._settings.value("preferences", {})
         self._preferences = self._validated(stored if isinstance(stored, dict) else {})
@@ -584,7 +584,7 @@ class FileBridge(QObject):
         if not path or not self.isAccessible(path):
             return {"ok": False, "error": "접근 가능한 로컬 TIFF/JPG 파일을 선택하세요"}
         self.stack3d_controller.openingFile(path)
-        self.defect3d_controller.openingFile(path)
+        self.track_review.openingFile(path)
         try:
             stack = open_stack(path)
             try:
@@ -625,7 +625,7 @@ class FileBridge(QObject):
         path = self.localPath(url)
         # Filesystem/header/decode errors occur in the worker, with latest-request semantics.
         self.stack3d_controller.openingFile(path)
-        self.defect3d_controller.openingFile(path)
+        self.track_review.openingFile(path)
         self.stack_viewer.open(path)
 
     @Slot(str)
@@ -686,10 +686,7 @@ class FileBridge(QObject):
 
     @Slot()
     def clearImage(self):
-        self.defect3d_controller.cancel()
-        self.defect3d_controller.mesh = None
-        self.defect3d_controller.meshChanged.emit()
-        self.defect3d_controller.changed.emit()
+        self.track_review.cancel()
         self.stack3d_controller.openingFile("")
         self.workbench.cancel()
         self.workbench.runtime.session += 1
@@ -708,7 +705,7 @@ class FileBridge(QObject):
     @Slot()
     def waitForLoads(self):
         self.folder_map.shutdown()
-        self.defect3d_controller.shutdown()
+        self.track_review.shutdown()
         self.issue_reports.shutdown()
         self.app_update_controller.shutdown()
         self.model_update_controller.shutdown()
@@ -745,8 +742,8 @@ class FileBridge(QObject):
         return self.review_controller
 
     @Property(QObject, constant=True)
-    def defect3d(self):
-        return self.defect3d_controller
+    def trackReview(self):
+        return self.track_review
 
     @Property(QObject, constant=True)
     def stack3d(self):

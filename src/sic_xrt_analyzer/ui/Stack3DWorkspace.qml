@@ -1,111 +1,187 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+
+// 스택 추적 검토: track table, XY page view, kymographs, link timeline, filmstrip.
+// Pages are section-scan order, not verified physical depth.
 ColumnLayout {
- id:root;objectName:"stack3dWorkspace";property QtObject theme;property QtObject uiState
- property var controller:fileBridge.defect3d;property var state:controller.state;signal projectRequested()
- property string comparisonPlane:"xy";property bool comparison:false;property bool showFull:false;property bool excludeMode:false;property bool includeMode:false
- readonly property bool needsConnection: state.frameReason==="AMBIGUOUS_BRANCH" || state.frameReason==="AMBIGUOUS_MERGE"
- Connections { target:root.controller;function onChanged(){if(root.state.busy||root.state.visual)root.comparison=false} }
- spacing: 8
- onVisibleChanged:controller.setPresented(visible)
- RowLayout{Layout.fillWidth:true
-  AppButton{objectName:"stack3dBack";theme:root.theme;text:"← 이미지";onClicked:root.uiState.workspaceIndex=0}
-  Text{text:"결함 추적 · 3D 검토";color:root.theme.text;font.pixelSize:18;Layout.fillWidth:true}
-  Text{text:root.state.ready?root.state.pages+"개 페이지 연결":root.state.frameRevision?"현재 "+root.state.framePage+" 페이지":"";color:root.theme.muted;font.pixelSize:12}
-  AppButton{theme:root.theme;text:"과정 다시 보기";visible:root.state.ready&&!root.state.visual;onClicked:root.controller.replay()}
-  AppButton{objectName:"defectOrthogonalCompare";theme:root.theme;text:root.comparison?"3D 표면":"원본 직교 단면 비교";enabled:root.state.ready&&!root.state.busy;checked:root.comparison;onClicked:{if(root.comparison)root.comparison=false;else if(root.controller.openComparison())root.comparison=true}}
-  AppButton{objectName:"defect3dReselect";theme:root.theme;text:"다시 선택";onClicked:{root.uiState.workspaceIndex=0;root.uiState.activeTool="Defect3D"}}
-  AppButton{objectName:"stack3dReset";theme:root.theme;text:"화면 맞춤";onClicked:if(scene.item)scene.item.reset()}
- }
- Rectangle {
-  visible:root.state.visual && root.needsConnection; Layout.fillWidth:true; implicitHeight:connectionHint.implicitHeight+28
-  color:root.theme.panel; radius:root.theme.radiusPanel
-  ColumnLayout { id:connectionHint; anchors.fill:parent; anchors.margins:14; spacing:5
-   Text { text:"교차 지점의 연결을 확인해 주세요";color:root.theme.warning;font.pixelSize:16;font.weight:Font.DemiBold;Layout.fillWidth:true;wrapMode:Text.Wrap }
-   Text { text:"직전 경로와 같은 결함인지 원본에서 확인한 뒤 ‘같은 결함 지정’으로 이어가세요. 주변 결함은 제외하거나 이 페이지를 건너뛸 수 있습니다.";color:root.theme.muted;font.pixelSize:12;Layout.fillWidth:true;wrapMode:Text.Wrap }
-  }
- }
- Rectangle {
-  Layout.fillWidth:true; implicitHeight:48; color:root.theme.panel; radius:8
-  RowLayout { anchors.fill:parent; anchors.margins:10
-   Text { text:root.state.busy?"01  원본 확인 → 02  연결 검토 → 03  표면 생성":"원본과 추적 결과를 함께 비교하세요";color:root.theme.text;font.pixelSize:14;Layout.fillWidth:true }
-   Text { text:"XY 픽셀 · Z 페이지 순서";color:root.theme.muted;font.pixelSize:12 }
-  }
- }
- SplitView { Layout.fillWidth:true;Layout.fillHeight:true;orientation:Qt.Horizontal
-  Rectangle{visible:root.state.frameRevision>0;SplitView.preferredWidth:root.width*.48;SplitView.minimumWidth:340;color:root.theme.viewer;clip:true
-   ColumnLayout{anchors.fill:parent;anchors.margins:10
-    RowLayout{Layout.fillWidth:true
-     Text{text:root.state.frameRevision?"원본 · "+root.state.framePage+" 페이지":"원본 읽는 중";color:root.theme.text;Layout.fillWidth:true}
-     AppButton{theme:root.theme;text:root.showFull?"결함 확대":"전체 사진";onClicked:root.showFull=!root.showFull}
-     AppButton{visible:root.state.visual;theme:root.theme;text:root.excludeMode?"제외 취소":"다른 결함 제외";onClicked:{root.excludeMode=!root.excludeMode;if(root.excludeMode&&!root.state.paused)root.controller.togglePause()}}
+    id: root
+    objectName: "stack3dWorkspace"
+    property QtObject theme
+    property QtObject uiState
+    signal projectRequested()
+    property var review: fileBridge.trackReview
+    property var rs: review.state
+    property var ss: fileBridge.stack3d.state
+    readonly property bool active: visible && rs.ready && !rs.stale
+    readonly property var track: rs.track || ({})
+    spacing: 8
+
+    Shortcut { sequence: "A"; enabled: root.active; onActivated: root.review.acceptLink() }
+    Shortcut { sequence: "S"; enabled: root.active; onActivated: root.review.splitAtPage() }
+    Shortcut { sequence: "M"; enabled: root.active; onActivated: root.review.mergeWithTarget() }
+    Shortcut { sequence: "R"; enabled: root.active; onActivated: root.review.rejectTrack() }
+    Shortcut { sequence: "D"; enabled: root.active; onActivated: root.review.setOverlay(!root.rs.overlay) }
+    Shortcut { sequence: "Left"; enabled: root.active; onActivated: root.review.stepPage(-1) }
+    Shortcut { sequence: "Right"; enabled: root.active; onActivated: root.review.stepPage(1) }
+    Shortcut { sequence: "Up"; enabled: root.active; onActivated: root.review.selectRelative(-1) }
+    Shortcut { sequence: "Down"; enabled: root.active; onActivated: root.review.selectRelative(1) }
+    Shortcut { sequences: [StandardKey.Undo]; enabled: root.active; onActivated: root.review.undo() }
+
+    RowLayout {
+        Layout.fillWidth: true
+        AppButton { objectName: "stack3dBack"; theme: root.theme; text: "← 이미지"; onClicked: root.uiState.workspaceIndex = 0 }
+        Text { text: "스택 추적"; color: root.theme.text; font.pixelSize: 18 }
+        Text { objectName: "trackReviewMessage"; text: root.rs.error || root.rs.message || root.ss.error || ""; color: root.rs.error ? root.theme.warning : root.theme.muted; font.pixelSize: 12; elide: Text.ElideRight; Layout.fillWidth: true; Layout.preferredWidth: 0 }
+        AppButton { objectName: "trackReviewReselect"; theme: root.theme; text: "다시 선택"; tip: "이미지에서 다른 결함을 클릭합니다"; onClicked: { root.uiState.workspaceIndex = 0; root.uiState.activeTool = "StackTrack" } }
+        AppButton { objectName: "trackReviewRun"; theme: root.theme; primary: !root.rs.ready; text: root.rs.ready ? "다시 추적" : "스택 추적 실행"; enabled: root.rs.volumeReady && !root.rs.busy && !root.ss.busy; onClicked: root.review.run() }
+        AppTextField { id: reviewerField; objectName: "trackReviewer"; visualTheme: root.theme; placeholderText: "검토자 ID"; text: root.rs.reviewer; maximumLength: 120; Layout.preferredWidth: 130; onEditingFinished: root.review.setReviewer(text) }
+        AppButton { objectName: "trackReviewSave"; theme: root.theme; text: root.rs.pending > 0 ? "프로젝트에 저장 (" + root.rs.pending + ")" : "프로젝트에 저장"
+            enabled: root.ss.project && root.ss.ready && !root.ss.busy && !root.rs.busy && !!reviewerField.text
+            tip: "보정 이벤트와 자동 결과를 3D 세션에 추가 기록합니다 (원본 SHA 확인)"
+            onClicked: { root.review.setReviewer(reviewerField.text); fileBridge.stack3d.save(reviewerField.text) } }
     }
-    RowLayout{visible:root.state.visual;Layout.fillWidth:true
-     AppButton{theme:root.theme;primary:root.needsConnection;text:root.includeMode?"연결 지정 취소":"같은 결함 지정";onClicked:{root.includeMode=!root.includeMode;root.excludeMode=false;if(root.includeMode&&!root.state.paused)root.controller.togglePause()}}
-     AppButton{theme:root.theme;text:"이 페이지 건너뛰기";onClicked:root.controller.skipCurrent()}
+    RowLayout {
+        visible: root.rs.busy || root.ss.busy; Layout.fillWidth: true
+        Text { text: root.rs.busy ? root.rs.progress[2] : (root.ss.progress[2] || "Volume 준비"); color: root.theme.muted }
+        ProgressBar { Layout.fillWidth: true; from: 0; to: Math.max(1, root.rs.busy ? root.rs.progress[1] : root.ss.progress[1]); value: root.rs.busy ? root.rs.progress[0] : root.ss.progress[0] }
+        AppButton { objectName: "trackReviewCancel"; theme: root.theme; text: "취소"; onClicked: { root.review.cancel(); if (root.ss.busy) fileBridge.stack3d.cancel() } }
     }
-    Item{Layout.fillWidth:true;Layout.fillHeight:true
-     Image{id:photo;objectName:"defectTraceSource";anchors.fill:parent;fillMode:Image.PreserveAspectFit;cache:false;smooth:false
-      source:root.state.frameRevision?"image://tiff/stack3d-trace-"+(root.showFull?"full":"crop")+"?"+root.state.frameRevision:""
-     }
-     Rectangle{visible:root.state.frameRevision>0;anchors.right:parent.right;anchors.bottom:parent.bottom;width:Math.min(150,parent.width*.25);height:width;color:root.theme.viewer;border.color:root.theme.accent
-      Image{anchors.fill:parent;anchors.margins:2;fillMode:Image.PreserveAspectFit;smooth:false;cache:false;source:parent.visible?"image://tiff/stack3d-trace-"+(root.showFull?"crop":"full")+"?"+root.state.frameRevision:""}
-     }
-     MouseArea{anchors.fill:parent;enabled:(root.excludeMode||root.includeMode)&&root.state.frameRevision>0;cursorShape:Qt.CrossCursor
-      onClicked:function(m){var left=(width-photo.paintedWidth)/2,top=(height-photo.paintedHeight)/2,u=(m.x-left)/photo.paintedWidth,v=(m.y-top)/photo.paintedHeight;if(u<0||u>1||v<0||v>1)return;var r=root.showFull?[0,0,root.state.sourceSize[0],root.state.sourceSize[1]]:root.state.cropRect;if(root.includeMode){root.includeMode=false;root.controller.include(r[0]+u*r[2],r[1]+v*r[3])}else{root.excludeMode=false;root.controller.exclude(r[0]+u*r[2],r[1]+v*r[3])}}
-     }
+    Text {
+        Layout.fillWidth: true; Layout.preferredWidth: 0; wrapMode: Text.Wrap; font.pixelSize: 12; color: root.theme.muted
+        text: "페이지는 스캔 순서이며 물리 깊이가 아닙니다. 자동 트랙과 링크는 제안이고, 보정은 이벤트로 추가 기록됩니다."
     }
-    Text{Layout.fillWidth:true;wrapMode:Text.Wrap;text:root.includeMode?"이어갈 같은 결함을 클릭하세요":root.excludeMode?"제외할 다른 결함을 클릭하세요":root.state.frameReason==="ACCEPTED"?(root.state.phase===0?"인식 영역":"3D에 쌓는 중"):root.state.frameReason==="NO_CONTACT"?"연결 없음 · 여기까지":root.state.frameReason==="AMBIGUOUS_BRANCH"?"진행 방향 후보가 비슷합니다 · 같은 결함을 지정해 이어가세요":root.state.frameReason==="AMBIGUOUS_MERGE"?"주변 구조와 접촉했습니다 · 같은 결함 지정 또는 다른 결함 제외":root.state.frameReason==="USER_SKIPPED"?"사용자가 건너뛴 페이지":"";color:root.state.frameReason==="ACCEPTED"?root.theme.accent:root.theme.warning}
-   }
-  }
-  Item{SplitView.fillWidth:true;SplitView.minimumWidth:340
-   Loader{id:scene;objectName:"stack3dSceneLoader";anchors.fill:parent;visible:!root.comparison;active:root.visible&&(root.state.ready||root.state.visual)&&root.state.rhi_available;sourceComponent:Component{Defect3DScene{controller:root.controller;theme:root.theme}}}
-   ColumnLayout { anchors.fill:parent;clip:true;visible:root.comparison;spacing:8
-    Text { text:"원본 단면 비교 · 축을 선택해 확인하세요";color:root.theme.text;Layout.fillWidth:true;wrapMode:Text.Wrap }
-    RowLayout { Layout.fillWidth:true
-     Repeater { model:[{key:"xy",label:"XY 원본"},{key:"xp",label:"X–Page"},{key:"yp",label:"Y–Page"}]
-      AppButton { required property var modelData;theme:root.theme;text:modelData.label;checked:root.comparisonPlane===modelData.key;onClicked:root.comparisonPlane=modelData.key }
-     }
+
+    Text {
+        objectName: "trackReviewEmpty"
+        visible: !root.rs.ready || root.rs.stale
+        Layout.fillWidth: true; Layout.preferredWidth: 0; Layout.fillHeight: !root.rs.ready || root.rs.stale
+        horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter; wrapMode: Text.Wrap; color: root.theme.muted
+        text: root.rs.busy || root.ss.busy ? "준비 중…" : root.rs.stale ? "Volume 선택이 저장된 추적 결과와 다릅니다 · 같은 선택으로 Volume을 다시 열거나 다시 추적하세요"
+              : root.rs.volumeReady ? "‘스택 추적 실행’으로 이 ROI의 모든 페이지에서 트랙을 찾습니다"
+              : "이미지 도구 모음의 ‘스택 추적’을 누르고 추적할 결함을 클릭하세요"
     }
-    StackOrthogonalView { controller:fileBridge.stack3d;theme:root.theme;kind:root.comparisonPlane;Layout.fillWidth:true;Layout.fillHeight:true;Layout.minimumWidth:0 }
-    Text { text:fileBridge.stack3d.state.error||"단면 클릭으로 교차 위치 이동 · 휠로 페이지 이동 · 원본 픽셀과 자동 분할을 대조하세요";color:root.theme.muted;Layout.fillWidth:true;wrapMode:Text.Wrap }
-    BusyIndicator { running:fileBridge.stack3d.state.busy;visible:running;Layout.alignment:Qt.AlignHCenter }
-   }
-   Rectangle { visible:!root.comparison;anchors.left:parent.left;anchors.top:parent.top;anchors.margins:12;width:meshLabel.implicitWidth+24;height:38;color:root.theme.panel;radius:8
-    Text { id:meshLabel;anchors.centerIn:parent;text:root.state.visual?"추적 중 · 관측된 단면":"3D 표면 · 관측된 픽셀";color:root.theme.text;font.pixelSize:14 }
-   }
-   Text { visible:!root.comparison;anchors.bottom:parent.bottom;anchors.horizontalCenter:parent.horizontalCenter;anchors.bottomMargin:14;text:"드래그 회전  ·  우클릭 이동  ·  휠 확대  ·  더블클릭 맞춤";color:root.theme.muted;font.pixelSize:12 }
-   BusyIndicator{anchors.centerIn:parent;running:root.state.busy&&!root.state.frameRevision;visible:running}
-   Text{anchors.centerIn:parent;text:root.state.error||(root.state.ready&&!root.state.rhi_available?"GPU 3D 표시를 사용할 수 없습니다":"")||(!root.state.ready&&!root.state.busy?"이미지에서 검은 결함을 선택하세요":"");visible:!!text;color:root.theme.warning;wrapMode:Text.Wrap;width:parent.width*.75;horizontalAlignment:Text.AlignHCenter}
-  }
- }
- RowLayout{visible:root.state.visual;Layout.fillWidth:true
-  AppButton{theme:root.theme;text:root.state.paused?"▶ 계속":"Ⅱ 일시정지";onClicked:root.controller.togglePause()}
-  AppButton{theme:root.theme;text:"다음 단계";enabled:root.state.frameRevision>0;onClicked:root.controller.stepFrame()}
-  Text { text:"재생 속도";color:root.theme.muted }
-  Repeater { model:[0.5,1,2]
-   AppButton { required property real modelData; objectName:"traceSpeed"+modelData;theme:root.theme;text:modelData+"×";checked:root.state.playbackSpeed===modelData;onClicked:root.controller.setPlaybackSpeed(modelData) }
-  }
-  Item{Layout.fillWidth:true}
-  AppButton{theme:root.theme;text:root.state.busy?"빠르게 완료":"결과 보기";onClicked:root.controller.fastFinish()}
- }
- Text{text:"직접 지정 "+root.state.manualAnchors+"곳 · 건너뛴 페이지 "+root.state.skippedPages.join(", ");visible:root.state.manualAnchors>0||root.state.skippedPages.length>0;color:root.theme.muted;Layout.fillWidth:true}
- Text{text:"분기·교차 가능성 "+root.state.junctionPages.length+"페이지 · 같은 결함인지 확인하세요";visible:root.state.junctionPages.length>0;color:root.theme.warning;Layout.fillWidth:true}
- Text { text:"실제 깊이와 동일 결함 여부는 원본 페이지에서 확인해야 합니다. 빈 페이지는 채우지 않습니다.";color:root.theme.muted;font.pixelSize:12;Layout.fillWidth:true;wrapMode:Text.Wrap }
- Text{text:root.state.warning;visible:!!text&&!root.state.visual;color:root.theme.warning;Layout.fillWidth:true}
- RowLayout{visible:!root.state.visual&&(root.state.ready||!!root.state.error);Layout.fillWidth:true
-  Text{text:"드래그 회전 · 우클릭 이동 · 휠 확대";color:root.theme.muted;font.pixelSize:12;Layout.fillWidth:true}
-  AppButton{theme:root.theme;text:"인식 감도 조절";onClicked:options.open()}
-  Text{text:"XY 픽셀 / 페이지 간격";color:root.theme.muted;font.pixelSize:11;ToolTip.visible:unitsHover.hovered;ToolTip.text:"실제 깊이·동일 결함 여부는 미검증 · 표시 간격 "+root.state.xyStep;HoverHandler{id:unitsHover}}
- }
- Popup{id:options;parent:Overlay.overlay;anchors.centerIn:parent;padding:18;contentItem:ColumnLayout{
-  Text{text:"검은 영역 감도";color:root.theme.text}
-  Slider{id:strength;from:.4;to:2.5;value:root.state.sensitivity;Layout.preferredWidth:260}
-  AppButton{theme:root.theme;text:"다시 생성";onClicked:{root.controller.reconstruct(strength.value);options.close()}}
- }}
- RowLayout{visible:root.state.busy;Layout.fillWidth:true
-  ProgressBar{Layout.fillWidth:true;from:0;to:Math.max(1,root.state.progress[1]);value:root.state.progress[0]}
-  AppButton{objectName:"stack3dCancel";theme:root.theme;text:"취소";onClicked:root.controller.cancel()}
- }
+
+    SplitView {
+        visible: root.rs.ready && !root.rs.stale
+        Layout.fillWidth: true; Layout.fillHeight: true; orientation: Qt.Horizontal
+
+        // Track table
+        ColumnLayout {
+            SplitView.preferredWidth: 330; SplitView.minimumWidth: 260; spacing: 4
+            RowLayout {
+                Layout.fillWidth: true; spacing: 4
+                Text { text: "트랙 " + root.review.tracks.length + " / " + root.rs.trackCount; color: root.theme.text; elide: Text.ElideRight; Layout.fillWidth: true; Layout.preferredWidth: 0 }
+                Repeater {
+                    model: [{k: "review", l: "검토 우선"}, {k: "length", l: "길이"}, {k: "start", l: "시작"}]
+                    AppButton { required property var modelData; objectName: "trackSort_" + modelData.k; theme: root.theme; compact: true; text: modelData.l; checked: root.rs.sort === modelData.k; onClicked: root.review.setSort(modelData.k) }
+                }
+            }
+            AppCheckBox { objectName: "trackHideShort"; theme: root.theme; text: "3페이지 미만 숨김"; checked: root.rs.hideShort; onToggled: root.review.setHideShort(checked) }
+            RowLayout {
+                Layout.fillWidth: true
+                Repeater {
+                    model: [{l: "트랙", w: 64}, {l: "페이지", w: 78}, {l: "검출", w: 36}, {l: "최소 링크", w: 56}, {l: "상태", w: 60}]
+                    Text { required property var modelData; text: modelData.l; color: root.theme.muted; font.pixelSize: 11; Layout.preferredWidth: modelData.w }
+                }
+            }
+            ListView {
+                id: table
+                objectName: "trackTable"
+                Layout.fillWidth: true; Layout.fillHeight: true; clip: true
+                model: root.review.tracks
+                currentIndex: { for (var i = 0; i < count; ++i) if (model[i].id === root.rs.selected) return i; return -1 }
+                onCurrentIndexChanged: if (currentIndex >= 0) positionViewAtIndex(currentIndex, ListView.Contain)
+                ScrollBar.vertical: ScrollBar {}
+                delegate: Rectangle {
+                    required property var modelData
+                    width: ListView.view.width; height: 26
+                    readonly property bool selected: modelData.id === root.rs.selected
+                    readonly property bool target: modelData.id === root.rs.mergeTarget
+                    color: selected ? root.theme.accentPale : target ? root.theme.hover : "transparent"
+                    border.width: target ? 1 : 0; border.color: root.theme.accent
+                    opacity: modelData.status === "REJECTED" ? .5 : 1
+                    RowLayout {
+                        anchors.fill: parent; anchors.leftMargin: 4
+                        Text { text: (parent.parent.target ? "⇄ " : "") + modelData.id; color: root.theme.text; font.pixelSize: 12; Layout.preferredWidth: 64; elide: Text.ElideRight }
+                        Text { text: (modelData.first + 1) + "–" + (modelData.last + 1); color: root.theme.text; font.pixelSize: 12; Layout.preferredWidth: 78 }
+                        Text { text: modelData.detections + (modelData.gaps ? "+" + modelData.gaps : ""); color: root.theme.text; font.pixelSize: 12; Layout.preferredWidth: 36 }
+                        Text { text: modelData.minConfidence.toFixed(2); color: modelData.pendingLinks ? "#E69F00" : root.theme.text; font.pixelSize: 12; font.bold: modelData.pendingLinks > 0; Layout.preferredWidth: 56 }
+                        Text {
+                            Layout.fillWidth: true; font.pixelSize: 11; elide: Text.ElideRight
+                            text: modelData.status === "REJECTED" ? "✕ 거부" : modelData.review ? "! 검토" + (modelData.candidates ? " <>" : "") : modelData.source === "MANUAL" ? "+ 보정" : "● 자동"
+                            color: modelData.review ? "#E69F00" : root.theme.muted
+                        }
+                    }
+                    MouseArea {
+                        anchors.fill: parent
+                        onClicked: function(m) { if (m.modifiers & Qt.ControlModifier) root.review.setMergeTarget(modelData.id); else root.review.selectTrack(modelData.id) }
+                    }
+                }
+            }
+        }
+
+        // XY page view with detection overlay
+        ColumnLayout {
+            SplitView.fillWidth: true; SplitView.minimumWidth: 300; spacing: 4
+            RowLayout {
+                Layout.fillWidth: true
+                Text { objectName: "trackPageLabel"; text: "페이지 " + root.rs.pageNumber + " / 트랙 " + (root.track.id || "-") + (root.track.id ? " · 페이지 " + (root.track.first + 1) + "–" + (root.track.last + 1) : ""); color: root.theme.text; elide: Text.ElideRight; Layout.fillWidth: true; Layout.preferredWidth: 0 }
+                AppCheckBox { theme: root.theme; text: "검출 표시 (D)"; checked: root.rs.overlay; onToggled: root.review.setOverlay(checked) }
+            }
+            StackOrthogonalView {
+                Layout.fillWidth: true; Layout.fillHeight: true
+                controller: fileBridge.stack3d; theme: root.theme; kind: "xy"; overlaySource: root.rs.pageOverlay
+                onPicked: function(kind, u, v, modifiers) { root.review.pickXY(u, v, (modifiers & Qt.ControlModifier) !== 0) }
+            }
+            Text { text: "채움 = 선택 트랙 · 윤곽 = 다른 검출 · 클릭 트랙 선택 · Ctrl+클릭 병합 대상 · 휠 페이지"; color: root.theme.muted; font.pixelSize: 11; Layout.fillWidth: true; Layout.preferredWidth: 0; wrapMode: Text.Wrap }
+        }
+
+        // Kymographs
+        ColumnLayout {
+            SplitView.preferredWidth: 240; SplitView.minimumWidth: 160; spacing: 6
+            TrackKymograph { theme: root.theme; kind: "xp"; kymo: root.review.kymograph; page: root.rs.page; Layout.fillWidth: true; Layout.fillHeight: true; onPageRequested: function(k) { root.review.setPage(k) } }
+            TrackKymograph { theme: root.theme; kind: "yp"; kymo: root.review.kymograph; page: root.rs.page; Layout.fillWidth: true; Layout.fillHeight: true; onPageRequested: function(k) { root.review.setPage(k) } }
+        }
+    }
+
+    TrackTimeline {
+        visible: root.rs.ready && !root.rs.stale
+        Layout.fillWidth: true
+        theme: root.theme; items: root.review.timeline; page: root.rs.page
+        onPageRequested: function(k) { root.review.setPage(k) }
+    }
+
+    ListView {
+        id: film
+        objectName: "trackFilmstrip"
+        visible: root.rs.ready && !root.rs.stale
+        Layout.fillWidth: true; implicitHeight: 118; orientation: ListView.Horizontal; spacing: 4; clip: true
+        model: root.review.filmstrip
+        currentIndex: { for (var i = 0; i < count; ++i) if (model[i].k === root.rs.page) return i; return -1 }
+        onCurrentIndexChanged: if (currentIndex >= 0) positionViewAtIndex(currentIndex, ListView.Contain)
+        ScrollBar.horizontal: ScrollBar {}
+        delegate: Rectangle {
+            required property var modelData
+            readonly property var cell: root.review.timeline[modelData.k] || ({})
+            width: 92; height: 112; color: root.theme.viewer; radius: 4
+            border.width: modelData.k === root.rs.page ? 2 : 0; border.color: root.theme.accent
+            Image { id: thumb; x: 4; y: 4; width: 84; height: 84; source: modelData.url; smooth: false; cache: false; fillMode: Image.PreserveAspectFit }
+            Image { anchors.fill: thumb; visible: root.rs.overlay && !!modelData.overlay; source: modelData.overlay; smooth: false; cache: false; fillMode: Image.PreserveAspectFit }
+            Text { x: 4; y: 92; text: "페이지 " + (modelData.page + 1); color: root.theme.viewerText; font.pixelSize: 11 }
+            Text { anchors.right: parent.right; anchors.rightMargin: 4; y: 92; text: (parent.cell.marker || "") + (parent.cell.candidateMarker || ""); color: parent.cell.state === "low" ? "#E69F00" : root.theme.viewerText; font.pixelSize: 12; font.bold: true }
+            MouseArea { anchors.fill: parent; onClicked: root.review.setPage(modelData.k) }
+        }
+    }
+
+    RowLayout {
+        visible: root.rs.ready && !root.rs.stale
+        Layout.fillWidth: true; spacing: 6
+        AppButton { objectName: "trackAccept"; theme: root.theme; text: "링크 수락 (A)"; onClicked: root.review.acceptLink() }
+        AppButton { objectName: "trackSplit"; theme: root.theme; text: "이 페이지에서 분할 (S)"; onClicked: root.review.splitAtPage() }
+        AppButton { objectName: "trackMerge"; theme: root.theme; text: "병합 (M)" + ((root.rs.mergeTarget || (root.rs.mergeCandidates || [])[0]) ? " → " + (root.rs.mergeTarget || root.rs.mergeCandidates[0]) : ""); onClicked: root.review.mergeWithTarget() }
+        AppButton { objectName: "trackReject"; theme: root.theme; text: "트랙 거부 (R)"; onClicked: root.review.rejectTrack() }
+        AppButton { objectName: "trackUndo"; theme: root.theme; text: "되돌리기 (Ctrl+Z)"; enabled: root.rs.pending > 0; onClicked: root.review.undo() }
+        Text { text: "←/→ 페이지 · ↑/↓ 트랙 · 보정 " + root.rs.events + "건 (미저장 " + root.rs.pending + ")"; color: root.theme.muted; font.pixelSize: 12; horizontalAlignment: Text.AlignRight; elide: Text.ElideLeft; Layout.fillWidth: true; Layout.preferredWidth: 0 }
+    }
 }

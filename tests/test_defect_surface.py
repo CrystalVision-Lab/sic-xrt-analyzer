@@ -1,5 +1,6 @@
+"""Legacy stack3d.defect engine, kept only as the #181 benchmark baseline (UI removed in #188)."""
+
 import hashlib
-import time
 from pathlib import Path
 
 import numpy as np
@@ -70,36 +71,6 @@ def test_cancel_and_display_budget_do_not_mutate_masks(connected, monkeypatch):
     assert m.voxels == int(np.count_nonzero(a[:, 25:55, 25:55] == 5000))
 
 
-def test_controller_latest_source_and_cancel(connected, bridge_factory, qt_app):
-    s, _ = connected
-    b = bridge_factory()
-    b.original_source = s
-    c = b.defect3d
-    assert c.start(39, 40)
-    until = time.monotonic() + 20
-    while c.busy:
-        assert time.monotonic() < until
-        qt_app.processEvents()
-        time.sleep(0.005)
-    assert c.state["ready"] and not c.error and c.state["pages"] == 9
-    b.original_source = OriginalImageSource(s.path, 2)
-    c.reconstruct(1.0)
-    while c.busy:
-        assert time.monotonic() < until
-        qt_app.processEvents()
-        time.sleep(0.005)
-    assert c.mesh.seed[2] == 7 and c.state["pages"] == 9
-    c.start(39, 40)
-    c.cancel()
-    b.original_source = None
-    c.bindSource()
-    while c.reader.task:
-        assert time.monotonic() < until
-        qt_app.processEvents()
-        time.sleep(0.005)
-    assert c.mesh is None and not c.busy
-
-
 def test_sudden_large_merge_is_reported_not_silently_followed(tmp_path):
     a = np.full((5, 96, 96), 60000, np.uint16)
     a[2, 44:50, 44:50] = 1000
@@ -141,39 +112,6 @@ def test_observations_are_real_masks_in_forward_then_backward_order(connected):
             assert (
                 a[p, s.y : s.y + s.height, s.x : s.x + s.width][s.mask()] == 5000
             ).all()
-
-
-def test_visual_backpressure_pause_fast_finish_and_replay(
-    connected, bridge_factory, qt_app
-):
-    source, _ = connected
-    b = bridge_factory()
-    b.original_source = source
-    c = b.defect3d
-
-    def wait(pred):
-        until = time.monotonic() + 20
-        while not pred():
-            assert time.monotonic() < until, c.error
-            qt_app.processEvents()
-            time.sleep(0.005)
-
-    assert c.startVisual(39, 40)
-    c.paused = True
-    wait(lambda: c.frame_revision == 1)
-    for _ in range(20):
-        qt_app.processEvents()
-        time.sleep(0.01)
-    assert c.frame_revision == 1 and c.busy and not c.ack.is_set()
-    assert not b.provider.stack3d_images["trace-full"].isNull()
-    c.fastFinish()
-    wait(lambda: not c.busy)
-    assert c.mesh and len(c.mesh.sections) == 9
-    c.replay()
-    wait(lambda: c.replay_index >= 1)
-    c.cancel()
-    assert not c.replaying and not c.timer.isActive()
-    assert c.ack.is_set()
 
 
 def test_ambiguous_split_is_not_unioned(tmp_path):

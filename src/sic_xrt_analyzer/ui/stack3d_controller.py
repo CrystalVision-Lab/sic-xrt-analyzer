@@ -22,7 +22,6 @@ from sic_xrt_analyzer.stack3d.scene import prepare
 from sic_xrt_analyzer.stack3d.volume import extract, physical_calibration, plan
 
 from .latest_reader import LatestReader
-from .stack3d_geometry import register_types
 
 
 class Stack3DController(QObject):
@@ -36,7 +35,6 @@ class Stack3DController(QObject):
 
     def __init__(self, bridge):
         super().__init__(bridge)
-        register_types()
         self.bridge = bridge
         self.projects = bridge.project_controller
         self.reader = LatestReader(self)
@@ -155,12 +153,17 @@ class Stack3DController(QObject):
         self.raw_reader = None
         self.frame = {}
         self.hover_text = ""
-        self.bridge.provider.stack3d_images = {k: v for k, v in self.bridge.provider.stack3d_images.items() if k.startswith("trace-")}
+        self.bridge.provider.stack3d_images = {k: v for k, v in self.bridge.provider.stack3d_images.items() if k.startswith("review-")}
         self.renderChanged.emit()
         self.changed.emit()
 
+    def _review(self):
+        return getattr(self.bridge, "track_review", None)
+
     def resetProject(self):
         self.focus_timer.stop()
+        if self._review():
+            self._review().reset()
         self.pending_navigation = None
         self.cancel(False)
         self.release()
@@ -341,7 +344,8 @@ class Stack3DController(QObject):
 
     @property
     def manual_pending(self):
-        return self.tracks != self.saved_tracks
+        review = self._review()
+        return self.tracks != self.saved_tracks or bool(review and review.pending)
 
     @Slot(str)
     def selectSource(self, sid):
@@ -363,6 +367,8 @@ class Stack3DController(QObject):
         self.undo_stack = []
         self.dirty = False
         self.error = ""
+        if self._review():
+            self._review().reset()
         s = self.source
         if not s:
             self.changed.emit()
@@ -383,10 +389,19 @@ class Stack3DController(QObject):
         if ref and self.projects.path:
 
             def work(_cancelled, _progress):
-                return assets.chain(self.projects.path, ref, self.project)
+                rows = assets.chain(self.projects.path, ref, self.project)
+                head = rows[0][1]
+                bundle = None
+                if head.get(assets.REVIEW_KEY):
+                    review = assets.read(self.projects.path, head[assets.REVIEW_KEY])
+                    bundle = (review, *assets.load_result(self.projects.path, review, head))
+                return rows, bundle
 
-            def publish(rows):
+            def publish(value):
+                rows, bundle = value
                 a = rows[0][1]
+                if self._review():
+                    self._review().restore(bundle)
                 self.session = copy.deepcopy(a)
                 self.ref = ref
                 self.tracks = copy.deepcopy(rows[0][2])
@@ -592,7 +607,7 @@ class Stack3DController(QObject):
             for k in frame["images"]
         }
         self.bridge.provider.stack3d_images = {
-            **{k: v for k, v in self.bridge.provider.stack3d_images.items() if k.startswith("trace-")},
+            **{k: v for k, v in self.bridge.provider.stack3d_images.items() if k.startswith("review-")},
             **{f"{self.render_revision}-{k}": im for k, im in frame["images"].items()},
         }
         self.frame = {**{k: v for k, v in frame.items() if k != "images"}, "urls": urls}
@@ -632,6 +647,17 @@ class Stack3DController(QObject):
         self.cursor[0] = index
         self.dirty = True
         self.requestSlices()
+
+    @Slot(int, int, int)
+    def focus(self, k, y, x):
+        """Move page and XY cursor together (volume indices)."""
+        if self.volume is None:
+            return
+        nk, ny, nx = self.volume.pixels.shape
+        self.cursor = [min(max(0, k), nk - 1), min(max(0, y), ny - 1), min(max(0, x), nx - 1)]
+        self.dirty = True
+        self.requestSlices()
+        self.changed.emit()
 
     @Slot(int, int)
     def setXY(self, x, y):
@@ -893,6 +919,11 @@ class Stack3DController(QObject):
             if self.projects.saved_snapshot
             else None
         )
+        review = self._review().snapshot() if self._review() else None
+        if review and review["selection"] != assets.review_selection(selection):
+            self.error = "스택 추적 결과의 선택 영역과 Volume이 다릅니다 · 다시 실행하거나 선택을 되돌리세요"
+            self.changed.emit()
+            return
 
         def work(cancelled, progress):
             verified = verify_content_hash(
@@ -932,17 +963,37 @@ class Stack3DController(QObject):
                 "parent_reference": previous,
                 "created_at": utc_now().isoformat(),
                 "editor_id": editor.strip(),
+                assets.REVIEW_KEY: None,
             }
+            saved_review = None
+            if review:
+                result_ref = assets.publish(path, review["result"], compact=True)
+                meta = review["meta"]
+                saved_review = assets.new_review(
+                    verified, q.project_id, result_ref, selection,
+                    meta["creator"] or editor.strip(),
+                )
+                saved_review.update(
+                    review_id=meta["review_id"],
+                    created_at=meta["created_at"],
+                    events=review["events"],
+                    revision=len(review["events"]),
+                )
+                assets.validate_review(saved_review, q, a)
+                a[assets.REVIEW_KEY] = assets.publish(path, saved_review)
+            a["schema"] = assets.SESSION_V2
             assets.validate_session(a, q)
             if cancelled():
                 raise InterruptedError("3D 저장 취소")
             ref = assets.publish(path, a)
             q = assets.attach(q, s.source_id, ref)
             ProjectStore().save(path, q, expected_revision=expected)
-            return q, a, ref, verified
+            return q, a, ref, verified, saved_review
 
         def publish(value):
-            q, a, ref, verified = value
+            q, a, ref, verified, saved_review = value
+            if saved_review and self._review():
+                self._review().mark_saved(saved_review)
             self.project = q
             self.projects.project = self.projects.saved_snapshot = q
             self.projects.dirty = False

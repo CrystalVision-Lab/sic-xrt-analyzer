@@ -95,7 +95,7 @@ def main():
         spin(lambda: button.property("visible") and button.property("enabled"))
         button.clicked.emit()
         app.processEvents()
-        assert state.property("activeTool") == "Defect3D"
+        assert state.property("activeTool") == "StackTrack"
         viewer = window.findChild(QObject, "imageViewer")
         frame = window.findChild(QObject, "imageFrame")
         # Send an actual Qt mouse click through the same original-coordinate transform.
@@ -107,19 +107,20 @@ def main():
         )
         QTest.mouseClick(window, Qt.LeftButton, Qt.NoModifier, point.toPoint())
         spin(lambda: state.property("workspaceIndex") == 3)
-        spin(lambda: not bridge.defect3d.busy)
-        assert bridge.defect3d.mesh is not None, bridge.defect3d.error
-        spin(lambda: window.findChild(QObject, "defect3dPerspective") is not None)
+        review = bridge.trackReview
+        spin(lambda: review.result is not None or (not review.busy and not bridge.stack3d.busy and review.pending_seed is None))
+        assert review.result is not None, review.error or bridge.stack3d.error
+        spin(lambda: window.findChild(QObject, "trackTable") is not None)
         for _ in range(60):
             app.processEvents()
             time.sleep(0.02)
-        assert window.grabWindow().save(str(out / "connected-defect.png"))
+        assert window.grabWindow().save(str(out / "track-review.png"))
         assert (
             window.findChild(QObject, "stack3dTabs") is None
             and window.findChild(QObject, "stack3dPageSlider") is None
         )
-        print("NATIVE_MESH", bridge.defect3d.state, flush=True)
-        report.update(mesh=bridge.defect3d.state)
+        print("TRACK_REVIEW", review.state, flush=True)
+        report.update(track_review=review.state)
         state.setProperty("workspaceIndex", 1)
         bridge.folderMap.open(str(args.folder.resolve()))
         spin(lambda: not bridge.folderMap.busy)
