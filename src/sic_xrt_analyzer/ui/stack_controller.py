@@ -1,4 +1,5 @@
 """Resident all-page browsing, prioritized raw reads, and replaceable latest requests."""
+import logging
 import math
 from dataclasses import dataclass
 from threading import Event
@@ -6,6 +7,8 @@ from threading import Event
 from PySide6.QtCore import QObject, QRunnable, QThreadPool, QTimer, Signal, Slot
 
 from sic_xrt_analyzer.imaging.image_stack import SampledImageStack, open_stack
+
+_log = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -378,12 +381,14 @@ class StackController(QObject):
         self.frame = None
 
     def _close_prepared_frame(self):
-        group = getattr(self.frame.source, 'display_group', None) if self.frame else None
-        if group is not None:
-            group.close()
-        pyramid = getattr(self.frame.source, 'display_pyramid', None) if self.frame else None
-        if pyramid is not None:
-            pyramid.close()
-        cache = getattr(self.frame.source, 'prepared', None) if self.frame else None
-        if cache is not None:
-            cache.close()
+        # Each release is best-effort: a locked cache file must not leave the
+        # controller half-reset and break the next open.
+        source = self.frame.source if self.frame else None
+        for name in ('display_group', 'display_pyramid', 'prepared'):
+            owner = getattr(source, name, None) if source is not None else None
+            if owner is None:
+                continue
+            try:
+                owner.close()
+            except (OSError, ValueError, BufferError) as exc:
+                _log.warning("Failed to release %s cache: %s", name, exc)
