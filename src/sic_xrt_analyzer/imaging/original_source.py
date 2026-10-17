@@ -151,10 +151,22 @@ class OriginalImageSource:
                 page_bytes = meta.width * meta.height * meta.channels * itemsize
                 if page_bytes > self.max_decode_bytes:
                     raise SourceError("UNSUPPORTED_LARGE_DECODE", "Compressed/nonmappable page exceeds decode budget; region decoder required")
-                pixels = page.asarray(maxworkers=1)
+                pixels = self._decoded_page(page)
                 output = np.array(pixels[y:y + height, x:x + width], copy=True)
         self.validate_identity()
         return output
+
+    def _decoded_page(self, page):
+        # Patch-by-patch analysis would otherwise decode the whole compressed page per patch.
+        # Keep one read-only page (bounded by max_decode_bytes) for this unchanged file identity.
+        key = (self.identity.file_size, self.identity.mtime_ns)
+        cached = self.__dict__.get("_decoded")
+        if cached is not None and cached[0] == key:
+            return cached[1]
+        pixels = page.asarray(maxworkers=1)
+        pixels.setflags(write=False)
+        object.__setattr__(self, "_decoded", (key, pixels))
+        return pixels
 
     def read_full(self) -> np.ndarray:
         """Explicit full read, subject to the same allocation and decoding budgets."""
