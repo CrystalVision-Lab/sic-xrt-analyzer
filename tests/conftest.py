@@ -26,6 +26,15 @@ def dispose_deferred_qml_windows(qt_app):
     qt_app.processEvents()
 
 
+@pytest.hookimpl(hookwrapper=True)
+def pytest_runtest_makereport(item, call):
+    # CI installs the ImageJ/Fiji runtimes: a missing runtime must fail, not skip silently.
+    outcome = yield
+    report = outcome.get_result()
+    if os.environ.get("SIC_XRT_REQUIRE_IMAGEJ") == "1" and report.skipped and "tools/setup_" in str(report.longrepr):
+        report.outcome = "failed"
+
+
 @pytest.fixture
 def bridge_factory(qt_app):
     """Own even temporary preference-only bridges until their timers are stopped."""
