@@ -14,6 +14,8 @@ from .store import token_hash
 
 DEVICE_COOKIE = "xrt_site_device"
 LIFETIME = 180 * 86400
+# A rejected or revoked browser may ask again; pending/approved ones keep their record.
+FINAL_STATES = ("REJECTED", "REVOKED")
 
 
 class Devices:
@@ -92,9 +94,12 @@ class Devices:
                 status == "REJECTED" and row["status"] != "PENDING"
             ) or status == row["status"]:
                 raise HTTPException(409, "DEVICE_STATE_CONFLICT")
+            now = time.time()
+            # Approval starts the full lifetime; waiting for a decision must not shorten it.
+            expires = now + LIFETIME if status == "APPROVED" else row["expires"]
             db.execute("UPDATE site_devices SET status=?,revision=revision+1,reason=?,"
-                       "decided_by=?,decided_at=? WHERE id=?",
-                       (status, reason, actor, time.time(), ident))
+                       "decided_by=?,decided_at=?,expires=? WHERE id=?",
+                       (status, reason, actor, now, expires, ident))
             db.execute("INSERT INTO portal_audit(actor,action,detail,created) VALUES(?,?,?,?)",
                        (actor, "SITE_DEVICE_" + status,
                         json.dumps({"device_id": ident, "reason": reason}), time.time()))
@@ -113,6 +118,16 @@ def install_access(app, store, session, administrator, body, origin):
             administrator(admin)
             return True
         return False
+
+    def keep_cookie(response, request, row):
+        # Align the browser cookie with the server-side lifetime (approval extends it).
+        remaining = int(row["expires"] - time.time())
+        # Same-origin GETs carry no Origin header; only loopback hosts are plain HTTP.
+        host = request.headers.get("host", "").rsplit(":", 1)[0].strip("[]")
+        if remaining > 0:
+            response.set_cookie(DEVICE_COOKIE, request.cookies[DEVICE_COOKIE], max_age=remaining,
+                                httponly=True, samesite="strict", path="/",
+                                secure=host not in ("localhost", "127.0.0.1", "::1"))
 
     @app.middleware("http")
     async def site_gate(request, call_next):
@@ -143,7 +158,11 @@ def install_access(app, store, session, administrator, body, origin):
     @app.get("/portal-api/access")
     def access(request: Request):
         row = devices.get(request.cookies.get(DEVICE_COOKIE, ""))
-        return {"allowed": allowed(request), "device": devices.public(row) if row else None}
+        response = JSONResponse({"allowed": allowed(request),
+                                 "device": devices.public(row) if row else None})
+        if row and row["status"] == "APPROVED":
+            keep_cookie(response, request, row)
+        return response
 
     @app.post("/portal-api/access/request")
     async def request_access(request: Request):
@@ -154,7 +173,7 @@ def install_access(app, store, session, administrator, body, origin):
         ):
             raise HTTPException(422, "DEVICE_REQUEST_FIELDS")
         old = devices.get(request.cookies.get(DEVICE_COOKIE, ""))
-        if old:
+        if old and old["status"] not in FINAL_STATES:
             return devices.public(old)
         token, data = await run_in_threadpool(
             devices.request, {k: v.strip() for k, v in fields.items()},
