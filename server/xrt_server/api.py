@@ -388,6 +388,9 @@ def create_app(url=None, asset_dir=None):
     from .dataset_api import register_dataset_routes
 
     register_dataset_routes(app, sessions, admin)
+    from .label_dataset_api import register_label_dataset_routes
+
+    register_label_dataset_routes(app, sessions, admin)
     from .model_api import register_model_routes
 
     register_model_routes(app, sessions, identity, admin)
