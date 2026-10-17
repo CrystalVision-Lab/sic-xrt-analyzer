@@ -16,8 +16,10 @@ PREFIX = "assets/stack-3d/"
 KEY = "stack_3d_session_reference"
 MAX_BYTES = 8 * 1024**2
 MAX_HISTORY = 128
-SESSION = "xrt_stack_3d_session/v1"
+SESSION = "xrt_stack_3d_session/v1"  # legacy, still loaded
+SESSION_V2 = "xrt_stack_3d_session/v2"  # v1 + page_track_review reference
 TRACK = "xrt_stack_track/v1"
+REVIEW_KEY = "page_track_review"
 
 
 def finite(values):
@@ -200,33 +202,37 @@ def validate_track(t, project):
     return t
 
 
+SESSION_KEYS = {
+    "schema",
+    "project_id",
+    "source_id",
+    "source_sha256",
+    "stack_page_count",
+    "original_shape",
+    "dtype",
+    "byte_order",
+    "selection",
+    "coordinate_mode",
+    "calibration",
+    "settings",
+    "tracks",
+    "revision",
+    "session_id",
+    "revision_id",
+    "parent_reference",
+    "created_at",
+    "editor_id",
+}
+
+
 def validate_session(a, project):
-    if (
-        set(a)
-        != {
-            "schema",
-            "project_id",
-            "source_id",
-            "source_sha256",
-            "stack_page_count",
-            "original_shape",
-            "dtype",
-            "byte_order",
-            "selection",
-            "coordinate_mode",
-            "calibration",
-            "settings",
-            "tracks",
-            "revision",
-            "session_id",
-            "revision_id",
-            "parent_reference",
-            "created_at",
-            "editor_id",
-        }
-        or a["schema"] != SESSION
+    if not (
+        (a.get("schema") == SESSION and set(a) == SESSION_KEYS)
+        or (a.get("schema") == SESSION_V2 and set(a) == SESSION_KEYS | {REVIEW_KEY})
     ):
         raise ValueError("Unsupported session schema")
+    if a.get(REVIEW_KEY) is not None:
+        reference(a[REVIEW_KEY])
     if a["project_id"] != project.project_id:
         raise ValueError("Different project session")
     s = source(project, a["source_id"], a["source_sha256"])
@@ -329,9 +335,10 @@ def reference(ref):
     return ref
 
 
-def encode(a):
+def encode(a, compact=False):
+    layout = {"separators": (",", ":")} if compact else {"indent": 2}
     data = (
-        json.dumps(a, sort_keys=True, ensure_ascii=False, allow_nan=False, indent=2)
+        json.dumps(a, sort_keys=True, ensure_ascii=False, allow_nan=False, **layout)
         + "\n"
     ).encode("utf-8")
     if len(data) > MAX_BYTES:
@@ -339,8 +346,12 @@ def encode(a):
     return data
 
 
-def publish(path, a):
-    data = encode(a)
+def publish(path, a, compact=False):
+    data = encode(a, compact)
+    return publish_bytes(path, data)
+
+
+def publish_bytes(path, data):
     ref = PREFIX + hashlib.sha256(data).hexdigest() + ".json"
     root = Path(path).resolve().parent
     target = root / ref
@@ -404,6 +415,7 @@ def chain(path, ref, project):
     seen = set()
     budget = 0
     track_seen = set()
+    review_cache = {}
     previous = None
     while ref:
         if ref in seen or len(rows) >= MAX_HISTORY:
@@ -433,6 +445,21 @@ def chain(path, ref, project):
                 track_seen.add(tr)
         if len({t["track_id"] for t in ts}) != len(ts):
             raise ValueError("Duplicate Track ID")
+        review = None
+        if a.get(REVIEW_KEY):
+            review = validate_review(read(path, a[REVIEW_KEY]), project, a)
+            budget += len(encode(review))
+            if not rows:  # head revision: replay events on the stored AUTO result
+                load_result(path, review, a)
+            else:
+                newer = rows[-1][1].get(REVIEW_KEY)
+                newer = review_cache.get(newer)
+                if newer and newer["review_id"] == review["review_id"] and (
+                    newer["result_reference"] != review["result_reference"]
+                    or newer["events"][: len(review["events"])] != review["events"]
+                ):
+                    raise ValueError("Page-track review history rewriting forbidden")
+            review_cache[a[REVIEW_KEY]] = review
         if rows:
             newer = {t["track_id"]: t for t in rows[-1][2]}
             for old in ts:
@@ -498,6 +525,153 @@ def copy_assets(old_path, new_path, project):
                 if tr not in seen:
                     publish(new_path, t)
                     seen.add(tr)
+            extra = []
+            if a.get(REVIEW_KEY):
+                review = read(old_path, a[REVIEW_KEY])
+                extra = [review["result_reference"], a[REVIEW_KEY]]
+            for x in extra:
+                if x not in seen:
+                    copy_raw(old_path, new_path, x)
+                    seen.add(x)
             if r not in seen:
                 publish(new_path, a)
                 seen.add(r)
+
+
+def copy_raw(old_path, new_path, ref):
+    """Copy an asset byte-for-byte after its SHA check (any JSON layout)."""
+    from sic_xrt_analyzer.results.persistence import ProjectStore
+
+    read(old_path, ref)
+    data = ProjectStore().resolve_asset(old_path, ref).read_bytes()
+    if publish_bytes(new_path, data) != ref:
+        raise ValueError("3D asset copy SHA mismatch")
+
+
+# Page-track review (#188) ------------------------------------------------------
+
+REVIEW_KEYS = {
+    "schema",
+    "project_id",
+    "source_id",
+    "source_sha256",
+    "review_id",
+    "result_reference",
+    "result_schema",
+    "algorithm_version",
+    "selection",
+    "creator",
+    "created_at",
+    "revision",
+    "events",
+}
+MAX_REVIEW_EVENTS = 4096
+
+
+def review_selection(selection):
+    return {
+        "roi": list(selection["roi"]),
+        "page_range": list(selection["page_range"]),
+        "xy_step": selection["xy_step"],
+    }
+
+
+def new_review(s, project_id, result_ref, selection, creator):
+    from .tracking.model import ALGORITHM_VERSION, SCHEMA
+    from .tracking.review import REVIEW
+
+    text(creator)
+    return {
+        "schema": REVIEW,
+        "project_id": project_id,
+        "source_id": s.source_id,
+        "source_sha256": s.content_hash.value,
+        "review_id": str(uuid4()),
+        "result_reference": reference(result_ref),
+        "result_schema": SCHEMA,
+        "algorithm_version": ALGORITHM_VERSION,
+        "selection": review_selection(selection),
+        "creator": creator,
+        "created_at": utc_now().isoformat(),
+        "revision": 0,
+        "events": [],
+    }
+
+
+def review_event(action, track_id, reviewer, *, other=None, source_detection=None,
+                 target_detection=None, page=None):
+    text(reviewer)
+    return {
+        "revision": 0,  # numbered when appended
+        "action": action,
+        "track_id": track_id,
+        "other_track_id": other,
+        "source_detection": source_detection,
+        "target_detection": target_detection,
+        "page_index": page,
+        "reviewer": reviewer,
+        "status": "REVIEWED",
+        "method": "MANUAL",
+        "created_at": utc_now().isoformat(),
+    }
+
+
+def validate_review(r, project, session):
+    from .tracking.model import SCHEMA
+    from .tracking.review import REVIEW
+
+    if not isinstance(r, dict) or set(r) != REVIEW_KEYS or r["schema"] != REVIEW:
+        raise ValueError("Unsupported page-track review schema")
+    if (
+        r["project_id"] != project.project_id
+        or r["source_id"] != session["source_id"]
+        or r["source_sha256"] != session["source_sha256"]
+    ):
+        raise ValueError("Page-track review belongs to different Source")
+    source(project, r["source_id"], r["source_sha256"])
+    reference(r["result_reference"])
+    if r["result_schema"] != SCHEMA:
+        raise ValueError("Unsupported page-track result schema")
+    text(r["review_id"])
+    text(r["creator"])
+    text(r["algorithm_version"])
+    timestamp(r["created_at"])
+    if r["selection"] != review_selection(session["selection"]):
+        raise ValueError("Page-track review selection mismatch")
+    events = r["events"]
+    if (
+        not isinstance(events, list)
+        or len(events) > MAX_REVIEW_EVENTS
+        or type(r["revision"]) is not int
+        or r["revision"] != len(events)
+    ):
+        raise ValueError("Page-track review event budget / revision")
+    previous = r["created_at"]
+    for n, e in enumerate(events, 1):
+        if not isinstance(e, dict) or type(e.get("revision")) is not int or e["revision"] != n:
+            raise ValueError("Page-track review event revision")
+        text(e.get("reviewer"))
+        timestamp(e.get("created_at"))
+        if datetime.fromisoformat(e["created_at"]) < datetime.fromisoformat(previous):
+            raise ValueError("Page-track review timestamp order")
+        previous = e["created_at"]
+        page = e.get("page_index")
+        if page is not None and (type(page) is not int or not 0 <= page < session["stack_page_count"]):
+            raise ValueError("Page-track review page out of Source")
+    return r
+
+
+def load_result(path, review, session):
+    """Read the AUTO result and replay review events; returns (result, state)."""
+    from .tracking.model import TrackResult
+    from .tracking.review import ReviewState
+
+    result = TrackResult.from_dict(read(path, review["result_reference"]))
+    sel = session["selection"]
+    if (
+        list(result.origin) != sel["roi"][:2]
+        or result.first_page != sel["page_range"][0]
+        or list(result.shape) != sel["shape"]
+    ):
+        raise ValueError("Page-track result does not match session selection")
+    return result, ReviewState(result, review["events"])
