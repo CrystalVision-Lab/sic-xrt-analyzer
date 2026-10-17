@@ -316,16 +316,21 @@ class ResearchController(QObject):
             points = []
             import math
             for i, row in enumerate(rows):
-                x, y = float(row["x"]), float(row["y"])
+                try:
+                    # DictReader fills missing cells with None.
+                    x, y = float(row["x"]), float(row["y"])
+                except (TypeError, ValueError):
+                    raise ValueError(f"좌표 CSV {i + 2}행의 x,y 값이 비어 있거나 숫자가 아닙니다.") from None
                 if not math.isfinite(x) or not math.isfinite(y):
-                    raise ValueError("유효하지 않은 좌표가 있습니다.")
-                points.append({"point_id": row.get("point_id", str(i)), "x": x, "y": y})
+                    raise ValueError(f"좌표 CSV {i + 2}행의 좌표가 유효하지 않습니다.")
+                point_id = (row.get("point_id") or "").strip() or str(i)
+                points.append({"point_id": point_id, "x": x, "y": y})
             self.points, self.csv_path = points, str(path)
             self.csv_hash = hashlib.sha256(path.read_bytes()).hexdigest()
             self.point_identity = self.bridge.pipeline.source.identity
             self.error = ""
             self.bridge.pipeline.invalidate()
-        except (OSError, ValueError, KeyError) as exc:
+        except (OSError, ValueError, KeyError, TypeError) as exc:
             self.error = str(exc)
         self.changed.emit()
 
