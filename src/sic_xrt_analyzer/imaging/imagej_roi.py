@@ -66,17 +66,26 @@ def decode_roi(data, filename, metadata, *, frames=0, slices=0):
     if kind == 'point' and any((p[:, 0] >= metadata.width).any() or (p[:, 1] >= metadata.height).any() for p in paths):
         raise ValueError('점 ROI가 현재 이미지 픽셀 범위를 벗어납니다')
     # One-based flattened position is unambiguous. T/Z are acquisition indices only.
+    # Hyperstack ROIs store c,z,t >= 1; position 1 on a size-1 axis (ImageJ omits
+    # size-1 dims, so 0 also means 1) carries no page information.
     position = roi.position
-    if roi.c_position > 1 or (roi.t_position > 0 and roi.z_position > 0):
+    if roi.c_position > 1:
         raise ValueError('다차원 C/Z/T ROI 위치는 현재 2D 페이지에 매핑할 수 없습니다')
-    if roi.t_position > 0:
+    t_active = roi.t_position > 0 and not (roi.t_position == 1 and frames <= 1)
+    z_active = roi.z_position > 0 and not (roi.z_position == 1 and slices <= 1)
+    if t_active and z_active:
+        raise ValueError('다차원 C/Z/T ROI 위치는 현재 2D 페이지에 매핑할 수 없습니다')
+    if t_active:
         if metadata.page_count != frames:
             raise ValueError('ROI frame 위치와 현재 이미지 페이지 구성이 다릅니다')
         position = roi.t_position
-    if roi.z_position > 0:
+    elif z_active:
         if metadata.page_count != slices:
             raise ValueError('ROI slice 위치와 현재 이미지 페이지 구성이 다릅니다')
         position = roi.z_position
+    elif roi.t_position > 0 or roi.z_position > 0:
+        # Every set axis is a size-1 axis at index 1: the first page.
+        position = 1
     if position < 0 or position > metadata.page_count:
         raise ValueError('ROI 페이지 위치가 현재 스택 범위를 벗어납니다')
     coords = np.concatenate(paths)
