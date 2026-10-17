@@ -1,4 +1,5 @@
 import { SiteDevices } from "./SiteAccess";
+import { LabelDashboard } from "./Labels";
 import { ThemeToggle } from "./Theme";
 import { useState } from "react";
 import { Link, NavLink, Route, Routes, useLocation } from "react-router-dom";
@@ -20,6 +21,7 @@ import {
   CheckCircle2,
   AlertCircle,
   Eye,
+  Tags,
 } from "lucide-react";
 import {
   ApiError,
@@ -50,6 +52,7 @@ type Page = { items: Json[]; total: number; offset: number; limit: number };
 const menu = [
   { to: "/admin/site-devices", label: "사이트 기기 승인", icon: ShieldCheck },
   { to: "/admin", label: "운영 개요", icon: LayoutDashboard, end: true },
+  { to: "/admin/labels", label: "라벨 데이터 현황", icon: Tags },
   { to: "/admin/releases", label: "버전 · 배포 이력", icon: Download },
   { to: "/admin/models", label: "모델 성능", icon: FlaskConical },
   { to: "/admin/projects", label: "수집 프로젝트", icon: Database },
@@ -223,6 +226,7 @@ export default function Admin() {
           <Routes>
             <Route index element={<Overview />} />
             <Route path="site-devices" element={<SiteDevices session={active} />} />
+            <Route path="labels" element={<LabelDashboard />} />
             <Route
               path="releases"
               element={<ManageReleases session={active} />}
