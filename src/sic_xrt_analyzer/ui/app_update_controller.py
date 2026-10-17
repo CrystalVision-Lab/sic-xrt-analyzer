@@ -250,7 +250,7 @@ class AppUpdateController(QObject):
             or b.sync_controller.busy
             or b.stack_viewer.busy
             or b.stack3d_controller.busy
-            or b.defect3d_controller.busy
+            or b.track_review.busy
             or b.folder_map.busy
             or b.workbench.busy
             or b.model_update_controller.busy

@@ -48,7 +48,7 @@ AppShell {
     function changeTiffPage(index) { viewer.cancelToolDrawing(); fileBridge.requestPage(index) }
     function measureSelection() { if (!uiState.loadFlow.imagejReady) return; fileBridge.stackMeasurements.measure(); openContext("viewer"); viewer.focusView() }
     function processTiff(kind) { if (uiState.imagejFeaturesVisible && uiState.loadFlow.imagejReady) processingDialog.showKind(kind) }
-    Shortcut { sequence: "R"; enabled: uiState.imagejFeaturesVisible && uiState.loadFlow.imagejReady && !window.editingText; onActivated: toolCommands.rectangle.trigger() }
+    Shortcut { sequence: "R"; enabled: uiState.workspaceIndex === 0 && uiState.imagejFeaturesVisible && uiState.loadFlow.imagejReady && !window.editingText; onActivated: toolCommands.rectangle.trigger() }
     function saveImageCopy() { imageSaveDialog.open() }
     function saveMeasurements() { measurementsSaveDialog.open() }
     function imagejStatistics(kind) { if (uiState.imagejFeaturesVisible) { imagejResults(); fileBridge.imagej.statistics(kind) } }

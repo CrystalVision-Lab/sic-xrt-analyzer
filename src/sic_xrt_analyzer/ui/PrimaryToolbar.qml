@@ -27,7 +27,7 @@ Rectangle {
         TiffWorkbenchControls { visible: root.uiState.tiffMode; theme: root.theme; uiState: root.uiState; actions: root.actions; hostWindow: root.hostWindow; compact: root.width < 1250 }
         Item { Layout.fillWidth: true }
         LayerTools {theme:root.theme;uiState:root.uiState;hostWindow:root.hostWindow}
-        AppButton {objectName:"openStackRoi3d";theme:root.theme;visible:root.uiState.stackFeaturesVisible;text:root.uiState.activeTool==="Defect3D"?"검은 결함을 클릭":"결함 3D";enabled:root.uiState.canNavigateImage;onClicked:{root.uiState.roiEditMode=false;root.uiState.activeTool="Defect3D";root.hostWindow.viewer.focusView()}}
+        AppButton {objectName:"openStackRoi3d";theme:root.theme;visible:root.uiState.stackFeaturesVisible;text:root.uiState.activeTool==="StackTrack"?"추적할 결함을 클릭":"스택 추적";tip:"클릭한 결함 주변 256×256 영역에서 페이지 간 같은 결함을 추적합니다";enabled:root.uiState.canNavigateImage;onClicked:{root.uiState.roiEditMode=false;root.uiState.activeTool="StackTrack";root.hostWindow.viewer.focusView()}}
         AppButton {objectName:"showCachedResult";theme:root.theme;visible:root.uiState.hasResult;text:"결과 보기";onClicked:root.hostWindow.openContext("result")}
         ContextTools { theme: root.theme; uiState: root.uiState; actions: root.actions; hostWindow: root.hostWindow }
         AppButton {

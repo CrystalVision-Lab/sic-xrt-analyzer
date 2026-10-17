@@ -102,9 +102,7 @@ def main(output, image_paths=(), verify_updates=False):
             spin(lambda: not setup.property("visible"))
             assert not bridge.centralSync.state["setupNeeded"]
             assert len(bridge.workflowGuide["groups"]) >= 5
-            bridge.defect3d.setPlaybackSpeed(2)
-            assert bridge.defect3d.state["playbackSpeed"] == 2
-            report["tests"].append("first-run local choice, packaged guide and 2x pacing")
+            report["tests"].append("first-run local choice and packaged guide")
             from sic_xrt_analyzer.imaging.imagej_commands import command_form
             native_cases = {
                 "Gaussian Blur...": "sigma=2 slice",
@@ -147,21 +145,16 @@ def main(output, image_paths=(), verify_updates=False):
             spin(lambda:bridge.original_source is not None and bridge.original_source.path==str(defect_path))
             bridge.requestPage(3)
             spin(lambda:bridge.original_source.page_index==3)
-            assert bridge.defect3d.startVisual(31,31)
-            spin(lambda:bridge.defect3d.frame_revision>0 or not bridge.defect3d.busy)
-            assert bridge.defect3d.frame_revision>0,bridge.defect3d.error
-            assert not bridge.provider.stack3d_images['trace-full'].isNull()
-            assert bridge.defect3d.layers_data[1].size
-            bridge.defect3d.fastFinish()
-            report['tests'].append('real observation mask and bounded layer presentation')
-            spin(lambda:not bridge.defect3d.busy)
-            assert bridge.defect3d.state['ready'],bridge.defect3d.error
-            window.findChild(QObject,'uiState').setProperty('workspaceIndex',3)
+            review = bridge.trackReview
+            assert review.startFromViewer(31, 31), review.error
+            spin(lambda: review.result is not None or (not review.busy and not c.busy and review.pending_seed is None))
+            assert review.result is not None, review.error or c.error
+            assert len(review.replay.tracks[review.selected].detection_ids) == 5
+            assert review.filmstrip and review.timeline
+            report['tests'].append('page-track review from seed click (synthetic)')
+            window.findChild(QObject, 'uiState').setProperty('workspaceIndex', 3)
             for _ in range(25):app.processEvents();time.sleep(.01)
-            report['tests'].append('seed-connected closed defect mesh')
-            if c.state["rhi_available"]:
-                assert window.findChild(QObject, "defect3dPerspective")
-                report["tests"].append("QtQuick3D runtime")
+            assert window.findChild(QObject, "trackTable")
             # Compiled UI lifecycle with a clearly synthetic classifier. This
             # tests packaging/signals/cache, not scientific model performance.
             from sic_xrt_analyzer.analysis.desktop_adapter import DesktopResearchAdapter

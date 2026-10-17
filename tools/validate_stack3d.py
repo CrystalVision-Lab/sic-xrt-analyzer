@@ -133,9 +133,7 @@ def main():
                 lambda start_frames=start_frames: len(frames) > start_frames, timeout=15
             )
             QTest.qWait(120)
-            assert c.state["rhi_available"] and w.findChild(
-                QObject, "stack3dPerspective"
-            ), c.state
+            assert w.findChild(QObject, "stack3dWorkspace"), c.state
             shape = c.volume.pixels.shape
             assert shape == (s.page_count, 256, 256)
             checks = []

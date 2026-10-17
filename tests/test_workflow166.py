@@ -1,4 +1,4 @@
-"""First-run decisions, playback pacing and packaged guide consistency."""
+"""First-run decisions and packaged guide consistency."""
 import json
 from pathlib import Path
 
@@ -32,22 +32,6 @@ def test_first_run_local_choice_persists_and_secret_field_clears(qt_app, tmp_pat
     assert not second.centralSync.state['setupNeeded']
     window.close()
     engine.deleteLater()
-
-
-def test_playback_speed_rescales_active_timer_without_changing_analysis(bridge_factory):
-    c = bridge_factory().defect3d
-    c.timer.start(4000)
-    before = c.timer.remainingTime()
-    c.setPlaybackSpeed(2)
-    assert 0 < c.timer.remainingTime() <= before // 2 + 20
-    assert c.state['playbackSpeed'] == 2
-    c.setPlaybackSpeed(float('nan'))
-    assert c.state['playbackSpeed'] == 2
-    c.timer.stop()
-    c.paused = True
-    c.setPlaybackSpeed(.5)
-    assert c.paused and not c.timer.isActive()
-    assert c.sensitivity == 1.0 and not c.anchors
 
 
 def test_web_and_packaged_offline_guide_have_same_content(bridge_factory):
