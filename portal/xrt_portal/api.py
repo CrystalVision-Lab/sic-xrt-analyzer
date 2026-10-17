@@ -446,6 +446,7 @@ def create_app(
                 "admin/models/statistics",
                 "admin/models/audit",
                 "admin/datasets",
+                "admin/label-datasets",
             )
             or re.fullmatch(
                 r"admin/portal/(projects|batches|audit|users)(/[^?]*)?", path
@@ -453,6 +454,7 @@ def create_app(
             or re.fullmatch(r"admin/portal/models/[a-zA-Z0-9-]+/evaluation", path)
             or re.fullmatch(r"projects/[a-zA-Z0-9-]+/summary", path)
             or re.fullmatch(r"admin/datasets/(eligibility|events|[a-zA-Z0-9-]+)", path)
+            or re.fullmatch(r"admin/label-datasets/(preview|[a-zA-Z0-9-]+(/samples)?)", path)
         )
         if ".." in path or "\\" in path or not read:
             raise HTTPException(404, "ROUTE_UNAVAILABLE")

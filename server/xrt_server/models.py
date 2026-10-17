@@ -216,3 +216,16 @@ class ReviewLabel(Base):
         DateTime(timezone=True), default=now, index=True
     )
     payload: Mapped[dict] = mapped_column(JSONB)
+
+
+class LabelDatasetVersion(Base):
+    """Immutable review-label consensus dataset (verified_xrt_dataset/v2)."""
+
+    __tablename__ = "label_dataset_versions"
+    id: Mapped[str] = mapped_column(String(128), primary_key=True)
+    version: Mapped[str] = mapped_column(String(80), unique=True)
+    digest: Mapped[str] = mapped_column(String(64))
+    content_digest: Mapped[str] = mapped_column(String(64), index=True)
+    payload: Mapped[dict] = mapped_column(JSONB)
+    actor_id: Mapped[str] = mapped_column(ForeignKey("server_users.id"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)

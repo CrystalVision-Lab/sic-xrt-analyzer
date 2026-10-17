@@ -149,7 +149,11 @@ def test_secure_cookie_encrypted_session_and_no_research_writes(website):
     assert "credential" not in r.json()
     assert c.get("/portal-api/session").status_code == 200
     assert c.get("/portal-api/research/admin/statistics").status_code == 200
+    for p in ["", "/preview", "/abc-123", "/abc-123/samples"]:
+        assert c.get("/portal-api/research/admin/label-datasets" + p).status_code == 200
+    assert c.get("/portal-api/research/admin/label-datasets/a/b").status_code == 404
     for p in [
+        "admin/label-datasets",
         "admin/models/approvals",
         "admin/models/revocations",
         "admin/credentials/qa/revoke",

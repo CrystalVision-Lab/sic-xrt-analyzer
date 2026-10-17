@@ -59,10 +59,6 @@ crop              null 또는 {rect:[x,y,w,h], png(base64), sha256}  ≤128×128
 
 ## 남은 작업
 
-- `verified_xrt_dataset` v2 반출
-  - `NOT_DEFECT`를 background 클래스로 내보냅니다.
-  - `queue`·`seed`·`mode`를 함께 내보냅니다.
-  - 검수자 여러 명의 판정을 다수결로 정리하고 충돌을 표시합니다.
-  - 이 반출을 소비하는 학습 쪽 변경은 `sic-xrt-ml` 저장소의 별도 Issue로 요청합니다.
+- `verified_xrt_dataset` v2 반출은 #189에서 구현했습니다. 합의 규칙, background 클래스, 분할, API는 [VERIFIED-DATASET-V2-CONTRACT.md](VERIFIED-DATASET-V2-CONTRACT.md)를 봅니다. 학습 쪽 소비 변경은 `sic-xrt-ml` 저장소의 별도 Issue로 요청합니다.
 - 웹 관리자 "라벨 데이터 현황" 대시보드(`admin/labels/summary` 사용)
 - 저장된 프로젝트 결과에서 검수 큐 열기, 위치 수정·누락 결함 추가
