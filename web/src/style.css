@@ -9,7 +9,7 @@
   font-synthesis: none;
   -webkit-font-smoothing: antialiased;
   --teal: #087c72;
-  --muted: #758482;
+  --muted: #5f6c6a; /* 5.2:1 on canvas (WCAG AA) */
   --line: #dfe8e5;
   --dark: #102825;
 }
@@ -18,6 +18,9 @@
 }
 body {
   margin: 0;
+  /* Break Korean between words, not syllables; long IDs may still wrap. */
+  word-break: keep-all;
+  overflow-wrap: anywhere;
 }
 button,
 a,
@@ -152,7 +155,7 @@ code,
   top: 8px;
 }
 .eyebrow {
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
   letter-spacing: 2px;
   color: var(--teal);
@@ -201,7 +204,7 @@ code,
   border: 1px solid #e0e8e4;
   background: #f1f5f3;
   border-radius: 5px;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 600;
   padding: 5px 8px;
   color: #6b8278;
@@ -515,7 +518,7 @@ code,
   display: flex;
   flex-direction: column;
   gap: 4px;
-  font-size: 10px;
+  font-size: 11px;
   color: #8a9a8f;
 }
 .site-footer > .text-link {
@@ -573,7 +576,7 @@ code,
 }
 .build-details {
   margin-top: 15px;
-  font-size: 10px;
+  font-size: 11px;
   color: #7e9081;
 }
 .build-details summary {
@@ -792,12 +795,12 @@ code,
   width: 100%;
 }
 .login-card .login-security {
-  font-size: 10px;
+  font-size: 11px;
   margin-top: 22px;
 }
 .login-foot {
   color: #a5b8aa;
-  font-size: 10px;
+  font-size: 11px;
   margin-top: 26px;
 }
 .form-error {
@@ -876,7 +879,7 @@ code,
   width: 100%;
   gap: 8px;
   color: #718f77;
-  font-size: 10px;
+  font-size: 11px;
   margin-top: 14px;
 }
 .admin-body {
@@ -907,7 +910,7 @@ code,
   color: #547357;
 }
 .admin-user {
-  font-size: 10px;
+  font-size: 11px;
 }
 .icon-button {
   display: grid;
@@ -996,7 +999,7 @@ code,
 }
 .panel-title a,
 .panel-title button {
-  font-size: 10px;
+  font-size: 11px;
   color: #699b76;
   background: transparent;
   border: 0;
@@ -1013,7 +1016,7 @@ code,
   font-weight: 500;
   padding: 11px 12px;
   border-bottom: 1px solid #e4ebe1;
-  font-size: 10px;
+  font-size: 11px;
   white-space: nowrap;
 }
 .panel td {
@@ -1081,13 +1084,13 @@ code,
   gap: 12px;
 }
 .table-actions button {
-  font-size: 10px;
+  font-size: 11px;
   color: #689768;
   background: transparent;
   border: 0;
 }
 .json-details {
-  font-size: 10px;
+  font-size: 11px;
   color: #74976c;
   max-width: 100%;
 }
@@ -1104,7 +1107,7 @@ code,
   overflow: auto;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-  font-size: 10px;
+  font-size: 11px;
   color: #608454;
   margin: 12px 0;
 }
@@ -1130,7 +1133,7 @@ code,
   align-items: center;
   gap: 8px;
   margin-top: 18px;
-  font-size: 10px;
+  font-size: 11px;
   color: #9cb18d;
 }
 .pagination > span {
@@ -1339,7 +1342,7 @@ code,
   .admin-sidebar nav a {
     white-space: nowrap;
     padding: 9px;
-    font-size: 10px;
+    font-size: 11px;
   }
   .admin-sidebar nav svg {
     width: 15px;
@@ -1465,7 +1468,7 @@ html { min-height: 100dvh; }
 .backdrop-particle { position: absolute; left: var(--x); top: var(--y); width: var(--size); height: var(--size); border-radius: 50%; background: var(--teal); box-shadow: 0 0 10px var(--teal); opacity: .4; animation: particle-float var(--duration) ease-in-out var(--delay) infinite alternate paused; }
 .backdrop-veil { position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 42%, color-mix(in srgb, var(--canvas) 52%, transparent), transparent 78%); }
 .research-backdrop[data-motion="running"] :is(.backdrop-glow, .backdrop-contours, .backdrop-particle) { animation-play-state: running; }
-.backdrop-motion { position: fixed; bottom: 16px; right: 18px; z-index: 5; display: inline-flex; align-items: center; gap: 6px; padding: 7px 10px; border: 1px solid var(--line); border-radius: 20px; background: var(--canvas); color: var(--muted); font-size: 10px; }
+.backdrop-motion { position: fixed; bottom: 16px; right: 18px; z-index: 5; display: inline-flex; align-items: center; gap: 6px; padding: 7px 10px; border: 1px solid var(--line); border-radius: 20px; background: var(--canvas); color: var(--muted); font-size: 11px; }
 .backdrop-motion:hover { color: var(--teal); }
 [data-theme="dark"] .public-shell { --glow-teal: #147572; --glow-blue: #234a98; --glow-amber: #845033; --glow-opacity: .68; --contour-opacity: .21; }
 .download-scene { flex: 1; padding-block: clamp(60px, 10vh, 120px) 85px; min-height: 660px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
@@ -1473,7 +1476,7 @@ html { min-height: 100dvh; }
 .institute-wordmark img { display: block; width: 100%; height: auto; background: transparent; }
 .institute-wordmark .wordmark-contrast { display: none; position: absolute; inset: 0; filter: brightness(0) invert(1); mask-image: linear-gradient(to right, transparent 35%, #000 35%); }
 [data-theme="dark"] .institute-wordmark .wordmark-contrast { display: block; opacity: .82; }
-.download-scene .eyebrow { font-size: 10px; letter-spacing: 3px; }
+.download-scene .eyebrow { font-size: 11px; letter-spacing: 3px; }
 .download-scene h1 { font-size: clamp(44px, 6vw, 82px); line-height: 1.12; letter-spacing: -.06em; margin-top: 22px; color: var(--ink); }
 .download-scene h1 span { color: var(--teal); }
 .download-subtitle { color: var(--muted); font-size: 17px; margin-top: 22px; }
@@ -1504,7 +1507,7 @@ html { min-height: 100dvh; }
   .download-scene h1 { max-width: 300px; font-size: 49px; line-height: 1.15; }
   .download-subtitle { font-size: 14px; }
   .download-primary { padding: 17px 23px; gap: 12px; font-size: 14px; }
-  .download-version { font-size: 10px; gap: 6px; }
+  .download-version { font-size: 11px; gap: 6px; }
   .public-shell .source-download { margin-right: 0; }
   .public-shell .site-footer { flex-direction: column; gap: 10px; padding-block: 20px 50px; }
   .notes-page { width: calc(100% - 32px); padding-block: 40px 65px; }
