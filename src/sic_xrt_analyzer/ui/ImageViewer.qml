@@ -434,6 +434,9 @@ Rectangle {
                 id: analysisOverlay; objectName: "analysisOverlay"; anchors.fill: parent; z: 3
                 property var points: uiState.analysisRunning ? uiState.research.livePoints || [] : uiState.research.points
                 property var selected: uiState.research.selected
+                // Reviewed candidates: {id: BPD|TED|TSD|NOT_DEFECT|UNSURE}
+                property var decisions: fileBridge.reviewQueue.state.decisions || ({})
+                onDecisionsChanged: requestPaint()
                 property bool reviewing: uiState.feedbackVisible
                 property real paintMs: 0
                 property int paintCount: 0
@@ -454,6 +457,18 @@ Rectangle {
                 onImageYChanged: requestPaint()
                 onImageScaleChanged: requestPaint()
                 onVisibleChanged: requestPaint()
+                // Shape as well as colour, so classes stay distinguishable without colour vision.
+                function marker(c, kind, x, y, r, filled) {
+                    c.beginPath()
+                    if (kind === "TED") {
+                        c.moveTo(x, y-r); c.lineTo(x+r*0.87, y+r*0.5); c.lineTo(x-r*0.87, y+r*0.5); c.closePath()
+                    } else if (kind === "TSD") {
+                        c.rect(x-r*0.8, y-r*0.8, r*1.6, r*1.6)
+                    } else {
+                        c.arc(x, y, r, 0, Math.PI*2)
+                    }
+                    if (filled) c.fill(); else c.stroke()
+                }
                 function outline(c, region) {
                     c.beginPath()
                     c.moveTo(imageX+region[0][0]*imageScale, imageY+region[0][1]*imageScale)
@@ -483,8 +498,16 @@ Rectangle {
                             c.beginPath(); c.moveTo(x-3,y); c.lineTo(x+3,y)
                             c.moveTo(x,y-3); c.lineTo(x,y+3); c.stroke()
                         } else {
-                            c.beginPath(); c.arc(x,y,overviewMode?2.5:4.5,0,Math.PI*2)
-                            if (overviewMode) c.fill(); else c.stroke()
+                            marker(c, p.type, x, y, overviewMode?3:5.5, overviewMode || !!decisions[p.id])
+                        }
+                        var decision = decisions[p.id]
+                        if (decision === "NOT_DEFECT" && !overviewMode) {
+                            c.strokeStyle = "#9aa7ad"; c.lineWidth = 2
+                            c.beginPath(); c.moveTo(x-6,y-6); c.lineTo(x+6,y+6); c.moveTo(x+6,y-6); c.lineTo(x-6,y+6); c.stroke()
+                        } else if (decision && decision !== p.type && decision !== "UNSURE" && !overviewMode) {
+                            // Corrected class: outer ring in the reviewer's class colour.
+                            c.strokeStyle = uiState.resultPresentation.colorFor(decision); c.lineWidth = 2
+                            c.beginPath(); c.arc(x, y, 9, 0, Math.PI*2); c.stroke()
                         }
                     }
                     if (selected.id && uiState.selectedLayerVisible && !reviewing) {

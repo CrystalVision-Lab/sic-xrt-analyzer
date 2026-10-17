@@ -138,6 +138,23 @@ def create_app(url=None, asset_dir=None):
         record("CORRECTION_RECEIVED", pair[0].id)
         return receipt
 
+    @app.post("/api/v1/labels/batches")
+    def label_batch(request: Request, pair: Annotated[tuple, Depends(identity)]):
+        from .labels import store_batch
+
+        with sessions.begin() as s:
+            receipt = store_batch(s, pair[0], pair[1], request.scope["xrt_body"])
+        if receipt["accepted"]:
+            record("LABELS_RECEIVED", pair[0].id)
+        return receipt
+
+    @app.get("/api/v1/admin/labels/summary")
+    def label_summary(pair: Annotated[tuple, Depends(admin)]):
+        from .labels import summary
+
+        with sessions() as s:
+            return summary(s)
+
     @app.post("/api/v1/sync/batches")
     def upload(request: Request, pair: Annotated[tuple, Depends(identity)]):
         value = request.scope["xrt_body"]

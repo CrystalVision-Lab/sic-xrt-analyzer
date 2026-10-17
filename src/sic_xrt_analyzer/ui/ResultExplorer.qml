@@ -41,6 +41,14 @@ ColumnLayout {
         AppButton { objectName: "resultOverview"; theme: root.theme; text: "전체 분포"; quiet: true; compact: true; onClicked: { root.uiState.resultViewMode="distribution"; root.overviewRequested() } }
         AppButton { objectName:"resultSettings"; theme: root.theme; text: "설정"; compact: true; checked: root.optionsExpanded; onClicked: settings.open() }
     }
+    AppButton {
+        objectName: "startReviewQueue"; theme: root.theme; primary: true
+        Layout.fillWidth: true
+        text: "빠른 검수 시작  ·  키 하나로 판정"
+        tip: "모델이 헷갈린 후보부터 크게 보여줍니다. 1/2/3 = BPD/TED/TSD, 0 = 결함 아님, Space = 모델 분류 수락. 판정은 재학습용으로 서버에 모입니다."
+        enabled: root.results.total > 0 && !root.results.savedActive
+        onClicked: fileBridge.reviewQueue.start("uncertain", "TED")
+    }
     RowLayout {
         Layout.fillWidth: true; spacing: 4
         Repeater {
