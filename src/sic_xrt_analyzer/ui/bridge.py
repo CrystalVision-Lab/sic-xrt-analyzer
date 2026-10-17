@@ -71,8 +71,11 @@ class TiffImageProvider(QQuickImageProvider):
         self.wafer_images = {}
         self.folder_images = {}
         self.stack3d_images = {}
+        self.review_images = {}
 
     def requestImage(self, image_id: str, size: QSize, requested_size: QSize) -> QImage:
+        if image_id.startswith('review-'):
+            return self.review_images.get(image_id[7:].split('?')[0], QImage())
         if image_id.startswith('region-'):
             return self.region_images.get(image_id[7:].split('?')[0],QImage())
         if image_id.startswith('stack3d-'):
@@ -160,6 +163,8 @@ class FileBridge(QObject):
         from .defect3d_controller import Defect3DController
         self.defect3d_controller = Defect3DController(self)
         self.issue_reports = IssueReports(self)
+        from .review_queue import ReviewQueue
+        self.review_queue = ReviewQueue(self)
         stored = self._settings.value("preferences", {})
         self._preferences = self._validated(stored if isinstance(stored, dict) else {})
         recent = self._settings.value("recentFiles", [])
@@ -204,6 +209,10 @@ class FileBridge(QObject):
     @Property(QObject, constant=True)
     def reports(self):
         return self.issue_reports
+
+    @Property(QObject, constant=True)
+    def reviewQueue(self):
+        return self.review_queue
 
     @Property(QObject, constant=True)
     def nativeDialogs(self):
@@ -710,6 +719,7 @@ class FileBridge(QObject):
         self.folder_map.shutdown()
         self.defect3d_controller.shutdown()
         self.issue_reports.shutdown()
+        self.review_queue.shutdown()
         self.app_update_controller.shutdown()
         self.model_update_controller.shutdown()
         self.sync_controller.shutdown()

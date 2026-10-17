@@ -301,6 +301,7 @@ AppShell {
     Connections { target: fileBridge.research; function onFocusRequested(x, y) { window.requestContext("result", "CANDIDATE_SELECTED"); uiState.workspaceIndex = 0; uiState.updateCandidateRoi(); Qt.callLater(function() { viewer.focusCandidate(x, y) }) } }
     Connections { target: fileBridge.experiments; function onFocusRequested(x, y, w, h) { window.requestContext("result", "CANDIDATE_SELECTED"); uiState.workspaceIndex = 0; Qt.callLater(function() { viewer.focusGeometry(x, y, w, h) }) } }
     ImageJProcessingDialog { id: processingDialog; theme: theme; uiState: uiState; backend: fileBridge.imagej }
+    ReviewQueueDialog { id: reviewQueueDialog; theme: theme }
     Action { id: appUpdatesAction; objectName: "appUpdatesAction"; text: "프로그램 업데이트…"; onTriggered: { appUpdatesDialog.open(); fileBridge.appUpdates.checkUpdates() } }
     AppUpdatesDialog { id: appUpdatesDialog }
     Connections {
