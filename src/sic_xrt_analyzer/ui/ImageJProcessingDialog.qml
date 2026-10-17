@@ -16,9 +16,16 @@ SurfaceDialog {
     title: kind === "Gaussian" ? "가우시안 흐림" : kind === "Threshold" ? "임계값 · 이진화" : "배경 제거"
     standardButtons: Dialog.Cancel
     function showKind(value) { valid = true; kind = value; radius.text = value === "Background" ? "50" : "2"; lower.text = String(uiState.stack.low); upper.text = String(uiState.stack.high); open() }
+    // Raw value range by stored type; float data has no fixed integer bound.
+    function thresholdRange() {
+        var t = uiState.dtype || ""
+        if (t.indexOf("float") === 0) return [-Infinity, Infinity]
+        if (t === "uint16" || (!t && uiState.bitDepth === 16)) return [0, 65535]
+        return [0, 255]
+    }
     function apply() {
-        var a = Number(radius.text), lo = Number(lower.text), hi = Number(upper.text)
-        valid = kind === "Threshold" ? isFinite(lo) && isFinite(hi) && lo >= 0 && hi >= lo && hi <= (uiState.bitDepth === 16 ? 65535 : 255) : radius.text.trim().length > 0 && isFinite(a) && a > 0 && a <= 1000
+        var a = Number(radius.text), lo = Number(lower.text), hi = Number(upper.text), range = thresholdRange()
+        valid = kind === "Threshold" ? lower.text.trim().length > 0 && upper.text.trim().length > 0 && isFinite(lo) && isFinite(hi) && lo >= range[0] && hi >= lo && hi <= range[1] : radius.text.trim().length > 0 && isFinite(a) && a > 0 && a <= 1000
         if (!valid) return
         if (kind === "Threshold") backend.execute("macro", 'setThreshold(' + lo + ',' + hi + '); setOption("BlackBackground", true); run("Convert to Mask");', "", false)
         else if (kind === "Gaussian") backend.executeNative("Gaussian Blur...", {sigma: a})

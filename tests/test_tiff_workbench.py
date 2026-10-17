@@ -97,6 +97,46 @@ def test_friendly_processing_confirmation_creates_copy(workbench, kind):
     assert w.item("imagePrepareAnalysis").property("visible")
 
 
+def test_float_threshold_accepts_values_above_8bit_range(workbench):
+    w = workbench
+    path = w.path.parent / "float.tif"
+    raw = np.full((32, 32), 2000.5, np.float32)
+    raw[8:24, 8:24] = 12000.25
+    tifffile.imwrite(path, raw)
+    w.open(path)
+    invoke(w.window, "processTiff", "Threshold")
+    w.item("processingLower").setProperty("text", "5000.5")
+    w.item("processingUpper").setProperty("text", "13000")
+    w.click("processingApply")
+    assert w.item("imagejProcessingDialog").property("valid")
+    spin(w.app, lambda: not w.bridge.workbench.busy and not w.state.property("opening"), 30)
+    assert not w.bridge.workbench.error, w.bridge.workbench.error
+    np.testing.assert_array_equal(
+        w.bridge.original_source.read_full(), np.where(raw >= 5000.5, 255, 0).astype(np.uint8)
+    )
+
+
+def test_history_records_only_successful_runs_and_save_waits(workbench):
+    w = workbench
+    path = w.path.parent / "history.tif"
+    tifffile.imwrite(path, np.arange(64 * 64, dtype=np.uint16).reshape(64, 64))
+    w.open(path)
+    bench = w.bridge.workbench
+    bench.record(True)
+    bench.execute("command", "Erode", "", False)
+    spin(w.app, lambda: not bench.busy, 30)
+    assert "이진" in bench.error and bench.recorded == ""
+    bench.execute("command", "Measure", "", False)
+    spin(w.app, lambda: not bench.busy, 30)
+    assert not bench.error and bench.recorded == 'run("Measure", "");\n' and bench.rows
+    target = w.path.parent / "results.tsv"
+    bench.busy = True
+    bench.saveResults(target.as_uri())
+    assert "작업이 끝난 뒤" in bench.error and not target.exists()
+    bench.busy = False
+    bench.record(False)
+
+
 def test_request_cancels_gesture_and_text_shortcuts_do_not_change_tool(workbench):
     w = workbench
     w.click("tiffToolPolygon")
