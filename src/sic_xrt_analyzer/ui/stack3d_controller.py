@@ -113,10 +113,15 @@ class Stack3DController(QObject):
 
     def _ready(self, value, error):
         callback = self.callback
+        job = self.job
         self.callback = None
         self.busy = False
         self.job = ""
         if not callback or callback[0] is not self.projects.project:
+            if callback and job == "save" and not error:
+                self.error = "3D 세션은 디스크에 저장됐지만 프로젝트가 바뀌어 화면에 반영하지 못했습니다. 프로젝트를 다시 여세요."
+            self.changed.emit()
+            self.projects.resume_deferred()
             return
         if error:
             self.error = error
@@ -128,6 +133,7 @@ class Stack3DController(QObject):
             except (ValueError, OSError, KeyError, TypeError) as e:
                 self.error = str(e)
         self.changed.emit()
+        self.projects.resume_deferred()
         pending = self.pending_viewer_selection
         self.pending_viewer_selection = None
         if pending and not error and pending[0] == self.epoch:
@@ -865,7 +871,7 @@ class Stack3DController(QObject):
             self.error = "프로젝트에 현재 TIFF를 등록하고 디스크에 저장하세요"
             self.changed.emit()
             return
-        if self.projects.busy or self.projects._analysis_busy():
+        if self.projects.busy or self.projects._analysis_busy() or self.projects.saving() or self.projects.registration_busy():
             self.error = "다른 프로젝트 작업을 완료하세요"
             self.changed.emit()
             return

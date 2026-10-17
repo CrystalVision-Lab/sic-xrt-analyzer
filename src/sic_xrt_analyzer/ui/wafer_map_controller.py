@@ -152,10 +152,15 @@ class WaferMapController(QObject):
 
     def _ready(self, value, error):
         callback = self.callback
+        job = self.job
         self.callback = None
         self.busy = False
         self.job = ""
         if not callback or callback[0] is not self.projects.project:
+            if callback and job == "save" and not error:
+                self.error = "배치는 디스크에 저장됐지만 프로젝트가 바뀌어 화면에 반영하지 못했습니다. 프로젝트를 다시 여세요."
+            self.changed.emit()
+            self.projects.resume_deferred()
             return
         if error:
             self.error = error
@@ -165,6 +170,7 @@ class WaferMapController(QObject):
             except (ValueError, OSError, KeyError) as e:
                 self.error = str(e)
         self.changed.emit()
+        self.projects.resume_deferred()
 
     @Slot()
     def cancel(self):
@@ -551,7 +557,7 @@ class WaferMapController(QObject):
             self.error = "프로젝트를 먼저 디스크에 저장하세요"
             self.changed.emit()
             return
-        if self.projects.busy or self.projects._analysis_busy():
+        if self.projects.busy or self.projects._analysis_busy() or self.projects.saving() or self.projects.registration_busy():
             self.error = "다른 작업을 완료한 뒤 저장하세요"
             self.changed.emit()
             return

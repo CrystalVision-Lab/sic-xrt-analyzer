@@ -124,6 +124,11 @@ class RegistrationController(QObject):
         self.revision += 1
 
     def _start(self, job, function, callback):
+        # Non-render jobs publish into the project, which must not change while it is being written.
+        if job != "render" and self.projects.refuse_while_saving():
+            self.error = self.projects.error
+            self.changed.emit()
+            return
         self.token.set()
         self.reader.invalidate()
         self.token = Event()
@@ -436,6 +441,7 @@ class RegistrationController(QObject):
             self.message = (
                 "로컬 검수 승인·프로젝트 저장 완료 · 공식 과학 검증과 구분됩니다."
             )
+            self.projects.resume_deferred()
 
         self._start("approve-save", work, publish)
 

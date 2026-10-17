@@ -584,6 +584,12 @@ class ReviewController(QObject):
 
     @Slot(bool, result=bool)
     def commit(self, next_target=False):
+        saving = self.projects.saving()
+        if saving:
+            # Keep the draft; recording it now could not be merged into the file being written.
+            self.error = f"{saving}이 끝난 뒤 기록하세요. 작성 중인 검수는 유지됩니다."
+            self.changed.emit()
+            return False
         if not self.available(self.source_id, self.run_id):
             self.error = "동일 Run·SHA 검증된 원본 JPG가 필요합니다."
             self.changed.emit()
