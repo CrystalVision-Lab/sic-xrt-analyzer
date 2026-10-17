@@ -70,7 +70,7 @@ AppDialog {
                 }
                 ColumnLayout {
                     visible: root.category === 2; Layout.fillWidth: true; spacing: theme.spacingMd
-                    Text { text: "파일 열기                         Ctrl+O\n이미지 닫기                      Ctrl+W\n프로그램 종료                    Ctrl+Q\n화면 맞춤                         Ctrl+0\n실제 크기 (1:1)                  Ctrl+1\n확대 / 축소                       Ctrl++ / Ctrl+-\nPan / ROI                         H / R\n전체 화면                         F11\n메뉴                       Alt+F/E/V/W/A/T/S/H"; color: theme.text; font.family: theme.monoFontFamily; font.pixelSize: theme.bodySize; lineHeight: 1.5 }
+                    Text { text: "파일 열기                         Ctrl+O\n이미지 닫기                      Ctrl+W\n프로그램 종료                    Ctrl+Q\n화면 맞춤                         Ctrl+0\n실제 크기 (1:1)                  Ctrl+1\n확대 / 축소                       Ctrl++ / Ctrl+-\n이동 / 분석 영역                 H / R\n전체 화면                         F11\n메뉴                       Alt+F/E/I/P/A/G/W/H"; color: theme.text; font.family: theme.monoFontFamily; font.pixelSize: theme.bodySize; lineHeight: 1.5 }
                 }
                 ColumnLayout {
                     visible: root.category === 3; Layout.fillWidth: true; spacing: theme.spacingMd

@@ -125,10 +125,16 @@ AppShell {
     }
     function openImageDialog() { openDialog.open() }
     function selectWorkspace(index) {
-        if (index === 3 && !(uiState.stackFeaturesVisible && (uiState.hasRoi || uiState.roiFlow.selected))) return
+        if (index === 3 && !(uiState.stackFeaturesVisible && (uiState.hasRoi || uiState.roiFlow.selected))) {
+            // Explain instead of silently ignoring the request.
+            uiState.statusText = !uiState.stackFeaturesVisible
+                ? "스택 추적은 여러 페이지 TIFF를 연 뒤 사용할 수 있습니다."
+                : "스택 추적할 영역을 먼저 지정하세요 (R 키 또는 사각형 선택)."
+            return
+        }
         uiState.workspaceIndex = index
         if (index === 0) { if (uiState.hasResult && uiState.hasLoadedImage) window.openContext("result"); else {window.inspectorCollapsed=true;window.requestContext("image","OPEN_IMAGE")} }
-        uiState.statusText = index === 0 ? "이미지 뷰어 화면" : index === 1 ? "Wafer Map · 공간 배치와 관측 후보" : index === 2 ? "어닐링 전·후 JPG 정합" : "TIFF Indexed Stack 3D · 물리 깊이 미검증"
+        uiState.statusText = index === 0 ? "이미지 뷰어" : index === 1 ? "웨이퍼맵 · 공간 배치와 관측 후보" : index === 2 ? "전·후 정합 · 어닐링 전후 JPG" : "스택 추적 · 페이지는 스캔 순서이며 물리 깊이는 미검증"
     }
     function openContext(key) { inspectorCollapsed = false; return contextPanel.showContext(key) }
     function requestContext(key, reason) { return contextPanel.requestContext(key, reason) }
@@ -264,7 +270,7 @@ AppShell {
     Action { id: demoAction; text: "합성 데모 이미지 보기"; enabled: !uiState.loading; onTriggered: window.showDemo() }
     Action { id: closeImageAction; objectName: "closeImageAction"; text: "현재 이미지 닫기"; shortcut: StandardKey.Close; enabled: uiState.hasImage || uiState.loading; onTriggered: window.closeImage() }
     Action { id: quitAction; text: "종료"; shortcut: "Ctrl+Q"; onTriggered: window.close() }
-    Action { id: panAction; objectName: "panAction"; text: "Pan"; shortcut: window.editingText ? "" : "H"; checkable: true; checked: uiState.activeTool === "Pan" && !uiState.roiEditMode; enabled: uiState.canNavigateImage; onTriggered: { uiState.roiEditMode = false; uiState.activeTool = "Pan" } }
+    Action { id: panAction; objectName: "panAction"; text: "이동"; shortcut: window.editingText ? "" : "H"; checkable: true; checked: uiState.activeTool === "Pan" && !uiState.roiEditMode; enabled: uiState.canNavigateImage; onTriggered: { uiState.roiEditMode = false; uiState.activeTool = "Pan" } }
     Action { id: roiAction; objectName: "roiAction"; text: "ROI 선택"; shortcut: window.editingText || uiState.tiffMode ? "" : "R"; checkable: true; checked: uiState.activeTool === "ROI" && !uiState.roiEditMode; enabled: uiState.canNavigateImage && !uiState.analysisRunning; onTriggered: { uiState.roiEditMode = false; uiState.activeTool = "ROI"; Qt.callLater(function() { viewer.focusView() }) } }
     Action { id: clearRoiAction; objectName: "clearRoiAction"; text: "ROI 초기화"; enabled: uiState.hasRoi && !uiState.loading && !uiState.analysisRunning; onTriggered: window.clearRoi() }
     Action { id: copyRoiAction; objectName: "copyRoiAction"; text: "ROI 좌표 복사"; enabled: uiState.hasRoi && !uiState.loading; onTriggered: window.copyRoiInfo() }

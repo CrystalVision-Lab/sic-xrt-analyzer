@@ -326,7 +326,7 @@ def test_stack_loading_is_visible_in_wide_viewer_until_ready(load_case, size):
     assert w.item('workspaceViewerLabel').property('text') == '이미지 뷰어'
     assert w.item('workspaceViewerMenu').property('text') == '이미지 뷰어'
     invoke(w.window, 'selectWorkspace', 0)
-    assert w.state.property('statusText') == '이미지 뷰어 화면'
+    assert w.state.property('statusText') == '이미지 뷰어'
     c.finish()
     assert not overlay.property('visible') and not w.item('stackPreparationSpinner').property('running')
     assert not w.panel.property('visible')
